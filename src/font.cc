@@ -3,63 +3,34 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <string>
 
-namespace {
-
-#define glCheckError() glCheckError_(__FILE__, __LINE__)
-
-void glCheckError_(const char* file, int line)
-{
-    GLenum error;
-    while ((error = glGetError()) != GL_NO_ERROR) {
-        std::string estr;
-        switch (error) {
-        // clang-format off
-        case GL_INVALID_ENUM:      estr = "INVALID_ENUM"; break;
-        case GL_INVALID_VALUE:     estr = "INVALID_VALUE"; break;
-        case GL_INVALID_OPERATION: estr = "INVALID_OPERATION"; break;
-        case GL_OUT_OF_MEMORY:     estr = "OUT_OF_MEMORY"; break;
-        // clang-format on
-        default: estr = "glGetError() = " + std::to_string(error); break;
-        }
-        throw std::runtime_error(estr + " at " + file + ":" + std::to_string(line));
-    }
-}
-
-} // namespace
-
 namespace font {
 
-Text::Text()
-{
-};
-
-Text::~Text()
+Font::Font()
 {
 }
 
-void Text::init(const std::string& filename_)
+Font::~Font()
 {
-    filename = filename_;
-    load_font();
 }
 
-void Text::draw()
+void Font::init(const std::string& filename_, GLuint& atlas_texture)
 {
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, atlas_texture);
+   filename = filename_;
+   load(atlas_texture);
 }
 
 /* private methods */
 
 /* Load font from glyph bitmaps rasterized by FreeType.
- * As a result, the atlas texture with 16x6 glyph bitmaps is filled.
+ * As a result, the atlas texture will be filled.
  * Also, the glyphs array is filled with metrics for each loaded glyph.
  * Part of this data is loaded into the metrics texture for shader lookup.
  */
-void Text::load_font()
+void Font::load(GLuint& atlas_texture)
 {
     FT_Library ft;
     FT_Face face;
@@ -110,8 +81,9 @@ void Text::load_font()
                 ++ny;
         }
         std::cout << "Atlas texture geometry: " << nx << "x" << ny
-                  << " glyphs of " << px << "x" << py << " each, yielding pixel size "
-                  << nx*px << "x" << ny*py << "." << std::endl;
+                  << " glyphs of " << px << "x" << py << " each, "
+                  << "yielding pixel size " << nx*px << "x" << ny*py << "."
+                  << std::endl;
         std::cout << "Atlas holds space for " << nx*ny << " glyphs, "
                   << n_glyphs << " will be used, empty: "
                   << nx*ny - n_glyphs << " ("
@@ -122,19 +94,20 @@ void Text::load_font()
     atlas_x = nx * px;
     atlas_y = ny * py;
     size_t atlas_bytes = atlas_x * atlas_y;
-    std::cout << "Allocating " << atlas_bytes << " bytes for atlas buffer" << std::endl;
-    GLubyte* atlas_buf = new GLubyte[atlas_bytes]{0};
+    std::cout << "Allocating " << atlas_bytes << " bytes for atlas buffer"
+              << std::endl;
+    auto atlas_buf = std::unique_ptr <uint8_t []> (new uint8_t [atlas_bytes]);
 
     FT_ULong charcode;
     FT_UInt gindex;
     charcode = FT_Get_First_Char(face, &gindex);
     while (gindex != 0)
     {
-        //std::cout << "charcode=" << charcode
-        //          << " -> index=" << gindex
-        //          << std::endl;
-        load_face(face, atlas_buf, charcode);
-        charcode = FT_Get_Next_Char(face, charcode, &gindex);
+       //std::cout << "charcode=" << charcode
+       //          << " -> index=" << gindex
+       //          << std::endl;
+       load_face(face, atlas_buf.get(), charcode);
+       charcode = FT_Get_Next_Char(face, charcode, &gindex);
     }
 
     FT_Done_Face(face);
@@ -142,22 +115,23 @@ void Text::load_font()
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glGenTextures(1, &atlas_texture);
-    // TODO we could use GL_TEXTURE_RECT for simplicity (texel coords instead of normalized)
-    // or maybe it's easier to compute the normalized coords in the shader
+    std::cout << "atlas_texture=" << atlas_texture << std::endl;
+    // TODO we could use GL_TEXTURE_RECT for simplicity (texel coords instead of
+    // normalized) -- or maybe it's easier to compute the normalized coords in
+    // the shader?
+    glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, atlas_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED_EXT, atlas_x, atlas_y, 0, GL_RED_EXT,
-                 GL_UNSIGNED_BYTE, atlas_buf);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, atlas_x, atlas_y, 0, GL_RED,
+                 GL_UNSIGNED_BYTE, atlas_buf.get());
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindTexture(GL_TEXTURE_2D, 0);
     glCheckError();
-
-    delete[] atlas_buf;
 }
 
-void Text::load_face(FT_Face face, GLubyte* atlas_buf, FT_ULong c)
+void Font::load_face(FT_Face face, uint8_t* atlas_buf, FT_ULong c)
 {
     if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
        throw std::runtime_error(
