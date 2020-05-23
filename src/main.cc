@@ -33,16 +33,17 @@ static GLuint computeProgram, drawProgram;
 static GLuint text_texture = 0;
 static GLuint atlas_texture = 0;
 static GLuint output_texture = 0;
-static GLfloat view_rotx = 0.0, view_roty = 0.0;
 static GLint attr_pos = 0, attr_vertexTexCoord = 1;
 static GLint compute_uni_glyphPixels;
 static GLint draw_uni_winPixels;
 static int win_width = 400, win_height = 300;
 static int n_cols = 80, n_rows = 24;
 
+//static GLuint txt_buffer;
+//static uint8_t* txt_data = nullptr;
 static std::unique_ptr <uint8_t []> text_data;
 
-static uint32_t counter = 0;
+static uint32_t draw_count = 0;
 
 static void
 draw(void)
@@ -50,7 +51,7 @@ draw(void)
    {
       uint16_t crow = n_rows - 1;
       uint16_t ccol = n_cols - 1;
-      uint32_t cnt = counter;
+      uint32_t cnt = ++draw_count;
       while (cnt)
       {
          uint32_t digit = (cnt % 10) + 18;
@@ -59,14 +60,7 @@ draw(void)
          cnt /= 10;
          --ccol;
       }
-      ++counter;
    }
-
-   glActiveTexture(GL_TEXTURE2);
-   glBindTexture(GL_TEXTURE_2D, text_texture);
-   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, n_cols, n_rows, 0, GL_RGBA,
-                GL_UNSIGNED_BYTE, text_data.get());
-   glBindTexture(GL_TEXTURE_2D, 0);
 
    glUseProgram(computeProgram);
    glActiveTexture(GL_TEXTURE0);
@@ -75,48 +69,23 @@ draw(void)
    glBindTexture(GL_TEXTURE_2D, atlas_texture);
    glActiveTexture(GL_TEXTURE2);
    glBindTexture(GL_TEXTURE_2D, text_texture);
-   glUniform2i(compute_uni_glyphPixels, fnt->getPx(), fnt->getPy());
+   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, n_cols, n_rows, GL_RGBA,
+                   GL_UNSIGNED_BYTE, text_data.get());
    glCheckError();
 
    glDispatchCompute(win_width, win_height, 1);
    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
    glCheckError();
 
-   static const GLfloat verts[4][2] = {
-      { -1,  1 },
-      {  1,  1 },
-      { -1, -1 },
-      {  1, -1 }
-   };
-   static const GLfloat texCoords[4][2] = {
-      { 0, 0 },
-      { 1, 0 },
-      { 0, 1 },
-      { 1, 1 }
-   };
-
    glUseProgram(drawProgram);
    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-   glDisable(GL_CULL_FACE);
-   glDisable(GL_DEPTH_TEST);
-   glEnable(GL_BLEND);
-   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
    glActiveTexture(GL_TEXTURE0);
    glBindTexture(GL_TEXTURE_2D, output_texture);
 
-   glVertexAttribPointer(attr_pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
-   glVertexAttribPointer(attr_vertexTexCoord, 2, GL_FLOAT, GL_FALSE, 0,
-                         texCoords);
    glEnableVertexAttribArray(attr_pos);
    glEnableVertexAttribArray(attr_vertexTexCoord);
-   glUniform2f(draw_uni_winPixels, (GLfloat) win_width, (GLfloat) win_height);
-
    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-   glDisableVertexAttribArray(attr_pos);
-   glDisableVertexAttribArray(attr_vertexTexCoord);
 }
 
 
@@ -146,7 +115,11 @@ resize(int width, int height)
    std::cout << "resize to " << win_width << " x " << win_height
              << " pixels, " << n_cols << " x " << n_rows << " chars"
              << std::endl;
+
    glViewport(0, 0, (GLint) win_width, (GLint) win_height);
+
+   glUseProgram(drawProgram);
+   glUniform2f(draw_uni_winPixels, (GLfloat) win_width, (GLfloat) win_height);
 
    glUseProgram(computeProgram);
 
@@ -184,8 +157,6 @@ resize(int width, int height)
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
    glBindTexture(GL_TEXTURE_2D, 0);
    glCheckError();
-
-   draw();
 }
 
 static void
@@ -292,6 +263,14 @@ create_shaders(void)
       exit(1);
    }
 
+   glUseProgram(computeProgram);
+
+   compute_uni_glyphPixels = glGetUniformLocation(computeProgram, "glyphPixels");
+
+   std::cout << "compute program:"
+             << "\n  uniform glyphPixels at " << compute_uni_glyphPixels
+             << std::endl;
+
    drawProgram = glCreateProgram();
    glAttachShader(drawProgram, fragmentShader);
    glAttachShader(drawProgram, vertexShader);
@@ -305,14 +284,6 @@ create_shaders(void)
       std::cerr << "Error: linking:\n%s" << log << std::endl;
       exit(1);
    }
-
-   glUseProgram(computeProgram);
-
-   compute_uni_glyphPixels = glGetUniformLocation(computeProgram, "glyphPixels");
-
-   std::cout << "compute program:"
-             << "\n  uniform glyphPixels at " << compute_uni_glyphPixels
-             << std::endl;
 
    glUseProgram(drawProgram);
 
@@ -336,11 +307,44 @@ init(void)
    assert(p);
 #endif
 
-   glClearColor(1.0, 1.0, 1.0, 0.0);
+   fnt = new font::Font (fontpath + fontname + fontext);
 
    create_shaders();
 
-   fnt = new font::Font (fontpath + fontname + fontext);
+   /*
+    * Setup draw program
+    */
+   glUseProgram(drawProgram);
+
+   glDisable(GL_CULL_FACE);
+   glDisable(GL_DEPTH_TEST);
+   glEnable(GL_BLEND);
+   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+   glCheckError();
+
+   static const GLfloat verts[4][2] = {
+      { -1,  1 },
+      {  1,  1 },
+      { -1, -1 },
+      {  1, -1 }
+   };
+   static const GLfloat texCoords[4][2] = {
+      { 0, 0 },
+      { 1, 0 },
+      { 0, 1 },
+      { 1, 1 }
+   };
+   glVertexAttribPointer(attr_pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
+   glVertexAttribPointer(attr_vertexTexCoord, 2, GL_FLOAT, GL_FALSE, 0,
+                         texCoords);
+   glCheckError();
+
+   /*
+    * Setup compute program
+    */
+   glUseProgram(computeProgram);
+   glUniform2i(compute_uni_glyphPixels, fnt->getPx(), fnt->getPy());
+   glCheckError();
 
    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
    glGenTextures(1, &atlas_texture);
@@ -487,6 +491,7 @@ static void
 event_loop(Display *dpy, Window win,
            EGLDisplay egl_dpy, EGLSurface egl_surf)
 {
+   static bool exposed = false;
    int n_redraws = 0;
    struct timeval tv;
    struct timeval tv_next;
@@ -505,10 +510,12 @@ event_loop(Display *dpy, Window win,
       {
          switch (event.type) {
          case Expose:
+            exposed = true;
             redraw = 1;
             break;
          case ConfigureNotify:
             resize(event.xconfigure.width, event.xconfigure.height);
+            redraw = 1;
             break;
          case KeyPress:
          {
@@ -516,16 +523,16 @@ event_loop(Display *dpy, Window win,
             int code;
             code = XLookupKeysym(&event.xkey, 0);
             if (code == XK_Left) {
-               view_roty += 5.0;
+               std::cout << "XK_Left" << std::endl;
             }
             else if (code == XK_Right) {
-               view_roty -= 5.0;
+               std::cout << "XK_Right" << std::endl;
             }
             else if (code == XK_Up) {
-               view_rotx += 5.0;
+               std::cout << "XK_Up" << std::endl;
             }
             else if (code == XK_Down) {
-               view_rotx -= 5.0;
+               std::cout << "XK_Down" << std::endl;
             }
             else {
                XLookupString(&event.xkey, buffer, sizeof(buffer),
@@ -546,7 +553,7 @@ event_loop(Display *dpy, Window win,
          redraw = 1;
       }
 
-      if (redraw) {
+      if (exposed && redraw) {
          ++n_redraws;
          draw();
          eglSwapBuffers(egl_dpy, egl_surf);
