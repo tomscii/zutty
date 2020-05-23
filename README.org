@@ -1,0 +1,137 @@
+* Zutty - Zero-cost Unicode Teletype
+
+Zutty is a terminal emulator for the X Window System, functionally
+similar to several other X terminal emulators such as xterm, rxvt and
+countless others. It is also similar to other, newer, GPU-accelerated
+terminal emulators such as Alacritty and Kitty. What sets Zutty apart
+is its focus on providing the most efficient rendering technology
+(from the host computer's perspective), enabling it to perform
+seamlessly in extremely constrained environments, where others
+(including the above alternatives) struggle or fail. As a bonus, it
+provides unbeatable performance everywhere else, too.
+
+Zutty is written in straightforward C++ and only relies on OpenGL ES
+3.1, making it trivially portable to windowing systems other than X
+and operating systems other than Linux (but this is left as an
+exercise to anyone who needs to do so).
+
+Zutty is released under the GNU General Public License (GPL) v3 or (at
+your option) any later version. Please refer to the file LICENSE for
+the full text of the license.
+
+The main idea behind Zutty is the implementation of character video
+memory via OpenGL ES 3.1. This video memory is just an array of cells
+backing all character grid locations, containing character codes (16
+bit Unicode) plus color and other attributes. This area is directly
+writable by the application, very similar to how one could write to
+the screen by directly poking at physical video memory starting at
+0xB8000 on the IBM PC. Zutty employs a "compute shader" running on the
+GPU to read this video memory and render pixels directly to the output
+image.
+
+** Features
+
+*** Font handling
+
+We support a primary and optionally an alternate variant of the same
+font, which will be used to render characters marked with the 'bold'
+attribute. The bold font might not have all the glyphs of the
+primary - in this case we fall back to rendering the glyph from the
+primary font atlas.
+
+**** Recommended fonts
+
+The author of Zutty prefers the so-called "misc fixed" fonts that were
+designed in the '80s in an era of much inferior computer displays.
+These were the original fonts designed to be used with the
+then-nascent X Window System, and their availability is universal.
+There is a convenient range of sizes, several fonts have bold variants
+and support thousands of international characters and symbols outside
+ASCII. Zutty will work best with any of misc-fixed 6x13, 7x13, 7x14,
+8x13, 9x15 and 9x18 (there are more, but these have a bold-face
+alternate).
+
+*** True color support
+*** Synchronous and asynchronous scrolling
+*** Double-size mode
+
+This might be useful for HiDPI displays and as an escape hatch for
+those presenting their screen to an audience.
+
+** Textures
+
+*** Output image texture
+
+Dimensions: according to the window size. This texture is rendered
+onto the window area using a quad. All the work of rendering the
+terminal window content is done by the compute shader that computes
+color values of individual pixels in this texture.
+
+*** Glyph atlas texture(s)
+
+Dimensions: auto-computed based on the number of glyphs in the font
+and the glyph dimensions, to produce a pixel size as close to square
+as possible.
+
+The maximum amount of characters rasterized from a font is 64k, and
+both dimensions (in character positions) will fit into a single byte
+(we determine the atlas dimensions to guarantee this).
+
+Encoding: 1 byte per texel, gray-scale (0 = black, 255 = white)
+
+There are actually two atlas textures, one for the primary and
+(optionally) one for the alternate font face. Since the alternate font
+will frequently contain much less glyphs, it would be a waste of
+memory to have identically sized atlasses. Instead, we have separate
+atlasses and separate mappings from Unicode code points to atlas
+positions (see [[Glyph mapping texture]] below).
+
+*** Glyph mapping texture
+
+Dimensions: 256x256 (64k) texels, filled with 4 bytes per texel.
+
+Each texel refers to a 16 bit Unicode code point that
+corresponds to the row and column (256 * row + col) of the texel.
+That is, row = MSB(Ucodep) and col = LSB(Ucodep).
+This allows direct lookups for any 16 bit Unicode code point.
+
+The values stored in the texture:
+- r (byte 0): atlas row of glyph (primary font)
+- g (byte 1): atlas col of glyph (primary font)
+- b (byte 2): atlas row of glyph (alternate font)
+- a (byte 3): atlas col of glyph (alternate font)
+
+If the (row,col) stored is (0,0), that means there is no glyph
+for that code point in the font. If we are looking at the alterate
+font, this means we should look at the primary font instead.
+Otherwise, the glyph stored at (0,0) in the atlas will be rendered.
+Currently the font loader ensures that this is a blank glyph.
+
+*** Input "char-based video memory" texture
+
+Dimensions: according to the terminal size (rows x cols in
+characters), filled with 4 bytes per texel. Each texel refers to one
+character position in the terminal display's character grid.
+
+The values stored in the texture:
+- r (byte 0): Unicode code point (high byte)
+- g (byte 1): Unicode code point (low byte)
+- b (byte 2): attrs
+- a (byte 3): attrs
+
+Attributes (:bits)
+- foreground color
+- background color
+- alt-font: 1
+- blink: 1
+- underlined: 1
+- reverse video: 1
+
+** TODO
+
+How does the vsync work?
+EGL_KHR_wait_sync ?
+
+How fast is glTexImage2D()?
+Fastest way to push new array data to shaders?
+SSBs with glBufferData / glMapBufferRange?

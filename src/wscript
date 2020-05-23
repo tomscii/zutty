@@ -13,5 +13,5 @@ def configure(cfg):
 
 def build(bld):
     src = bld.path.ant_glob('*.cc')
-    bld.program(features='cxx', source=src, target='es2term',
+    bld.program(features='cxx', source=src, target='zutty',
                 use=['FT'], install_path=None)

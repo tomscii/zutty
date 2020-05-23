@@ -1,3 +1,14 @@
+/* This file is part of Zutty.
+ * Copyright (C) 2020 Tom Szilagyi
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * See the file LICENSE for the full license.
+ */
+
 #include "font.h"
 #include "gl.h"
 
@@ -8,52 +19,76 @@
 #include <assert.h>
 #include <iostream>
 #include <math.h>
+#include <memory>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 
 static const std::string fontpath = "/usr/share/fonts/X11/misc/";
 static const std::string fontext = ".pcf.gz";
 static std::string fontname = "9x18";
-static font::Font fnt;
+static font::Font* fnt = nullptr;
 
 static GLuint computeProgram, drawProgram;
+static GLuint text_texture = 0;
 static GLuint atlas_texture = 0;
 static GLuint output_texture = 0;
 static GLfloat view_rotx = 0.0, view_roty = 0.0;
 static GLint attr_pos = 0, attr_vertexTexCoord = 1;
-static GLint compute_uni_glyphPixels, compute_uni_atlasPixels,
-   compute_uni_winPixels;
+static GLint compute_uni_glyphPixels;
 static GLint draw_uni_winPixels;
-static int win_width = 300, win_height = 300;
+static int win_width = 400, win_height = 300;
+static int n_cols = 80, n_rows = 24;
+
+static std::unique_ptr <uint8_t []> text_data;
+
+static uint32_t counter = 0;
 
 static void
 draw(void)
 {
+   {
+      uint16_t crow = n_rows - 1;
+      uint16_t ccol = n_cols - 1;
+      uint32_t cnt = counter;
+      while (cnt)
+      {
+         uint32_t digit = (cnt % 10) + 18;
+         text_data[4 * (crow * n_cols + ccol)] = digit;
+         text_data[4 * (crow * n_cols + ccol) + 1] = 0;
+         cnt /= 10;
+         --ccol;
+      }
+      ++counter;
+   }
+
+   glActiveTexture(GL_TEXTURE2);
+   glBindTexture(GL_TEXTURE_2D, text_texture);
+   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, n_cols, n_rows, 0, GL_RGBA,
+                GL_UNSIGNED_BYTE, text_data.get());
+   glBindTexture(GL_TEXTURE_2D, 0);
+
    glUseProgram(computeProgram);
    glActiveTexture(GL_TEXTURE0);
    glBindTexture(GL_TEXTURE_2D, output_texture);
    glActiveTexture(GL_TEXTURE1);
    glBindTexture(GL_TEXTURE_2D, atlas_texture);
-   glUniform2i(compute_uni_glyphPixels, fnt.getPx(), fnt.getPy());
-   glUniform2f(compute_uni_atlasPixels,
-               (GLfloat) fnt.getPx() * fnt.getNx(),
-               (GLfloat) fnt.getPy() * fnt.getNy());
-   glUniform2f(compute_uni_winPixels,
-               (GLfloat) win_width, (GLfloat) win_height);
+   glActiveTexture(GL_TEXTURE2);
+   glBindTexture(GL_TEXTURE_2D, text_texture);
+   glUniform2i(compute_uni_glyphPixels, fnt->getPx(), fnt->getPy());
    glCheckError();
 
    glDispatchCompute(win_width, win_height, 1);
-   glCheckError();
    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
    glCheckError();
 
-   const GLfloat verts[4][2] = {
+   static const GLfloat verts[4][2] = {
       { -1,  1 },
       {  1,  1 },
       { -1, -1 },
       {  1, -1 }
    };
-   const GLfloat texCoords[4][2] = {
+   static const GLfloat texCoords[4][2] = {
       { 0, 0 },
       { 1, 0 },
       { 0, 1 },
@@ -89,9 +124,28 @@ draw(void)
 static void
 resize(int width, int height)
 {
+   if (win_width == width && win_height == height)
+      return;
+
    win_width = width;
    win_height = height;
-   std::cout << "resize: " << win_width << " x " << win_height << std::endl;
+   n_cols = win_width / fnt->getPx();
+   n_rows = win_height / fnt->getPy();
+
+   text_data = std::unique_ptr <uint8_t []> (new uint8_t [4 * n_cols * n_rows]);
+   memset(text_data.get(), 0, 4 * n_cols * n_rows);
+   for (uint16_t j = 0; j < n_rows; ++j)
+      for (uint16_t k = 0; k < n_cols; ++k)
+      {
+         text_data[4 * (j * n_cols + k)]     = k > 255 ? 0 : k;
+         text_data[4 * (j * n_cols + k) + 1] = k > 255 ? 0 : j;
+         text_data[4 * (j * n_cols + k) + 2] = 0; // color and
+         text_data[4 * (j * n_cols + k) + 3] = 0; // attributes
+      }
+
+   std::cout << "resize to " << win_width << " x " << win_height
+             << " pixels, " << n_cols << " x " << n_rows << " chars"
+             << std::endl;
    glViewport(0, 0, (GLint) win_width, (GLint) win_height);
 
    glUseProgram(computeProgram);
@@ -101,7 +155,7 @@ resize(int width, int height)
       glDeleteTextures(1, &output_texture);
    }
    glGenTextures(1, &output_texture);
-   std::cout << "output_texture=" << output_texture << std::endl;
+   //std::cout << "output_texture=" << output_texture << std::endl;
    glActiveTexture(GL_TEXTURE0);
    glBindTexture(GL_TEXTURE_2D, output_texture);
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -113,9 +167,26 @@ resize(int width, int height)
                       GL_RGBA32F);
    glCheckError();
 
+   if (text_texture)
+   {
+      glDeleteTextures(1, &text_texture);
+   }
+   glGenTextures(1, &text_texture);
+   //std::cout << "text_texture=" << text_texture << std::endl;
+   glActiveTexture(GL_TEXTURE2);
+   glBindTexture(GL_TEXTURE_2D, text_texture);
+   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, n_cols, n_rows, 0, GL_RGBA,
+                GL_UNSIGNED_BYTE, text_data.get());
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+   glBindTexture(GL_TEXTURE_2D, 0);
+   glCheckError();
+
    draw();
 }
-
 
 static void
 create_shaders(void)
@@ -124,28 +195,30 @@ create_shaders(void)
       "#version 310 es\n"
 
       "layout(local_size_x = 1, local_size_y = 1) in;\n"
-      "layout(rgba32f, binding = 0) writeonly highp uniform image2D imgOut;\n"
-      "layout(binding = 1) uniform sampler2D atlas;\n"
-
-      "uniform ivec2 glyphPixels;\n"
-      "uniform vec2 atlasPixels;\n"
-      "uniform vec2 winPixels;\n"
+      "layout(rgba32f, binding = 0) writeonly lowp uniform image2D imgOut;\n"
+      "layout(binding = 1) uniform lowp sampler2D atlas;\n"
+      "layout(binding = 2) uniform lowp sampler2D text;\n"
+      "uniform lowp ivec2 glyphPixels;\n"
 
       "void main() { \n"
       "   vec3 color = vec3(0.85, 0.85, 0.85);\n"
-      //"   ivec2 charPos = ivec2(26,0);\n" // character within atlas
-      "   ivec2 charPos = ivec2(gl_GlobalInvocationID.xy) / glyphPixels;\n"
       "   ivec2 pxCoords = ivec2(gl_GlobalInvocationID.xy);\n"
-      "   ivec2 txCoords = charPos * glyphPixels + pxCoords % glyphPixels;\n"
-      "   vec2 texCoords = (vec2(txCoords) + vec2(0.5, 0.5)) / atlasPixels;\n"
-      "   vec4 pixel = vec4(color * texture(atlas, texCoords).r, 1.0); \n"
+
+      // lookup character code in text array:
+      "   ivec2 charPos = ivec2(pxCoords / glyphPixels);\n"
+      "   ivec4 charData = ivec4(texelFetch(text, charPos, 0) * 256.0);\n"
+      "   ivec2 charCode = charData.xy;\n" // .zw: attrs, colors
+      "   ivec2 atlasPos = charCode;\n" // TODO lookup in atlas mapping
+
+      "   ivec2 txCoords = atlasPos * glyphPixels + pxCoords % glyphPixels;\n"
+      "   vec4 pixel = vec4(color * texelFetch(atlas, txCoords, 0).r, 1.0); \n"
       "   imageStore(imgOut, pxCoords, pixel);\n"
       "}\n";
    static const char *vertexShaderText =
       "#version 310 es\n"
 
       "layout(location = 0) in vec2 pos;\n"
-      "layout(location = 1) in vec2 vertexTexCoord;\n"
+      "layout(location = 1) in lowp vec2 vertexTexCoord;\n"
 
       "out vec2 texCoord;\n"
 
@@ -156,18 +229,16 @@ create_shaders(void)
    static const char *fragmentShaderText =
       "#version 310 es\n"
 
-      "precision highp float;\n"
+      "in highp vec2 texCoord;\n"
 
-      "in vec2 texCoord;\n"
+      "layout(rgba32f, binding = 0) readonly lowp uniform image2D imgOut;\n"
 
-      "layout(rgba32f, binding = 0) readonly highp uniform image2D imgOut;\n"
+      "uniform highp vec2 winPixels;\n"
 
-      "uniform vec2 winPixels;\n"
-
-      "layout(location = 0) out vec4 outColor;\n"
+      "layout(location = 0) out lowp vec4 outColor;\n"
 
       "void main() {\n"
-      "   outColor    = imageLoad(imgOut, ivec2(texCoord * winPixels));\n"
+      "   outColor = imageLoad(imgOut, ivec2(texCoord * winPixels));\n"
       "}\n";
    GLuint computeShader, fragmentShader, vertexShader;
    GLint stat;
@@ -238,13 +309,9 @@ create_shaders(void)
    glUseProgram(computeProgram);
 
    compute_uni_glyphPixels = glGetUniformLocation(computeProgram, "glyphPixels");
-   compute_uni_atlasPixels = glGetUniformLocation(computeProgram, "atlasPixels");
-   compute_uni_winPixels = glGetUniformLocation(computeProgram, "winPixels");
 
    std::cout << "compute program:"
              << "\n  uniform glyphPixels at " << compute_uni_glyphPixels
-             << "\n  uniform atlasPixels at " << compute_uni_atlasPixels
-             << "\n  uniform winPixels at " << compute_uni_winPixels
              << std::endl;
 
    glUseProgram(drawProgram);
@@ -260,7 +327,6 @@ create_shaders(void)
              << std::endl;
 }
 
-
 static void
 init(void)
 {
@@ -274,9 +340,23 @@ init(void)
 
    create_shaders();
 
-   fnt.init (fontpath + fontname + fontext, atlas_texture);
-}
+   fnt = new font::Font (fontpath + fontname + fontext);
 
+   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+   glGenTextures(1, &atlas_texture);
+   //std::cout << "atlas_texture=" << atlas_texture << std::endl;
+   glActiveTexture(GL_TEXTURE1);
+   glBindTexture(GL_TEXTURE_2D, atlas_texture);
+   glTexImage2D(GL_TEXTURE_2D, 0, GL_RED,
+                fnt->getPx() * fnt->getNx(), fnt->getPy() * fnt->getNy(),
+                0, GL_RED, GL_UNSIGNED_BYTE, fnt->getAtlas());
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+   glBindTexture(GL_TEXTURE_2D, 0);
+   glCheckError();
+}
 
 /*
  * Create an RGB, double-buffered X window.
@@ -407,58 +487,81 @@ static void
 event_loop(Display *dpy, Window win,
            EGLDisplay egl_dpy, EGLSurface egl_surf)
 {
-    while (1) {
-        int redraw = 0;
-        XEvent event;
+   int n_redraws = 0;
+   struct timeval tv;
+   struct timeval tv_next;
 
-        XNextEvent(dpy, &event);
+   gettimeofday(&tv, nullptr);
+   tv.tv_usec = 0;
+   tv_next.tv_sec = tv.tv_sec + 10;
+   tv_next.tv_usec = 0;
 
-        switch (event.type) {
-        case Expose:
+   while (1) {
+      int redraw = 0;
+      XEvent event;
+
+      //XNextEvent(dpy, &event);
+      if (XCheckWindowEvent(dpy, win, 0xffffffff, &event))
+      {
+         switch (event.type) {
+         case Expose:
             redraw = 1;
             break;
-        case ConfigureNotify:
+         case ConfigureNotify:
             resize(event.xconfigure.width, event.xconfigure.height);
             break;
-        case KeyPress:
-        {
+         case KeyPress:
+         {
             char buffer[10];
             int code;
             code = XLookupKeysym(&event.xkey, 0);
             if (code == XK_Left) {
-                view_roty += 5.0;
+               view_roty += 5.0;
             }
             else if (code == XK_Right) {
-                view_roty -= 5.0;
+               view_roty -= 5.0;
             }
             else if (code == XK_Up) {
-                view_rotx += 5.0;
+               view_rotx += 5.0;
             }
             else if (code == XK_Down) {
-                view_rotx -= 5.0;
+               view_rotx -= 5.0;
             }
             else {
-                XLookupString(&event.xkey, buffer, sizeof(buffer),
-                              nullptr, nullptr);
-                if (buffer[0] == 27) {
-                    /* escape */
-                    return;
-                }
+               XLookupString(&event.xkey, buffer, sizeof(buffer),
+                             nullptr, nullptr);
+               if (buffer[0] == 27) {
+                  /* escape */
+                  return;
+               }
             }
-        }
-        redraw = 1;
-        break;
-        default:
+         }
+         redraw = 1;
+         break;
+         default:
             ; /*no-op*/
-        }
+         }
 
-        if (redraw) {
-            draw();
-            eglSwapBuffers(egl_dpy, egl_surf);
-        }
-    }
+      } else {
+         redraw = 1;
+      }
+
+      if (redraw) {
+         ++n_redraws;
+         draw();
+         eglSwapBuffers(egl_dpy, egl_surf);
+      }
+
+      gettimeofday(&tv, nullptr);
+      if (tv.tv_sec >= tv_next.tv_sec)
+      {
+         tv = tv_next;
+         tv_next.tv_sec += 10;
+         std::cout << n_redraws << " redraws in 10 seconds" << std::endl;
+         n_redraws = 0;
+      }
+   }
 }
-
 
 static void
 usage(void)
@@ -470,7 +573,6 @@ usage(void)
              << "  -info                   display OpenGL renderer info"
              << std::endl;
 }
-
 
 int
 main(int argc, char *argv[])
@@ -531,7 +633,7 @@ main(int argc, char *argv[])
    }
 
    make_x_window(x_dpy, egl_dpy,
-                 "es2term", 0, 0, win_width, win_height,
+                 "zutty", 0, 0, win_width, win_height,
                  &win, &egl_ctx, &egl_surf);
 
    XMapWindow(x_dpy, win);
@@ -590,7 +692,6 @@ main(int argc, char *argv[])
    eglDestroyContext(egl_dpy, egl_ctx);
    eglDestroySurface(egl_dpy, egl_surf);
    eglTerminate(egl_dpy);
-
 
    XDestroyWindow(x_dpy, win);
    XCloseDisplay(x_dpy);

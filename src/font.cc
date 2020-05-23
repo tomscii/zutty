@@ -1,36 +1,43 @@
+/* This file is part of Zutty.
+ * Copyright (C) 2020 Tom Szilagyi
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * See the file LICENSE for the full license.
+ */
+
 #include "font.h"
 
 #include <algorithm>
 #include <cmath>
 #include <iostream>
-#include <memory>
 #include <stdexcept>
 #include <string>
 
 namespace font {
 
-Font::Font()
+Font::Font(const std::string& filename_)
+: filename (filename_)
 {
+   load();
 }
 
 Font::~Font()
 {
 }
 
-void Font::init(const std::string& filename_, GLuint& atlas_texture)
-{
-   filename = filename_;
-   load(atlas_texture);
-}
-
 /* private methods */
 
 /* Load font from glyph bitmaps rasterized by FreeType.
- * As a result, the atlas texture will be filled.
- * Also, the glyphs array is filled with metrics for each loaded glyph.
- * Part of this data is loaded into the metrics texture for shader lookup.
+ * Store the bitmaps into an atlas bitmap stored in atlas_buf.
+ *
+ * TODO: load mappings from unicode code point to atlas location
+ * to a user-supplied matrix.
  */
-void Font::load(GLuint& atlas_texture)
+void Font::load()
 {
     FT_Library ft;
     FT_Face face;
@@ -55,7 +62,7 @@ void Font::load(GLuint& atlas_texture)
         std::cout << " " << face->available_sizes[i].width
                   << "x" << face->available_sizes[i].height;
     std::cout << std::endl;
-    // Just use the first available size
+    // Just use the first available size for now (FIXME)
     px = face->available_sizes[0].width;
     py = face->available_sizes[0].height;
     std::cout << "Loading size " << px << "x" << py << std::endl;
@@ -66,9 +73,15 @@ void Font::load(GLuint& atlas_texture)
     /* Given that we have face->num_glyphs glyphs to load, with each
      * individual glyph having a size of px * py, compute nx and ny so
      * that the resulting atlas texture geometry is closest to a square.
+     * We use one extra glyph space to guarantee a blank glyph at (0,0).
+     */
+    /* TODO we must guarantee that the atlas will be addressable by
+     * one byte in each dimension, i.e., 256x256 max, even if this
+     * means that its pixel size won't be as close to a square as
+     * otherwise possible.
      */
     {
-        unsigned n_glyphs = face->num_glyphs;
+        unsigned n_glyphs = face->num_glyphs + 1;
         unsigned long total_pixels = n_glyphs * px * py;
         double side = sqrt(total_pixels);
         nx = side / px;
@@ -91,12 +104,10 @@ void Font::load(GLuint& atlas_texture)
                   << "%)" << std::endl;
     }
 
-    atlas_x = nx * px;
-    atlas_y = ny * py;
-    size_t atlas_bytes = atlas_x * atlas_y;
+    size_t atlas_bytes = nx * px * ny * py;
     std::cout << "Allocating " << atlas_bytes << " bytes for atlas buffer"
               << std::endl;
-    auto atlas_buf = std::unique_ptr <uint8_t []> (new uint8_t [atlas_bytes]);
+    atlas_buf.resize (atlas_bytes, 0);
 
     FT_ULong charcode;
     FT_UInt gindex;
@@ -106,32 +117,15 @@ void Font::load(GLuint& atlas_texture)
        //std::cout << "charcode=" << charcode
        //          << " -> index=" << gindex
        //          << std::endl;
-       load_face(face, atlas_buf.get(), charcode);
+       load_face(face, charcode);
        charcode = FT_Get_Next_Char(face, charcode, &gindex);
     }
 
     FT_Done_Face(face);
     FT_Done_FreeType(ft);
-
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glGenTextures(1, &atlas_texture);
-    std::cout << "atlas_texture=" << atlas_texture << std::endl;
-    // TODO we could use GL_TEXTURE_RECT for simplicity (texel coords instead of
-    // normalized) -- or maybe it's easier to compute the normalized coords in
-    // the shader?
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, atlas_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, atlas_x, atlas_y, 0, GL_RED,
-                 GL_UNSIGNED_BYTE, atlas_buf.get());
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glCheckError();
 }
 
-void Font::load_face(FT_Face face, uint8_t* atlas_buf, FT_ULong c)
+void Font::load_face(FT_Face face, FT_ULong c)
 {
     if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
        throw std::runtime_error(
@@ -144,7 +138,14 @@ void Font::load_face(FT_Face face, uint8_t* atlas_buf, FT_ULong c)
           std::string("FreeType: Failed to render glyph for char ") +
           std::to_string(c));
 
-    static unsigned seq = 0;
+    /* Start with 1 so as to leave a blank glyph at (0,0).
+     * This blank will get referenced for any out-of-bounds text position
+     * lookup in the shader, and guarantees that no fractional glyphs will
+     * be shown at the right and bottom edges.
+     * Also, any glyph mapping lookup that results in (0,0) means that the
+     * character code does not exist in the atlas.
+     */
+    static unsigned seq = 1;
     int atlas_row = seq / nx;
     int atlas_col = seq - nx * atlas_row;
 
@@ -164,15 +165,15 @@ void Font::load_face(FT_Face face, uint8_t* atlas_buf, FT_ULong c)
      *
      */
     const auto& bmp = face->glyph->bitmap;
-    GLubyte* bmp_src_row;
-    GLubyte* atl_dst_row;
+    uint8_t* bmp_src_row;
+    uint8_t* atl_dst_row;
     switch (bmp.pixel_mode)
     {
     case FT_PIXEL_MODE_MONO:
         for (unsigned int j = 0; j < bh; ++j) {
             bmp_src_row = bmp.buffer + j * bmp.pitch;
-            atl_dst_row = atlas_buf + atlas_glyph_offset + j * nx * px;
-            GLubyte byte = 0;
+            atl_dst_row = atlas_buf.data() + atlas_glyph_offset + j * nx * px;
+            uint8_t byte = 0;
             for (unsigned int k = 0; k < bw; ++k) {
                 if (k % 8 == 0) {
                     byte = *bmp_src_row++;
@@ -185,7 +186,7 @@ void Font::load_face(FT_Face face, uint8_t* atlas_buf, FT_ULong c)
     case FT_PIXEL_MODE_GRAY:
         for (unsigned int j = 0; j < bh; ++j) {
             bmp_src_row = bmp.buffer + j * bmp.pitch;
-            atl_dst_row = atlas_buf + atlas_glyph_offset + j * nx * px;
+            atl_dst_row = atlas_buf.data() + atlas_glyph_offset + j * nx * px;
             for (unsigned int k = 0; k < bw; ++k) {
                 *atl_dst_row++ = *bmp_src_row++;
             }
@@ -197,17 +198,6 @@ void Font::load_face(FT_Face face, uint8_t* atlas_buf, FT_ULong c)
            std::to_string(bmp.pixel_mode));
     }
 
-#if 0
-    glyphs[c - 32] = Glyph{static_cast<int>(face->glyph->bitmap.width),
-                           static_cast<int>(face->glyph->bitmap.rows),
-                           face->glyph->bitmap_left,
-                           face->glyph->bitmap_top,
-                           face->glyph->advance.x / 64.0f,
-                           1.0f * atlas_col * px / atlas_x,
-                           1.0f * atlas_row * py / atlas_y,
-                           1.0f * (atlas_col * px + bw) / atlas_x,
-                           1.0f * (atlas_row * py + bh) / atlas_y};
-#endif
     ++seq;
 }
 
