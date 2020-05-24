@@ -24,6 +24,8 @@
 #include <string.h>
 #include <sys/time.h>
 
+static bool benchMode = false;
+
 static const std::string fontpath = "/usr/share/fonts/X11/misc/";
 static const std::string fontext = ".pcf.gz";
 static std::string fontname = "9x18";
@@ -78,7 +80,7 @@ draw(void)
    glCheckError();
 
    glUseProgram(drawProgram);
-   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+   glClear(GL_COLOR_BUFFER_BIT);
 
    glActiveTexture(GL_TEXTURE0);
    glBindTexture(GL_TEXTURE_2D, output_texture);
@@ -116,10 +118,12 @@ resize(int width, int height)
              << " pixels, " << n_cols << " x " << n_rows << " chars"
              << std::endl;
 
-   glViewport(0, 0, (GLint) win_width, (GLint) win_height);
+   GLint view_width = n_cols * fnt->getPx();
+   GLint view_height = n_rows * fnt->getPy();
+   glViewport(0, win_height - view_height, view_width, view_height);
 
    glUseProgram(drawProgram);
-   glUniform2f(draw_uni_winPixels, (GLfloat) win_width, (GLfloat) win_height);
+   glUniform2f(draw_uni_winPixels, (GLfloat)view_width, (GLfloat)view_height);
 
    glUseProgram(computeProgram);
 
@@ -135,7 +139,7 @@ resize(int width, int height)
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-   glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, win_width, win_height);
+   glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, view_width, view_height);
    glBindImageTexture(0, output_texture, 0, GL_FALSE, 0, GL_WRITE_ONLY,
                       GL_RGBA32F);
    glCheckError();
@@ -512,9 +516,18 @@ event_loop(Display *dpy, Window win,
    while (1) {
       int redraw = 0;
       XEvent event;
+      bool got_event = false;
 
-      //XNextEvent(dpy, &event);
-      if (XCheckWindowEvent(dpy, win, 0xffffffff, &event))
+      if (benchMode)
+      {
+         got_event = XCheckWindowEvent(dpy, win, 0xffffffff, &event);
+         redraw = 1;
+      } else {
+         XNextEvent(dpy, &event); // block
+         got_event = true;
+      }
+
+      if (got_event)
       {
          switch (event.type) {
          case Expose:
@@ -556,9 +569,6 @@ event_loop(Display *dpy, Window win,
          default:
             ; /*no-op*/
          }
-
-      } else {
-         redraw = 1;
       }
 
       if (exposed && redraw) {
@@ -567,13 +577,16 @@ event_loop(Display *dpy, Window win,
          eglSwapBuffers(egl_dpy, egl_surf);
       }
 
-      gettimeofday(&tv, nullptr);
-      if (tv.tv_sec >= tv_next.tv_sec)
+      if (benchMode)
       {
-         tv = tv_next;
-         tv_next.tv_sec += 10;
-         std::cout << n_redraws << " redraws in 10 seconds" << std::endl;
-         n_redraws = 0;
+         gettimeofday(&tv, nullptr);
+         if (tv.tv_sec >= tv_next.tv_sec)
+         {
+            tv = tv_next;
+            tv_next.tv_sec += 10;
+            std::cout << n_redraws << " redraws in 10 seconds" << std::endl;
+            n_redraws = 0;
+         }
       }
    }
 }
@@ -582,10 +595,11 @@ static void
 usage(void)
 {
    std::cout << "Usage:\n"
-             << "  -display <displayname>  set the display to run on\n"
-             << "  -font <fontname>        font name to load (default: "
+             << "  -display <dpy_name>  set the display to run on\n"
+             << "  -font <fontname>     font name to load (default: "
              << fontname << ")\n"
-             << "  -info                   display OpenGL renderer info"
+             << "  -info                display OpenGL renderer info\n"
+             << "  -bench               redraw continuously; report FPS"
              << std::endl;
 }
 
@@ -613,6 +627,9 @@ main(int argc, char *argv[])
       }
       else if (strcmp(argv[i], "-info") == 0) {
          printInfo = GL_TRUE;
+      }
+      else if (strcmp(argv[i], "-bench") == 0) {
+         benchMode = true;
       }
       else {
          usage();
@@ -667,6 +684,7 @@ main(int argc, char *argv[])
                 << std::endl;
    }
 
+   if (printInfo)
    {
       int work_grp_cnt[3];
       glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &work_grp_cnt[0]);
