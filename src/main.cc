@@ -73,7 +73,7 @@ draw(void)
                    GL_UNSIGNED_BYTE, text_data.get());
    glCheckError();
 
-   glDispatchCompute(win_width, win_height, 1);
+   glDispatchCompute(n_cols, n_rows, 1);
    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
    glCheckError();
 
@@ -163,54 +163,62 @@ static void
 create_shaders(void)
 {
    static const char *computeShaderText =
-      "#version 310 es\n"
+R"(#version 310 es
 
-      "layout(local_size_x = 1, local_size_y = 1) in;\n"
-      "layout(rgba32f, binding = 0) writeonly lowp uniform image2D imgOut;\n"
-      "layout(binding = 1) uniform lowp sampler2D atlas;\n"
-      "layout(binding = 2) uniform lowp sampler2D text;\n"
-      "uniform lowp ivec2 glyphPixels;\n"
+layout(local_size_x = 1, local_size_y = 1) in;
+layout(rgba32f, binding = 0) writeonly lowp uniform image2D imgOut;
+layout(binding = 1) uniform lowp sampler2D atlas;
+layout(binding = 2) uniform lowp sampler2D text;
+uniform lowp ivec2 glyphPixels;
 
-      "void main() { \n"
-      "   vec3 color = vec3(0.85, 0.85, 0.85);\n"
-      "   ivec2 pxCoords = ivec2(gl_GlobalInvocationID.xy);\n"
+void main() {
+   vec3 color = vec3(0.85, 0.85, 0.85);
 
-      // lookup character code in text array:
-      "   ivec2 charPos = ivec2(pxCoords / glyphPixels);\n"
-      "   ivec4 charData = ivec4(texelFetch(text, charPos, 0) * 256.0);\n"
-      "   ivec2 charCode = charData.xy;\n" // .zw: attrs, colors
-      "   ivec2 atlasPos = charCode;\n" // TODO lookup in atlas mapping
+   ivec2 charPos = ivec2(gl_GlobalInvocationID.xy);
+   ivec4 charData = ivec4(texelFetch(text, charPos, 0) * 256.0);
+   ivec2 charCode = charData.xy; // .zw: attrs, colors
+   ivec2 atlasPos = charCode; // TODO lookup in atlas mapping
 
-      "   ivec2 txCoords = atlasPos * glyphPixels + pxCoords % glyphPixels;\n"
-      "   vec4 pixel = vec4(color * texelFetch(atlas, txCoords, 0).r, 1.0); \n"
-      "   imageStore(imgOut, pxCoords, pixel);\n"
-      "}\n";
+   for (int j = 0; j < glyphPixels.x; j++) {
+      for (int k = 0; k < glyphPixels.y; k++) {
+         ivec2 txCoords = atlasPos * glyphPixels + ivec2(j, k);
+         vec4 pixel = vec4(color * texelFetch(atlas, txCoords, 0).r, 1.0);
+         ivec2 pxCoords = charPos * glyphPixels + ivec2(j, k);
+         imageStore(imgOut, pxCoords, pixel);
+      }
+   }
+}
+)";
+
    static const char *vertexShaderText =
-      "#version 310 es\n"
+R"(#version 310 es
 
-      "layout(location = 0) in vec2 pos;\n"
-      "layout(location = 1) in lowp vec2 vertexTexCoord;\n"
+layout(location = 0) in vec2 pos;
+layout(location = 1) in lowp vec2 vertexTexCoord;
 
-      "out vec2 texCoord;\n"
+out vec2 texCoord;
 
-      "void main() {\n"
-      "  texCoord = vertexTexCoord;\n"
-      "  gl_Position = vec4(pos, 0.0, 1.0);\n"
-      "}\n";
+void main() {
+   texCoord = vertexTexCoord;
+   gl_Position = vec4(pos, 0.0, 1.0);
+}
+)";
+
    static const char *fragmentShaderText =
-      "#version 310 es\n"
+R"(#version 310 es
 
-      "in highp vec2 texCoord;\n"
+in highp vec2 texCoord;
 
-      "layout(rgba32f, binding = 0) readonly lowp uniform image2D imgOut;\n"
+layout(rgba32f, binding = 0) readonly lowp uniform image2D imgOut;
 
-      "uniform highp vec2 winPixels;\n"
+uniform highp vec2 winPixels;
 
-      "layout(location = 0) out lowp vec4 outColor;\n"
+layout(location = 0) out lowp vec4 outColor;
 
-      "void main() {\n"
-      "   outColor = imageLoad(imgOut, ivec2(texCoord * winPixels));\n"
-      "}\n";
+void main() {
+   outColor = imageLoad(imgOut, ivec2(texCoord * winPixels));
+})";
+
    GLuint computeShader, fragmentShader, vertexShader;
    GLint stat;
 
