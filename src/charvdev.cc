@@ -22,13 +22,30 @@ layout (rgba32f, binding = 0) writeonly lowp uniform image2D imgOut;
 layout (binding = 1) uniform lowp sampler2D atlas;
 layout (binding = 2) uniform lowp sampler2D text;
 uniform lowp ivec2 glyphPixels;
+uniform lowp ivec2 sizeChars;
+
+struct Cell
+{
+   highp int charData;
+   highp int fg;
+   highp int bg;
+};
+
+layout (std430, binding = 0) buffer CharVideoMem
+{
+   Cell cells[];
+} vmem;
 
 void main () {
+
    vec3 color = vec3 (0.85, 0.85, 0.85);
 
    ivec2 charPos = ivec2 (gl_GlobalInvocationID.xy);
-   ivec4 charData = ivec4 (texelFetch (text, charPos, 0) * 256.0);
-   ivec2 charCode = charData.xy; // .zw: attrs, colors
+   int idx = sizeChars.x * charPos.y + charPos.x;
+   highp int charData = vmem.cells[idx].charData;
+   ivec2 charCode =
+        ivec2 (bitfieldExtract (charData, 0, 8),  // Lowest byte
+               bitfieldExtract (charData, 8, 8)); // Next-lowest byte
    ivec2 atlasPos = charCode; // TODO lookup in atlas mapping
 
    for (int j = 0; j < glyphPixels.x; j++) {
@@ -165,6 +182,7 @@ namespace zutty {
        */
       glUseProgram (P_compute);
       glUniform2i (compU_glyphPixels, fnt.getPx (), fnt.getPy ());
+      glUniform2i (compU_sizeChars, nCols, nRows);
       glCheckError ();
 
       setupTexture (GL_TEXTURE1, T_atlas);
@@ -189,19 +207,6 @@ namespace zutty {
       nCols = pxWidth / fnt.getPx ();
       nRows = pxHeight / fnt.getPy ();
 
-      text_data = std::unique_ptr <uint8_t []> (new uint8_t [4 * nCols * nRows]);
-      memset (text_data.get (), 0, 4 * nCols * nRows);
-      for (uint16_t j = 0; j < nRows; ++j)
-      {
-         for (uint16_t k = 0; k < nCols; ++k)
-         {
-            text_data[4 * (j * nCols + k)]     = k > 255 ? 0 : k;
-            text_data[4 * (j * nCols + k) + 1] = k > 255 ? 0 : j;
-            text_data[4 * (j * nCols + k) + 2] = 0; // color and
-            text_data[4 * (j * nCols + k) + 3] = 0; // attributes
-         }
-      }
-
       std::cout << "resize to " << pxWidth << " x " << pxHeight
                 << " pixels, " << nCols << " x " << nRows << " chars"
                 << std::endl;
@@ -216,15 +221,36 @@ namespace zutty {
 
       glUseProgram (P_compute);
 
+      glUniform2i (compU_sizeChars, nCols, nRows);
+
       setupTexture (GL_TEXTURE0, T_output);
       glTexStorage2D (GL_TEXTURE_2D, 1, GL_RGBA32F, viewWidth, viewHeight);
       glBindImageTexture (0, T_output, 0, GL_FALSE, 0, GL_WRITE_ONLY,
                           GL_RGBA32F);
       glCheckError ();
 
-      setupTexture (GL_TEXTURE2, T_text);
-      glTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA, nCols, nRows, 0, GL_RGBA,
-                    GL_UNSIGNED_BYTE, text_data.get ());
+      if (B_text)
+      {
+         glDeleteBuffers (1, &B_text);
+      }
+      glGenBuffers (1, &B_text);
+      glBindBuffer (GL_SHADER_STORAGE_BUFFER, B_text);
+      glBindBufferBase (GL_SHADER_STORAGE_BUFFER, 0, B_text);
+      glBufferData (GL_SHADER_STORAGE_BUFFER, sizeof (Cell) * nRows * nCols,
+                    nullptr, GL_DYNAMIC_DRAW);
+      Cell* cells = (Cell*) glMapBufferRange (
+         GL_SHADER_STORAGE_BUFFER, 0, sizeof (Cell) * nRows * nCols,
+         GL_MAP_WRITE_BIT/* | GL_MAP_FLUSH_EXPLICIT_BIT*/);
+      glCheckError ();
+      for (uint16_t j = 0; j < nRows; ++j)
+      {
+         for (uint16_t k = 0; k < nCols; ++k)
+         {
+            cells [j * nCols + k].uc_pt = k > 255 ? 0 : 256 * j + k;
+            cells [j * nCols + k].attrs = 0;
+         }
+      }
+      glUnmapBuffer (GL_SHADER_STORAGE_BUFFER);
       glCheckError ();
    }
 
@@ -235,14 +261,21 @@ namespace zutty {
          uint16_t cRow = nRows - 1;
          uint16_t cCol = nCols - 1;
          uint32_t cnt = ++draw_count;
+
+         Cell* cells = (Cell*) glMapBufferRange (
+            GL_SHADER_STORAGE_BUFFER, 0, sizeof (Cell) * nRows * nCols,
+            GL_MAP_WRITE_BIT/* | GL_MAP_FLUSH_EXPLICIT_BIT*/);
+         glCheckError ();
+
          while (cnt)
          {
             uint32_t digit = (cnt % 10) + 18;
-            text_data[4 * (cRow * nCols + cCol)] = digit;
-            text_data[4 * (cRow * nCols + cCol) + 1] = 0;
+            cells [cRow * nCols + cCol].uc_pt = digit;
             cnt /= 10;
             --cCol;
          }
+         glUnmapBuffer (GL_SHADER_STORAGE_BUFFER);
+         glCheckError ();
       }
 
       glUseProgram (P_compute);
@@ -250,10 +283,8 @@ namespace zutty {
       glBindTexture (GL_TEXTURE_2D, T_output);
       glActiveTexture (GL_TEXTURE1);
       glBindTexture (GL_TEXTURE_2D, T_atlas);
-      glActiveTexture (GL_TEXTURE2);
-      glBindTexture (GL_TEXTURE_2D, T_text);
-      glTexSubImage2D (GL_TEXTURE_2D, 0, 0, 0, nCols, nRows, GL_RGBA,
-                       GL_UNSIGNED_BYTE, text_data.get ());
+      glBindBuffer (GL_SHADER_STORAGE_BUFFER, B_text);
+      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, B_text);
       glCheckError ();
 
       glDispatchCompute (nCols, nRows, 1);
@@ -291,9 +322,11 @@ namespace zutty {
       glUseProgram (P_compute);
 
       compU_glyphPixels = glGetUniformLocation (P_compute, "glyphPixels");
+      compU_sizeChars = glGetUniformLocation (P_compute, "sizeChars");
 
       std::cout << "compute program:"
                 << "\n  uniform glyphPixels at " << compU_glyphPixels
+                << "\n  uniform sizeChars at " << compU_sizeChars
                 << std::endl;
 
       P_draw = glCreateProgram ();

@@ -20,17 +20,24 @@
 
 namespace zutty {
 
+   struct Color
+   {
+      uint8_t red;
+      uint8_t blue;
+      uint8_t green;
+   };
+
    struct Cell
    {
       uint16_t uc_pt;
-      uint8_t fg_red;
-      uint8_t fg_blue;
-      uint8_t fg_green;
-      uint8_t bg_red;
-      uint8_t bg_blue;
-      uint8_t bg_green;
-      uint8_t attrs;
-   } __attribute__ ((packed));
+      uint16_t attrs;
+      Color fg;
+      uint8_t fill2_;
+      Color bg;
+      uint8_t fill3_;
+   };
+
+   static_assert (sizeof (Cell) == 12);
 
    class CharVdev
    {
@@ -52,13 +59,11 @@ namespace zutty {
 
       // GL ids of programs, textures, attributes and uniforms:
       GLuint P_compute, P_draw;
-      GLuint T_text = 0;
+      GLuint B_text = 0;
       GLuint T_atlas = 0;
       GLuint T_output = 0;
       GLint A_pos, A_vertexTexCoord;
-      GLint compU_glyphPixels, drawU_viewPixels;
-
-      std::unique_ptr <uint8_t []> text_data;  // row-major order
+      GLint compU_glyphPixels, compU_sizeChars, drawU_viewPixels;
 
       uint32_t draw_count = 0;
 
