@@ -18,30 +18,29 @@
 #include <string>
 #include <vector>
 
-namespace font {
+namespace zutty {
 
-class Font {
-public:
-   Font(const std::string& filename);
-   ~Font();
+   class Font {
+   public:
+      Font (const std::string& filename);
+      ~Font ();
 
-   uint16_t getPx() const { return px; };
-   uint16_t getPy() const { return py; };
-   uint16_t getNx() const { return nx; };
-   uint16_t getNy() const { return ny; };
-   const uint8_t* getAtlas() const { return atlas_buf.data(); };
+      uint16_t getPx () const { return px; };
+      uint16_t getPy () const { return py; };
+      uint16_t getNx () const { return nx; };
+      uint16_t getNy () const { return ny; };
+      const uint8_t* getAtlas () const { return atlasBuf.data (); };
 
-private:
-   std::string filename;
-   uint16_t px; // glyph width in pixels
-   uint16_t py; // glyph height in pixels
-   uint16_t nx; // number of glyphs in atlas texture per row
-   uint16_t ny; // number of rows in atlas texture
-   std::vector <uint8_t> atlas_buf; // loaded atlas data
+   private:
+      std::string filename;
+      uint16_t px; // glyph width in pixels
+      uint16_t py; // glyph height in pixels
+      uint16_t nx; // number of glyphs in atlas texture per row
+      uint16_t ny; // number of rows in atlas texture
+      std::vector <uint8_t> atlasBuf; // loaded atlas data
 
-   void load();
-   void load_face(FT_Face face, FT_ULong c);
-   void get_max_bbox(FT_Face face, unsigned& width, unsigned& height);
-};
+      void load ();
+      void loadFace (FT_Face face, FT_ULong c);
+   };
 
-} // namespace font
+} // namespace zutty

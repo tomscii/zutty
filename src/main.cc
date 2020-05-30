@@ -29,285 +29,21 @@ static bool benchMode = false;
 static const std::string fontpath = "/usr/share/fonts/X11/misc/";
 static const std::string fontext = ".pcf.gz";
 static std::string fontname = "9x18";
-static font::Font* fnt = nullptr;
+static zutty::CharVdev* charVdev = nullptr;
 
-static GLuint computeProgram, drawProgram;
-static GLuint text_texture = 0;
-static GLuint atlas_texture = 0;
-static GLuint output_texture = 0;
-static GLint attr_pos = 0, attr_vertexTexCoord = 1;
-static GLint compute_uni_glyphPixels;
-static GLint draw_uni_winPixels;
 static int win_width = 400, win_height = 300;
-static int n_cols = 80, n_rows = 24;
-
-//static GLuint txt_buffer;
-//static uint8_t* txt_data = nullptr;
-static std::unique_ptr <uint8_t []> text_data;
-
-static uint32_t draw_count = 0;
 
 static void
-draw(void)
+draw()
 {
-   {
-      uint16_t crow = n_rows - 1;
-      uint16_t ccol = n_cols - 1;
-      uint32_t cnt = ++draw_count;
-      while (cnt)
-      {
-         uint32_t digit = (cnt % 10) + 18;
-         text_data[4 * (crow * n_cols + ccol)] = digit;
-         text_data[4 * (crow * n_cols + ccol) + 1] = 0;
-         cnt /= 10;
-         --ccol;
-      }
-   }
-
-   glUseProgram(computeProgram);
-   glActiveTexture(GL_TEXTURE0);
-   glBindTexture(GL_TEXTURE_2D, output_texture);
-   glActiveTexture(GL_TEXTURE1);
-   glBindTexture(GL_TEXTURE_2D, atlas_texture);
-   glActiveTexture(GL_TEXTURE2);
-   glBindTexture(GL_TEXTURE_2D, text_texture);
-   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, n_cols, n_rows, GL_RGBA,
-                   GL_UNSIGNED_BYTE, text_data.get());
-   glCheckError();
-
-   glDispatchCompute(n_cols, n_rows, 1);
-   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-   glCheckError();
-
-   glUseProgram(drawProgram);
-   glClear(GL_COLOR_BUFFER_BIT);
-
-   glActiveTexture(GL_TEXTURE0);
-   glBindTexture(GL_TEXTURE_2D, output_texture);
-
-   glEnableVertexAttribArray(attr_pos);
-   glEnableVertexAttribArray(attr_vertexTexCoord);
-   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+   charVdev->draw ();
 }
-
 
 /* new window size or exposure */
 static void
 resize(int width, int height)
 {
-   if (win_width == width && win_height == height)
-      return;
-
-   win_width = width;
-   win_height = height;
-   n_cols = win_width / fnt->getPx();
-   n_rows = win_height / fnt->getPy();
-
-   text_data = std::unique_ptr <uint8_t []> (new uint8_t [4 * n_cols * n_rows]);
-   memset(text_data.get(), 0, 4 * n_cols * n_rows);
-   for (uint16_t j = 0; j < n_rows; ++j)
-      for (uint16_t k = 0; k < n_cols; ++k)
-      {
-         text_data[4 * (j * n_cols + k)]     = k > 255 ? 0 : k;
-         text_data[4 * (j * n_cols + k) + 1] = k > 255 ? 0 : j;
-         text_data[4 * (j * n_cols + k) + 2] = 0; // color and
-         text_data[4 * (j * n_cols + k) + 3] = 0; // attributes
-      }
-
-   std::cout << "resize to " << win_width << " x " << win_height
-             << " pixels, " << n_cols << " x " << n_rows << " chars"
-             << std::endl;
-
-   GLint view_width = n_cols * fnt->getPx();
-   GLint view_height = n_rows * fnt->getPy();
-   glViewport(0, win_height - view_height, view_width, view_height);
-
-   glUseProgram(drawProgram);
-   glUniform2f(draw_uni_winPixels, (GLfloat)view_width, (GLfloat)view_height);
-
-   glUseProgram(computeProgram);
-
-   if (output_texture)
-   {
-      glDeleteTextures(1, &output_texture);
-   }
-   glGenTextures(1, &output_texture);
-   //std::cout << "output_texture=" << output_texture << std::endl;
-   glActiveTexture(GL_TEXTURE0);
-   glBindTexture(GL_TEXTURE_2D, output_texture);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-   glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, view_width, view_height);
-   glBindImageTexture(0, output_texture, 0, GL_FALSE, 0, GL_WRITE_ONLY,
-                      GL_RGBA32F);
-   glCheckError();
-
-   if (text_texture)
-   {
-      glDeleteTextures(1, &text_texture);
-   }
-   glGenTextures(1, &text_texture);
-   //std::cout << "text_texture=" << text_texture << std::endl;
-   glActiveTexture(GL_TEXTURE2);
-   glBindTexture(GL_TEXTURE_2D, text_texture);
-   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, n_cols, n_rows, 0, GL_RGBA,
-                GL_UNSIGNED_BYTE, text_data.get());
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-   glBindTexture(GL_TEXTURE_2D, 0);
-   glCheckError();
-}
-
-static void
-create_shaders(void)
-{
-   static const char *computeShaderText =
-R"(#version 310 es
-
-layout(local_size_x = 1, local_size_y = 1) in;
-layout(rgba32f, binding = 0) writeonly lowp uniform image2D imgOut;
-layout(binding = 1) uniform lowp sampler2D atlas;
-layout(binding = 2) uniform lowp sampler2D text;
-uniform lowp ivec2 glyphPixels;
-
-void main() {
-   vec3 color = vec3(0.85, 0.85, 0.85);
-
-   ivec2 charPos = ivec2(gl_GlobalInvocationID.xy);
-   ivec4 charData = ivec4(texelFetch(text, charPos, 0) * 256.0);
-   ivec2 charCode = charData.xy; // .zw: attrs, colors
-   ivec2 atlasPos = charCode; // TODO lookup in atlas mapping
-
-   for (int j = 0; j < glyphPixels.x; j++) {
-      for (int k = 0; k < glyphPixels.y; k++) {
-         ivec2 txCoords = atlasPos * glyphPixels + ivec2(j, k);
-         vec4 pixel = vec4(color * texelFetch(atlas, txCoords, 0).r, 1.0);
-         ivec2 pxCoords = charPos * glyphPixels + ivec2(j, k);
-         imageStore(imgOut, pxCoords, pixel);
-      }
-   }
-}
-)";
-
-   static const char *vertexShaderText =
-R"(#version 310 es
-
-layout(location = 0) in vec2 pos;
-layout(location = 1) in lowp vec2 vertexTexCoord;
-
-out vec2 texCoord;
-
-void main() {
-   texCoord = vertexTexCoord;
-   gl_Position = vec4(pos, 0.0, 1.0);
-}
-)";
-
-   static const char *fragmentShaderText =
-R"(#version 310 es
-
-in highp vec2 texCoord;
-
-layout(rgba32f, binding = 0) readonly lowp uniform image2D imgOut;
-
-uniform highp vec2 winPixels;
-
-layout(location = 0) out lowp vec4 outColor;
-
-void main() {
-   outColor = imageLoad(imgOut, ivec2(texCoord * winPixels));
-})";
-
-   GLuint computeShader, fragmentShader, vertexShader;
-   GLint stat;
-
-   computeShader = glCreateShader(GL_COMPUTE_SHADER);
-   glShaderSource(computeShader, 1, &computeShaderText, nullptr);
-   glCompileShader(computeShader);
-   glGetShaderiv(computeShader, GL_COMPILE_STATUS, &stat);
-   if (!stat) {
-      char log[1000];
-      GLsizei len;
-      glGetShaderInfoLog(computeShader, 1000, &len, log);
-      std::cerr << "Error compiling compute shader:\n" << log << std::endl;
-      exit(1);
-   }
-
-   fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-   glShaderSource(fragmentShader, 1, &fragmentShaderText, nullptr);
-   glCompileShader(fragmentShader);
-   glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &stat);
-   if (!stat) {
-      char log[1000];
-      GLsizei len;
-      glGetShaderInfoLog(fragmentShader, 1000, &len, log);
-      std::cerr << "Error compiling fragment shader:\n" << log << std::endl;
-      exit(1);
-   }
-
-   vertexShader = glCreateShader(GL_VERTEX_SHADER);
-   glShaderSource(vertexShader, 1, &vertexShaderText, nullptr);
-   glCompileShader(vertexShader);
-   glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &stat);
-   if (!stat) {
-      char log[1000];
-      GLsizei len;
-      glGetShaderInfoLog(vertexShader, 1000, &len, log);
-      std::cerr << "Error compiling vertex shader:\n" << log << std::endl;
-      exit(1);
-   }
-
-   computeProgram = glCreateProgram();
-   glAttachShader(computeProgram, computeShader);
-   glLinkProgram(computeProgram);
-
-   glGetProgramiv(computeProgram, GL_LINK_STATUS, &stat);
-   if (!stat) {
-      char log[1000];
-      GLsizei len;
-      glGetProgramInfoLog(computeProgram, 1000, &len, log);
-      std::cerr << "Error: linking:\n%s" << log << std::endl;
-      exit(1);
-   }
-
-   glUseProgram(computeProgram);
-
-   compute_uni_glyphPixels = glGetUniformLocation(computeProgram, "glyphPixels");
-
-   std::cout << "compute program:"
-             << "\n  uniform glyphPixels at " << compute_uni_glyphPixels
-             << std::endl;
-
-   drawProgram = glCreateProgram();
-   glAttachShader(drawProgram, fragmentShader);
-   glAttachShader(drawProgram, vertexShader);
-   glLinkProgram(drawProgram);
-
-   glGetProgramiv(drawProgram, GL_LINK_STATUS, &stat);
-   if (!stat) {
-      char log[1000];
-      GLsizei len;
-      glGetProgramInfoLog(drawProgram, 1000, &len, log);
-      std::cerr << "Error: linking:\n%s" << log << std::endl;
-      exit(1);
-   }
-
-   glUseProgram(drawProgram);
-
-   attr_pos = glGetAttribLocation(drawProgram, "pos");
-   attr_vertexTexCoord = glGetAttribLocation(drawProgram, "vertexTexCoord");
-   draw_uni_winPixels = glGetUniformLocation(drawProgram, "winPixels");
-
-   std::cout << "draw program:"
-             << "\n  attrib pos at " << attr_pos
-             << "\n  attrib vertextexcoord at " << attr_vertexTexCoord
-             << "\n  uniform winPixels at " << draw_uni_winPixels
-             << std::endl;
+   charVdev->resize (width, height);
 }
 
 static void
@@ -319,59 +55,7 @@ init(void)
    assert(p);
 #endif
 
-   fnt = new font::Font (fontpath + fontname + fontext);
-
-   create_shaders();
-
-   /*
-    * Setup draw program
-    */
-   glUseProgram(drawProgram);
-
-   glDisable(GL_CULL_FACE);
-   glDisable(GL_DEPTH_TEST);
-   glEnable(GL_BLEND);
-   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-   glCheckError();
-
-   static const GLfloat verts[4][2] = {
-      { -1,  1 },
-      {  1,  1 },
-      { -1, -1 },
-      {  1, -1 }
-   };
-   static const GLfloat texCoords[4][2] = {
-      { 0, 0 },
-      { 1, 0 },
-      { 0, 1 },
-      { 1, 1 }
-   };
-   glVertexAttribPointer(attr_pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
-   glVertexAttribPointer(attr_vertexTexCoord, 2, GL_FLOAT, GL_FALSE, 0,
-                         texCoords);
-   glCheckError();
-
-   /*
-    * Setup compute program
-    */
-   glUseProgram(computeProgram);
-   glUniform2i(compute_uni_glyphPixels, fnt->getPx(), fnt->getPy());
-   glCheckError();
-
-   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-   glGenTextures(1, &atlas_texture);
-   //std::cout << "atlas_texture=" << atlas_texture << std::endl;
-   glActiveTexture(GL_TEXTURE1);
-   glBindTexture(GL_TEXTURE_2D, atlas_texture);
-   glTexImage2D(GL_TEXTURE_2D, 0, GL_RED,
-                fnt->getPx() * fnt->getNx(), fnt->getPy() * fnt->getNy(),
-                0, GL_RED, GL_UNSIGNED_BYTE, fnt->getAtlas());
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-   glBindTexture(GL_TEXTURE_2D, 0);
-   glCheckError();
+   charVdev = new zutty::CharVdev (fontpath + fontname + fontext);
 }
 
 /*
@@ -387,10 +71,9 @@ make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
               EGLSurface *surfRet)
 {
    static const EGLint attribs[] = {
-      EGL_RED_SIZE, 1,
-      EGL_GREEN_SIZE, 1,
-      EGL_BLUE_SIZE, 1,
-      EGL_DEPTH_SIZE, 1,
+      EGL_RED_SIZE, 8,
+      EGL_GREEN_SIZE, 8,
+      EGL_BLUE_SIZE, 8,
       EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
       EGL_NONE
    };
@@ -513,6 +196,9 @@ event_loop(Display *dpy, Window win,
    tv_next.tv_sec = tv.tv_sec + 10;
    tv_next.tv_usec = 0;
 
+   int x11_fd = XConnectionNumber(dpy);
+   std::cout << "x11_fd = " << x11_fd << std::endl;
+
    while (1) {
       int redraw = 0;
       XEvent event;
@@ -535,7 +221,7 @@ event_loop(Display *dpy, Window win,
             redraw = 1;
             break;
          case ConfigureNotify:
-            resize(event.xconfigure.width, event.xconfigure.height);
+            resize (event.xconfigure.width, event.xconfigure.height);
             redraw = 1;
             break;
          case KeyPress:
