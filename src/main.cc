@@ -55,7 +55,8 @@ init(void)
    assert(p);
 #endif
 
-   charVdev = new zutty::CharVdev (fontpath + fontname + fontext);
+   charVdev = new zutty::CharVdev (fontpath + fontname + fontext,
+                                   fontpath + fontname + "B" + fontext);
 }
 
 /*

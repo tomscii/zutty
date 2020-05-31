@@ -19,7 +19,7 @@ namespace {
 
 layout (local_size_x = 1, local_size_y = 1) in;
 layout (rgba32f, binding = 0) writeonly lowp uniform image2D imgOut;
-layout (binding = 1) uniform lowp sampler2D atlas;
+layout (binding = 1) uniform lowp sampler2DArray atlas;
 layout (binding = 2) uniform lowp sampler2D text;
 uniform lowp ivec2 glyphPixels;
 uniform lowp ivec2 sizeChars;
@@ -44,14 +44,16 @@ void main () {
    int idx = sizeChars.x * charPos.y + charPos.x;
    highp int charData = vmem.cells[idx].charData;
    ivec2 charCode =
-        ivec2 (bitfieldExtract (charData, 0, 8),  // Lowest byte
-               bitfieldExtract (charData, 8, 8)); // Next-lowest byte
+      ivec2 (bitfieldExtract (charData, 0, 8),  // Lowest byte
+             bitfieldExtract (charData, 8, 8)); // Next-lowest byte
+   int fontIdx = 1; // TODO extract from charData
    ivec2 atlasPos = charCode; // TODO lookup in atlas mapping
 
    for (int j = 0; j < glyphPixels.x; j++) {
       for (int k = 0; k < glyphPixels.y; k++) {
          ivec2 txCoords = atlasPos * glyphPixels + ivec2 (j, k);
-         vec4 pixel = vec4 (color * texelFetch (atlas, txCoords, 0).r, 1.0);
+         ivec3 txc = ivec3 (txCoords, fontIdx);
+         vec4 pixel = vec4 (color * texelFetch (atlas, txc, 0).r, 1.0);
          ivec2 pxCoords = charPos * glyphPixels + ivec2 (j, k);
          imageStore (imgOut, pxCoords, pixel);
       }
@@ -124,7 +126,7 @@ void main () {
    }
 
    void
-   setupTexture (GLuint target, GLuint& texture)
+   setupTexture (GLuint target, GLenum type, GLuint& texture)
    {
       if (texture)
       {
@@ -132,12 +134,12 @@ void main () {
       }
       glGenTextures (1, &texture);
       glActiveTexture (target);
-      glBindTexture (GL_TEXTURE_2D, texture);
+      glBindTexture (type, texture);
       glPixelStorei (GL_UNPACK_ALIGNMENT, 1);
-      glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-      glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-      glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri (type, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri (type, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glTexParameteri (type, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexParameteri (type, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
    }
 }
 
@@ -146,6 +148,7 @@ namespace zutty {
    CharVdev::CharVdev (const std::string& priFontPath,
                        const std::string& altFontPath)
       : fnt (priFontPath)
+      , fnt2 (altFontPath, fnt)
    {
       createShaders ();
 
@@ -185,10 +188,28 @@ namespace zutty {
       glUniform2i (compU_sizeChars, nCols, nRows);
       glCheckError ();
 
-      setupTexture (GL_TEXTURE1, T_atlas);
-      glTexImage2D (GL_TEXTURE_2D, 0, GL_RED,
-                    fnt.getPx () * fnt.getNx (), fnt.getPy () * fnt.getNy (),
-                    0, GL_RED, GL_UNSIGNED_BYTE, fnt.getAtlas ());
+      setupTexture (GL_TEXTURE1, GL_TEXTURE_2D_ARRAY, T_atlas);
+      glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_R8,
+                     fnt.getPx () * fnt.getNx (), fnt.getPy () * fnt.getNy (),
+                     2);
+      glCheckError ();
+
+      glTexSubImage3D(GL_TEXTURE_2D_ARRAY,
+                      0,    // mipmap level, always zero
+                      0, 0, // X and Y offsets into texture area
+                      0,    // layer index offset
+                      fnt.getPx () * fnt.getNx (), fnt.getPy () * fnt.getNy (),
+                      1,    // number of layers, i.e., fonts, loaded
+                      GL_RED, GL_UNSIGNED_BYTE, fnt.getAtlasData ());
+      glCheckError ();
+
+      glTexSubImage3D(GL_TEXTURE_2D_ARRAY,
+                      0,    // mipmap level, always zero
+                      0, 0, // X and Y offsets into texture area
+                      1,    // layer index offset
+                      fnt2.getPx () * fnt2.getNx (), fnt2.getPy () * fnt2.getNy (),
+                      1,    // number of layers, i.e., fonts, loaded
+                      GL_RED, GL_UNSIGNED_BYTE, fnt2.getAtlasData ());
       glCheckError ();
    }
 
@@ -223,7 +244,7 @@ namespace zutty {
 
       glUniform2i (compU_sizeChars, nCols, nRows);
 
-      setupTexture (GL_TEXTURE0, T_output);
+      setupTexture (GL_TEXTURE0, GL_TEXTURE_2D, T_output);
       glTexStorage2D (GL_TEXTURE_2D, 1, GL_RGBA32F, viewWidth, viewHeight);
       glBindImageTexture (0, T_output, 0, GL_FALSE, 0, GL_WRITE_ONLY,
                           GL_RGBA32F);
@@ -274,6 +295,17 @@ namespace zutty {
             cnt /= 10;
             --cCol;
          }
+#if 0
+         for (int i = 0; i < 10; ++i)
+         {
+            uint16_t c1 = rand () % nCols;
+            uint16_t r1 = rand () % nRows;
+            uint16_t c2 = rand () % nCols;
+            uint16_t r2 = rand () % nRows;
+
+            std::swap (cells [r1 * nCols + c1], cells [r2 * nCols + c2]);
+         }
+#endif
          glUnmapBuffer (GL_SHADER_STORAGE_BUFFER);
          glCheckError ();
       }
@@ -282,7 +314,7 @@ namespace zutty {
       glActiveTexture (GL_TEXTURE0);
       glBindTexture (GL_TEXTURE_2D, T_output);
       glActiveTexture (GL_TEXTURE1);
-      glBindTexture (GL_TEXTURE_2D, T_atlas);
+      glBindTexture (GL_TEXTURE_2D_ARRAY, T_atlas);
       glBindBuffer (GL_SHADER_STORAGE_BUFFER, B_text);
       glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, B_text);
       glCheckError ();

@@ -62,12 +62,13 @@ those presenting their screen to an audience.
 
 *** Output image texture
 
-Dimensions: according to the window size. This texture is rendered
-onto the window area using a quad. All the work of rendering the
-terminal window content is done by the compute shader that computes
-color values of individual pixels in this texture.
+Dimensions: according to the character grid size (window size, less
+fraction-of-char border area at the bottom and right edges). This
+texture is rendered onto the viewport area using a quad. All the work
+of computing the terminal window content is done by the compute shader
+that sets color values of individual pixels in this texture.
 
-*** Glyph atlas texture(s)
+*** Glyph atlas texture
 
 Dimensions: auto-computed based on the number of glyphs in the font
 and the glyph dimensions, to produce a pixel size as close to square
@@ -79,59 +80,66 @@ both dimensions (in character positions) will fit into a single byte
 
 Encoding: 1 byte per texel, gray-scale (0 = black, 255 = white)
 
-There are actually two atlas textures, one for the primary and
-(optionally) one for the alternate font face. Since the alternate font
-will frequently contain much less glyphs, it would be a waste of
-memory to have identically sized atlasses. Instead, we have separate
-atlasses and separate mappings from Unicode code points to atlas
-positions (see [[Glyph mapping texture]] below).
+The atlas texture is stored as a 2D array with one layer for each font
+face loaded. The mapping from unicode code point to atlas grid
+location is the same across fonts, and is determined by the primary
+font (loaded into texture array index 0). Each subsequent layer starts
+out as a copy of the primary atlas layer, with glyphs successively
+overwritten for each defined code point in the alternate font. This
+means that when referencing an alternate font, the shader does not
+have to care about whether the alternate font has a glyph for the
+given code point -- if nothing else, the primary font's glyph will be
+present.
 
-*** Glyph mapping texture
+** Shader Storage Buffer objects
 
-Dimensions: 256x256 (64k) texels, filled with 4 bytes per texel.
+*** Glyph mapping
 
-Each texel refers to a 16 bit Unicode code point that
-corresponds to the row and column (256 * row + col) of the texel.
-That is, row = MSB(Ucodep) and col = LSB(Ucodep).
-This allows direct lookups for any 16 bit Unicode code point.
+The mapping array contains 64k entries that map all 16-bit unicode
+code points to an atlas grid position. Each entry takes up 16 bits (8
+bits for either atlas grid coordinate).
 
-The values stored in the texture:
-- r (byte 0): atlas row of glyph (primary font)
-- g (byte 1): atlas col of glyph (primary font)
-- b (byte 2): atlas row of glyph (alternate font)
-- a (byte 3): atlas col of glyph (alternate font)
+This allows direct lookups for any 16 bit Unicode code point in the
+shader and allows the simulated character video memory to take unicode
+code points, simplifying the client.
 
-If the (row,col) stored is (0,0), that means there is no glyph
-for that code point in the font. If we are looking at the alterate
-font, this means we should look at the primary font instead.
-Otherwise, the glyph stored at (0,0) in the atlas will be rendered.
-Currently the font loader ensures that this is a blank glyph.
+If the value stored for atlas (row,col) is (0,0), that means there is
+no glyph for that code point in the font. As a measure of convenience,
+the font loader ensures that this is a blank glyph.
 
-*** Input "char-based video memory" texture
+*** Input "character video memory"
 
-Dimensions: according to the terminal size (rows x cols in
-characters), filled with 4 bytes per texel. Each texel refers to one
-character position in the terminal display's character grid.
+An array of Cell structures, with total length according to the
+terminal size (rows x cols in characters). This array constitutes the
+character video memory as seen by the client, and can be manipulated
+directly through a client-side mapping of the SSBO.
 
-The values stored in the texture:
-- r (byte 0): Unicode code point (high byte)
-- g (byte 1): Unicode code point (low byte)
-- b (byte 2): attrs
-- a (byte 3): attrs
-
-Attributes (:bits)
+The values stored for each Cell:
+- unicode code point
+- attributes: font face, inverse video, underline, blink
 - foreground color
 - background color
-- alt-font: 1
-- blink: 1
-- underlined: 1
-- reverse video: 1
+
+Each cell takes up 12 bytes, with 3 bytes currently unused (available
+for future extensions).
+
+** Synchronization
+
+The main event loop multiplexes on
+- the pty master fd;
+- the fd of the X connection socket.
+
+Multiplexer timeouts are calculated according to the next screen
+redraw, if one is already scheduled.
+
+We want to support both synchronous and asynchronous scrolling.
+Synchronous: we make sure that everything will be drawn before it gets
+overwritten (cannot scroll more than one screen per refresh).
+Asynchronous: process as many updates as possible between each
+refresh, which occurs with a maximum rate equal to the display's
+refresh rate.
 
 ** TODO
 
 How does the vsync work?
 EGL_KHR_wait_sync ?
-
-How fast is glTexImage2D()?
-Fastest way to push new array data to shaders?
-SSBs with glBufferData / glMapBufferRange?

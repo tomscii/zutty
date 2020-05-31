@@ -25,26 +25,38 @@ namespace zutty {
       load ();
    }
 
-   Font::~Font ()
+   /* Load an alternate font based on an already loaded primary font,
+    * conforming to the same atlas geometry (incl. position mapping)
+    * and starting with a copy of the atlas texture data.
+    * It is an error if the alternate font has different geometry.
+    * Any code point not having a glyph in the alternate font will
+    * have the glyph of the primary font in its atlas.
+    */
+   Font::Font (const std::string& filename_, const Font& priFont)
+      : filename (filename_)
+      , px (priFont.getPx ())
+      , py (priFont.getPy ())
+      , nx (priFont.getNx ())
+      , ny (priFont.getNy ())
+      , atlasBuf (priFont.getAtlas ())
+      , atlasMap (priFont.getAtlasMap ())
    {
+      load (true); // load as overlay
    }
 
    // private methods
 
    /* Load font from glyph bitmaps rasterized by FreeType.
     * Store the bitmaps into an atlas bitmap stored in atlasBuf.
-    *
-    * TODO: load mappings from unicode code point to atlas location
-    * to a user-supplied matrix.
     */
-   void Font::load ()
+   void Font::load (bool overlay)
    {
       FT_Library ft;
       FT_Face face;
 
       if (FT_Init_FreeType (&ft))
          throw std::runtime_error ("Could not initialize FreeType library");
-      std::cout << "Loading " << filename << std::endl;
+      std::cout << "Loading " << filename << " as overlay" << std::endl;
       if (FT_New_Face (ft, filename.c_str (), 0, &face))
          throw std::runtime_error (std::string ("Failed to load font ") + filename);
 
@@ -62,9 +74,26 @@ namespace zutty {
          std::cout << " " << face->available_sizes[i].width
                    << "x" << face->available_sizes[i].height;
       std::cout << std::endl;
+
       // Just use the first available size for now (FIXME)
-      px = face->available_sizes[0].width;
-      py = face->available_sizes[0].height;
+      const auto& facesize = face->available_sizes[0];
+
+      if (overlay)
+      {
+         if (px != facesize.width)
+            throw std::runtime_error (
+               filename + ": size mismatch, expected px=" + std::to_string (px)
+               + ", got: " + std::to_string (facesize.width));
+         if (py != facesize.height)
+            throw std::runtime_error (
+               filename + ": size mismatch, expected py=" + std::to_string (py)
+               + ", got: " + std::to_string (facesize.height));
+      }
+      else
+      {
+         px = facesize.width;
+         py = facesize.height;
+      }
       std::cout << "Loading size " << px << "x" << py << std::endl;
 
       if (FT_Set_Pixel_Sizes (face, px, py))
@@ -80,6 +109,7 @@ namespace zutty {
        * means that its pixel size won't be as close to a square as
        * otherwise possible.
        */
+      if (!overlay)
       {
          unsigned n_glyphs = face->num_glyphs + 1;
          unsigned long total_pixels = n_glyphs * px * py;
@@ -102,22 +132,29 @@ namespace zutty {
                    << nx*ny - n_glyphs << " ("
                    << 100.0 * (nx*ny - n_glyphs) / (nx*ny)
                    << "%)" << std::endl;
+
+         size_t atlas_bytes = nx * px * ny * py;
+         std::cout << "Allocating " << atlas_bytes << " bytes for atlas buffer"
+                   << std::endl;
+         atlasBuf.resize (atlas_bytes, 0);
       }
 
-      size_t atlas_bytes = nx * px * ny * py;
-      std::cout << "Allocating " << atlas_bytes << " bytes for atlas buffer"
-                << std::endl;
-      atlasBuf.resize (atlas_bytes, 0);
-
-      FT_ULong charcode;
       FT_UInt gindex;
-      charcode = FT_Get_First_Char (face, &gindex);
+      FT_ULong charcode = FT_Get_First_Char (face, &gindex);
       while (gindex != 0)
       {
-         //std::cout << "charcode=" << charcode
-         //          << " -> index=" << gindex
-         //          << std::endl;
-         loadFace (face, charcode);
+         if (overlay)
+         {
+            const auto& it = atlasMap.find (charcode);
+            if (it != atlasMap.end ())
+            {
+               loadFace (face, charcode, it->second);
+            }
+         }
+         else
+         {
+            loadFace (face, charcode);
+         }
          charcode = FT_Get_Next_Char (face, charcode, &gindex);
       }
 
@@ -125,9 +162,28 @@ namespace zutty {
       FT_Done_FreeType (ft);
    }
 
-   void Font::loadFace (FT_Face face, FT_ULong c)
+   void Font::loadFace (const FT_Face& face, FT_ULong c)
    {
-      if (FT_Load_Char (face, c, FT_LOAD_RENDER)) {
+      const uint8_t atlas_row = atlas_seq / nx;
+      const uint8_t atlas_col = atlas_seq - nx * atlas_row;
+      const AtlasPos apos = {atlas_col, atlas_row};
+
+      loadFace (face, c, apos);
+      atlasMap [c] = apos;
+      ++atlas_seq;
+   }
+
+   void Font::loadFace (const FT_Face& face, FT_ULong c, const AtlasPos& apos)
+   {
+      if (c > std::numeric_limits<uint16_t>::max ())
+      {
+         std::cout << "loadFace: skipping code point " << c
+                   << " as it exceeds 16 bits storage limit."
+                   << std::endl;
+      }
+
+      if (FT_Load_Char (face, c, FT_LOAD_RENDER))
+      {
          throw std::runtime_error (
             std::string ("FreeType: Failed to load glyph for char ") +
             std::to_string (c));
@@ -138,22 +194,11 @@ namespace zutty {
             std::string ("FreeType: Failed to render glyph for char ") +
             std::to_string (c));
 
-      /* Start with 1 so as to leave a blank glyph at (0,0).
-       * This blank will get referenced for any out-of-bounds text position
-       * lookup in the shader, and guarantees that no fractional glyphs will
-       * be shown at the right and bottom edges.
-       * Also, any glyph mapping lookup that results in (0,0) means that the
-       * character code does not exist in the atlas.
-       */
-      static unsigned seq = 1;
-      int atlas_row = seq / nx;
-      int atlas_col = seq - nx * atlas_row;
+      const int atlas_row_offset = nx * px * py;
+      const int atlas_glyph_offset = apos.y * atlas_row_offset + apos.x * px;
 
-      int atlas_row_offset = nx * px * py;
-      int atlas_glyph_offset = atlas_row * atlas_row_offset + atlas_col * px;
-
-      unsigned int bh = face->glyph->bitmap.rows;
-      unsigned int bw = face->glyph->bitmap.width;
+      const unsigned int bh = face->glyph->bitmap.rows;
+      const unsigned int bw = face->glyph->bitmap.width;
 
       /* Load bitmap into atlas buffer area. Each row in the bitmap
        * occupies bitmap.pitch bytes (with padding); this is the
@@ -165,7 +210,7 @@ namespace zutty {
        *
        */
       const auto& bmp = face->glyph->bitmap;
-      uint8_t* bmp_src_row;
+      const uint8_t* bmp_src_row;
       uint8_t* atl_dst_row;
       switch (bmp.pixel_mode)
       {
@@ -197,8 +242,6 @@ namespace zutty {
             std::string ("Unhandled pixel_type=") +
             std::to_string (bmp.pixel_mode));
       }
-
-      ++seq;
    }
 
 } // namespace zutty

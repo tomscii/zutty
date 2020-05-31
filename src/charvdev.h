@@ -56,6 +56,7 @@ namespace zutty {
       uint16_t pxWidth;
       uint16_t pxHeight;
       Font fnt;
+      Font fnt2;
 
       // GL ids of programs, textures, attributes and uniforms:
       GLuint P_compute, P_draw;
