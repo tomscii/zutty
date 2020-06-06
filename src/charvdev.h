@@ -30,11 +30,14 @@ namespace zutty {
    struct Cell
    {
       uint16_t uc_pt;
-      uint16_t attrs;
+      uint8_t bold: 1;
+      uint8_t underline: 1;
+      uint8_t inverse: 1;
+      uint16_t _fill0: 13;
       Color fg;
-      uint8_t fill2_;
+      uint8_t _fill1;
       Color bg;
-      uint8_t fill3_;
+      uint8_t _fill2;
    };
 
    static_assert (sizeof (Cell) == 12);

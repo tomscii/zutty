@@ -36,28 +36,51 @@ layout (std430, binding = 0) buffer CharVideoMem
    Cell cells[];
 } vmem;
 
-void main () {
-
-   vec3 color = vec3 (0.85, 0.85, 0.85);
-
+void main ()
+{
    ivec2 charPos = ivec2 (gl_GlobalInvocationID.xy);
    int idx = sizeChars.x * charPos.y + charPos.x;
-   highp uint charData = vmem.cells[idx].charData;
+   Cell cell = vmem.cells[idx];
 
    ivec2 charCode =
-      ivec2 (bitfieldExtract (charData, 0, 8),  // Lowest byte
-             bitfieldExtract (charData, 8, 8)); // Next-lowest byte
+      ivec2 (bitfieldExtract (cell.charData, 0, 8),  // Lowest byte
+             bitfieldExtract (cell.charData, 8, 8)); // Next-lowest byte
 
-   int fontIdx = 1; // TODO extract from charData
+   // fontIdx == 0 -> Normal; 1 -> Bold
+   uint fontIdx = bitfieldExtract (cell.charData, 16, 1);
+   uint underline = bitfieldExtract (cell.charData, 17, 1);
+   uint inverse = bitfieldExtract (cell.charData, 18, 1);
 
    ivec2 atlasPos = ivec2 (vec2 (256) * texelFetch (atlasMap, charCode, 0).zw);
+
+   vec3 fgColor = vec3 (float (bitfieldExtract (cell.fg, 0, 8)),
+                        float (bitfieldExtract (cell.fg, 8, 8)),
+                        float (bitfieldExtract (cell.fg, 16, 8))) / 255.0;
+
+   vec3 bgColor = vec3 (float (bitfieldExtract (cell.bg, 0, 8)),
+                        float (bitfieldExtract (cell.bg, 8, 8)),
+                        float (bitfieldExtract (cell.bg, 16, 8))) / 255.0;
+
+   if (inverse == uint (1)) {
+      fgColor = vec3 (1.0) - fgColor;
+      bgColor = vec3 (1.0) - bgColor;
+   }
 
    for (int j = 0; j < glyphPixels.x; j++) {
       for (int k = 0; k < glyphPixels.y; k++) {
          ivec2 txCoords = atlasPos * glyphPixels + ivec2 (j, k);
          ivec3 txc = ivec3 (txCoords, fontIdx);
-         vec4 pixel = vec4 (color * texelFetch (atlas, txc, 0).r, 1.0);
+         float lumi = texelFetch (atlas, txc, 0).r;
+         vec4 pixel = vec4 (fgColor * lumi + bgColor * (1.0 - lumi), 1.0);
          ivec2 pxCoords = charPos * glyphPixels + ivec2 (j, k);
+         imageStore (imgOut, pxCoords, pixel);
+      }
+   }
+
+   if (underline == uint (1)) {
+      for (int j = 0; j < glyphPixels.x; j++) {
+         vec4 pixel = vec4 (fgColor, 1.0);
+         ivec2 pxCoords = charPos * glyphPixels + ivec2 (j, glyphPixels.y - 1);
          imageStore (imgOut, pxCoords, pixel);
       }
    }
@@ -71,7 +94,8 @@ layout (location = 1) in lowp vec2 vertexTexCoord;
 
 out vec2 texCoord;
 
-void main () {
+void main ()
+{
    texCoord = vertexTexCoord;
    gl_Position = vec4 (pos, 0.0, 1.0);
 }
@@ -87,7 +111,8 @@ uniform highp vec2 viewPixels;
 
 layout (location = 0) out lowp vec4 outColor;
 
-void main () {
+void main ()
+{
    outColor = imageLoad (imgOut, ivec2 (texCoord * viewPixels));
 }
 )";
@@ -291,17 +316,32 @@ namespace zutty {
       const Cell * cellsEnd = & cells [nRows * nCols];
       glCheckError ();
 
+      Color fg = {255, 255, 255};
+      Color bg = {0, 0, 0};
+      uint16_t prev_uc = 0;
       auto it = fnt.getAtlasMap ().begin ();
       const auto itEnd = fnt.getAtlasMap ().end ();
       for ( ; it != itEnd && cells < cellsEnd; ++it, ++cells)
       {
+         if (prev_uc + 1 != it->first)
+         {
+            bg.red = rand () % 128;
+            bg.blue = rand () % 128;
+            bg.green = rand () % 128;
+         }
+         prev_uc = it->first;
+
          (* cells).uc_pt = it->first;
-         (* cells).attrs = 0;
+         (* cells).bold = 1;
+         (* cells).fg = fg;
+         (* cells).bg = bg;
       }
       for ( ; cells < cellsEnd; ++cells)
       {
          (* cells).uc_pt = ' ';
-         (* cells).attrs = 0;
+         (* cells).bold = 0;
+         (* cells).fg = {0, 0, 0};
+         (* cells).bg = {0, 0, 0};
       }
       glUnmapBuffer (GL_SHADER_STORAGE_BUFFER);
       glCheckError ();
@@ -320,10 +360,22 @@ namespace zutty {
             GL_MAP_WRITE_BIT);
          glCheckError ();
 
+         uint32_t nGlyphs = fnt.getAtlasMap ().size ();
+         if (nGlyphs > nRows * nCols)
+            nGlyphs = nRows * nCols;
+         for (uint32_t k = 0; k < nGlyphs; ++k)
+         {
+            cells [k].bold = (draw_count >> 3) & 1;
+            cells [k].underline = (draw_count >> 4) & 1;
+            cells [k].inverse = ((draw_count >> 5) & 3) == 3;
+         }
+
          while (cnt)
          {
             uint32_t digit = (cnt % 10) + '0';
             cells [cRow * nCols + cCol].uc_pt = digit;
+            cells [cRow * nCols + cCol].fg = {255, 255, 255};
+            cells [cRow * nCols + cCol].bg = {0, 0, 0};
             cnt /= 10;
             --cCol;
          }
