@@ -44,6 +44,12 @@ namespace zutty {
       load (true); // load as overlay
    }
 
+   void Font::clearAtlasData ()
+   {
+      atlasBuf.clear ();
+      atlasBuf.shrink_to_fit ();
+   }
+
    // private methods
 
    /* Load font from glyph bitmaps rasterized by FreeType.

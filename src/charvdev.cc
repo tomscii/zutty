@@ -20,15 +20,15 @@ namespace {
 layout (local_size_x = 1, local_size_y = 1) in;
 layout (rgba32f, binding = 0) writeonly lowp uniform image2D imgOut;
 layout (binding = 1) uniform lowp sampler2DArray atlas;
-layout (binding = 2) uniform lowp sampler2D text;
+layout (binding = 2) uniform lowp sampler2D atlasMap;
 uniform lowp ivec2 glyphPixels;
 uniform lowp ivec2 sizeChars;
 
 struct Cell
 {
-   highp int charData;
-   highp int fg;
-   highp int bg;
+   highp uint charData;
+   highp uint fg;
+   highp uint bg;
 };
 
 layout (std430, binding = 0) buffer CharVideoMem
@@ -42,12 +42,15 @@ void main () {
 
    ivec2 charPos = ivec2 (gl_GlobalInvocationID.xy);
    int idx = sizeChars.x * charPos.y + charPos.x;
-   highp int charData = vmem.cells[idx].charData;
+   highp uint charData = vmem.cells[idx].charData;
+
    ivec2 charCode =
       ivec2 (bitfieldExtract (charData, 0, 8),  // Lowest byte
              bitfieldExtract (charData, 8, 8)); // Next-lowest byte
+
    int fontIdx = 1; // TODO extract from charData
-   ivec2 atlasPos = charCode; // TODO lookup in atlas mapping
+
+   ivec2 atlasPos = ivec2 (vec2 (256) * texelFetch (atlasMap, charCode, 0).zw);
 
    for (int j = 0; j < glyphPixels.x; j++) {
       for (int k = 0; k < glyphPixels.y; k++) {
@@ -141,6 +144,23 @@ void main () {
       glTexParameteri (type, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       glTexParameteri (type, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
    }
+
+   template <typename T> T *
+   setupStorageBuffer (GLuint index, GLuint& buffer, uint32_t n_items)
+   {
+      if (buffer)
+      {
+         glDeleteBuffers (1, &buffer);
+      }
+      glGenBuffers (1, &buffer);
+      glBindBuffer (GL_SHADER_STORAGE_BUFFER, buffer);
+      glBindBufferBase (GL_SHADER_STORAGE_BUFFER, index, buffer);
+      std::size_t size = sizeof (T) * n_items;
+      glBufferData (GL_SHADER_STORAGE_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
+      return reinterpret_cast <T *> (
+         glMapBufferRange (GL_SHADER_STORAGE_BUFFER, 0, size,
+                           GL_MAP_WRITE_BIT));
+   }
 }
 
 namespace zutty {
@@ -188,6 +208,7 @@ namespace zutty {
       glUniform2i (compU_sizeChars, nCols, nRows);
       glCheckError ();
 
+      // Setup atlas texture
       setupTexture (GL_TEXTURE1, GL_TEXTURE_2D_ARRAY, T_atlas);
       glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_R8,
                      fnt.getPx () * fnt.getNx (), fnt.getPy () * fnt.getNy (),
@@ -202,15 +223,31 @@ namespace zutty {
                       1,    // number of layers, i.e., fonts, loaded
                       GL_RED, GL_UNSIGNED_BYTE, fnt.getAtlasData ());
       glCheckError ();
+      fnt.clearAtlasData ();
 
       glTexSubImage3D(GL_TEXTURE_2D_ARRAY,
                       0,    // mipmap level, always zero
                       0, 0, // X and Y offsets into texture area
                       1,    // layer index offset
-                      fnt2.getPx () * fnt2.getNx (), fnt2.getPy () * fnt2.getNy (),
+                      fnt.getPx () * fnt.getNx (), fnt.getPy () * fnt.getNy (),
                       1,    // number of layers, i.e., fonts, loaded
                       GL_RED, GL_UNSIGNED_BYTE, fnt2.getAtlasData ());
       glCheckError ();
+      fnt2.clearAtlasData ();
+
+      // Setup atlas mapping texture
+      auto atlasMap = std::vector <uint8_t> ();
+      atlasMap.resize (2 * 256 * 256, 0);
+      auto it = fnt.getAtlasMap ().begin ();
+      auto itEnd = fnt.getAtlasMap ().end ();
+      for (; it != itEnd; ++it)
+      {
+         atlasMap [2 * it->first] = it->second.x;
+         atlasMap [2 * it->first + 1] = it->second.y;
+      }
+      setupTexture (GL_TEXTURE2, GL_TEXTURE_2D, T_atlasMap);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE_ALPHA, 256, 256, 0,
+                   GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE, atlasMap.data ());
    }
 
    CharVdev::~CharVdev ()
@@ -250,26 +287,21 @@ namespace zutty {
                           GL_RGBA32F);
       glCheckError ();
 
-      if (B_text)
-      {
-         glDeleteBuffers (1, &B_text);
-      }
-      glGenBuffers (1, &B_text);
-      glBindBuffer (GL_SHADER_STORAGE_BUFFER, B_text);
-      glBindBufferBase (GL_SHADER_STORAGE_BUFFER, 0, B_text);
-      glBufferData (GL_SHADER_STORAGE_BUFFER, sizeof (Cell) * nRows * nCols,
-                    nullptr, GL_DYNAMIC_DRAW);
-      Cell* cells = (Cell*) glMapBufferRange (
-         GL_SHADER_STORAGE_BUFFER, 0, sizeof (Cell) * nRows * nCols,
-         GL_MAP_WRITE_BIT/* | GL_MAP_FLUSH_EXPLICIT_BIT*/);
+      Cell * cells = setupStorageBuffer <Cell> (0, B_text, nRows * nCols);
+      const Cell * cellsEnd = & cells [nRows * nCols];
       glCheckError ();
-      for (uint16_t j = 0; j < nRows; ++j)
+
+      auto it = fnt.getAtlasMap ().begin ();
+      const auto itEnd = fnt.getAtlasMap ().end ();
+      for ( ; it != itEnd && cells < cellsEnd; ++it, ++cells)
       {
-         for (uint16_t k = 0; k < nCols; ++k)
-         {
-            cells [j * nCols + k].uc_pt = k > 255 ? 0 : 256 * j + k;
-            cells [j * nCols + k].attrs = 0;
-         }
+         (* cells).uc_pt = it->first;
+         (* cells).attrs = 0;
+      }
+      for ( ; cells < cellsEnd; ++cells)
+      {
+         (* cells).uc_pt = ' ';
+         (* cells).attrs = 0;
       }
       glUnmapBuffer (GL_SHADER_STORAGE_BUFFER);
       glCheckError ();
@@ -285,12 +317,12 @@ namespace zutty {
 
          Cell* cells = (Cell*) glMapBufferRange (
             GL_SHADER_STORAGE_BUFFER, 0, sizeof (Cell) * nRows * nCols,
-            GL_MAP_WRITE_BIT/* | GL_MAP_FLUSH_EXPLICIT_BIT*/);
+            GL_MAP_WRITE_BIT);
          glCheckError ();
 
          while (cnt)
          {
-            uint32_t digit = (cnt % 10) + 18;
+            uint32_t digit = (cnt % 10) + '0';
             cells [cRow * nCols + cCol].uc_pt = digit;
             cnt /= 10;
             --cCol;
@@ -315,8 +347,8 @@ namespace zutty {
       glBindTexture (GL_TEXTURE_2D, T_output);
       glActiveTexture (GL_TEXTURE1);
       glBindTexture (GL_TEXTURE_2D_ARRAY, T_atlas);
-      glBindBuffer (GL_SHADER_STORAGE_BUFFER, B_text);
-      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, B_text);
+      glActiveTexture (GL_TEXTURE2);
+      glBindTexture (GL_TEXTURE_2D, T_atlasMap);
       glCheckError ();
 
       glDispatchCompute (nCols, nRows, 1);

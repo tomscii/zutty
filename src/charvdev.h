@@ -58,10 +58,11 @@ namespace zutty {
       Font fnt;
       Font fnt2;
 
-      // GL ids of programs, textures, attributes and uniforms:
+      // GL ids of programs, buffers, textures, attributes and uniforms:
       GLuint P_compute, P_draw;
       GLuint B_text = 0;
       GLuint T_atlas = 0;
+      GLuint T_atlasMap = 0;
       GLuint T_output = 0;
       GLint A_pos, A_vertexTexCoord;
       GLint compU_glyphPixels, compU_sizeChars, drawU_viewPixels;

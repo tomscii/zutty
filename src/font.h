@@ -47,6 +47,12 @@ namespace zutty {
       const std::vector <uint8_t>& getAtlas () const { return atlasBuf; };
       const uint8_t* getAtlasData () const { return atlasBuf.data (); };
 
+      /* Release memory held by the atlas buffer. To be called after
+       * getAtlasData () has been called and its contents have been loaded
+       * into OpenGL memory, so it is no longer needed in main memory.
+       */
+      void clearAtlasData ();
+
       struct AtlasPos {
          uint8_t x;
          uint8_t y;
