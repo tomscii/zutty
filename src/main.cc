@@ -24,30 +24,124 @@
 #include <string.h>
 #include <sys/time.h>
 
+using namespace zutty;
+
 static bool benchMode = false;
 
 static const std::string fontpath = "/usr/share/fonts/X11/misc/";
 static const std::string fontext = ".pcf.gz";
 static std::string fontname = "9x18";
-static zutty::CharVdev* charVdev = nullptr;
+static CharVdev* charVdev = nullptr;
 
 static int win_width = 400, win_height = 300;
 
+static uint32_t draw_count = 0;
+
 static void
-draw()
+demo_draw ()
 {
+   CharVdev::Mapping m = charVdev->getMapping ();
+   CharVdev::Cell* cells = m.cells;
+   uint16_t nCols = m.nCols;
+   uint16_t nRows = m.nRows;
+
+   uint16_t cRow = nRows - 1;
+   uint16_t cCol = nCols - 1;
+   uint32_t cnt = ++draw_count;
+
+   uint32_t nGlyphs = charVdev->getSupportedCodes ().size ();
+   if (nGlyphs > nRows * nCols)
+      nGlyphs = nRows * nCols;
+   for (uint32_t k = 0; k < nGlyphs; ++k)
+   {
+      cells [k].bold = (draw_count >> 3) & 1;
+      cells [k].underline = (draw_count >> 4) & 1;
+      cells [k].inverse = ((draw_count >> 5) & 3) == 3;
+   }
+
+   while (cnt)
+   {
+      uint32_t digit = (cnt % 10) + '0';
+      cells [cRow * nCols + cCol].uc_pt = digit;
+      cells [cRow * nCols + cCol].fg = {255, 255, 255};
+      cells [cRow * nCols + cCol].bg = {0, 0, 0};
+      cnt /= 10;
+      --cCol;
+   }
+#if 0
+   for (int i = 0; i < 10; ++i)
+   {
+      uint16_t c1 = rand () % nCols;
+      uint16_t r1 = rand () % nRows;
+      uint16_t c2 = rand () % nCols;
+      uint16_t r2 = rand () % nRows;
+
+      std::swap (cells [r1 * nCols + c1], cells [r2 * nCols + c2]);
+   }
+#endif
+   // m gets unmapped here
+}
+
+static void
+demo_resize ()
+{
+   CharVdev::Mapping m = charVdev->getMapping ();
+   CharVdev::Cell * cells = m.cells;
+   uint16_t nCols = m.nCols;
+   uint16_t nRows = m.nRows;
+
+   const CharVdev::Cell * cellsEnd = & cells [nRows * nCols];
+
+   CharVdev::Color fg = {255, 255, 255};
+   CharVdev::Color bg = {0, 0, 0};
+   uint16_t prev_uc = 0;
+   const auto & allCodes = charVdev->getSupportedCodes ();
+   auto it = allCodes.begin ();
+   const auto itEnd = allCodes.end ();
+   for ( ; it != itEnd && cells < cellsEnd; ++it, ++cells)
+   {
+      if (prev_uc + 1 != *it)
+      {
+         bg.red = rand () % 128;
+         bg.blue = rand () % 128;
+         bg.green = rand () % 128;
+      }
+      prev_uc = *it;
+
+      (* cells).uc_pt = *it;
+      (* cells).bold = 1;
+      (* cells).fg = fg;
+      (* cells).bg = bg;
+   }
+   for ( ; cells < cellsEnd; ++cells)
+   {
+      (* cells).uc_pt = ' ';
+      (* cells).bold = 0;
+      (* cells).fg = {0, 0, 0};
+      (* cells).bg = {0, 0, 0};
+   }
+   // m gets unmapped here
+}
+
+static void
+draw ()
+{
+   demo_draw ();
+
    charVdev->draw ();
 }
 
 /* new window size or exposure */
 static void
-resize(int width, int height)
+resize (int width, int height)
 {
    charVdev->resize (width, height);
+
+   demo_resize ();
 }
 
 static void
-init(void)
+init ()
 {
 #if 1 /* test code */
    typedef void (*proc)();
@@ -55,8 +149,8 @@ init(void)
    assert(p);
 #endif
 
-   charVdev = new zutty::CharVdev (fontpath + fontname + fontext,
-                                   fontpath + fontname + "B" + fontext);
+   charVdev = new CharVdev (fontpath + fontname + fontext,
+                            fontpath + fontname + "B" + fontext);
 }
 
 /*
@@ -64,12 +158,11 @@ init(void)
  * Return the window and context handles.
  */
 static void
-make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
-              const char *name,
-              int x, int y, int width, int height,
-              Window *winRet,
-              EGLContext *ctxRet,
-              EGLSurface *surfRet)
+make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
+               const char * name,
+               int x, int y, int width, int height,
+               Window *winRet, EGLContext * ctxRet,
+               EGLSurface * surfRet)
 {
    static const EGLint attribs[] = {
       EGL_RED_SIZE, 8,
@@ -95,40 +188,40 @@ make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
    EGLint num_configs;
    EGLint vid;
 
-   scrnum = DefaultScreen( x_dpy );
-   root = RootWindow( x_dpy, scrnum );
+   scrnum = DefaultScreen (x_dpy);
+   root = RootWindow (x_dpy, scrnum);
 
-   if (!eglChooseConfig( egl_dpy, attribs, &config, 1, &num_configs)) {
+   if (!eglChooseConfig (egl_dpy, attribs, &config, 1, &num_configs)) {
       std::cerr << "Error: couldn't get an EGL visual config" << std::endl;
       exit(1);
    }
 
-   assert(config);
-   assert(num_configs > 0);
+   assert (config);
+   assert (num_configs > 0);
 
-   if (!eglGetConfigAttrib(egl_dpy, config, EGL_NATIVE_VISUAL_ID, &vid)) {
+   if (!eglGetConfigAttrib (egl_dpy, config, EGL_NATIVE_VISUAL_ID, &vid)) {
       std::cerr << "Error: eglGetConfigAttrib() failed" << std::endl;
-      exit(1);
+      exit (1);
    }
 
    /* The X window visual must match the EGL config */
    visTemplate.visualid = vid;
-   visInfo = XGetVisualInfo(x_dpy, VisualIDMask, &visTemplate, &num_visuals);
+   visInfo = XGetVisualInfo (x_dpy, VisualIDMask, &visTemplate, &num_visuals);
    if (!visInfo) {
       std::cerr << "Error: couldn't get X visual" << std::endl;
-      exit(1);
+      exit (1);
    }
 
    /* window attributes */
    attr.background_pixel = 0;
    attr.border_pixel = 0;
-   attr.colormap = XCreateColormap( x_dpy, root, visInfo->visual, AllocNone);
+   attr.colormap = XCreateColormap (x_dpy, root, visInfo->visual, AllocNone);
    attr.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask;
    mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
 
-   win = XCreateWindow(x_dpy, root, 0, 0, width, height,
-                       0, visInfo->depth, InputOutput,
-                       visInfo->visual, mask, &attr);
+   win = XCreateWindow (x_dpy, root, 0, 0, width, height,
+                        0, visInfo->depth, InputOutput,
+                        visInfo->visual, mask, &attr);
 
    /* set hints and properties */
    {
@@ -138,45 +231,45 @@ make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
       sizehints.width  = width;
       sizehints.height = height;
       sizehints.flags = USSize | USPosition;
-      XSetNormalHints(x_dpy, win, &sizehints);
-      XSetStandardProperties(x_dpy, win, name, name,
-                             None, nullptr, 0, &sizehints);
+      XSetNormalHints (x_dpy, win, &sizehints);
+      XSetStandardProperties (x_dpy, win, name, name,
+                              None, nullptr, 0, &sizehints);
    }
 
-   eglBindAPI(EGL_OPENGL_ES_API);
+   eglBindAPI (EGL_OPENGL_ES_API);
 
-   ctx = eglCreateContext(egl_dpy, config, EGL_NO_CONTEXT, ctx_attribs );
+   ctx = eglCreateContext (egl_dpy, config, EGL_NO_CONTEXT, ctx_attribs);
    if (!ctx) {
       std::cerr << "Error: eglCreateContext failed" << std::endl;
-      exit(1);
+      exit (1);
    }
 
    /* test eglQueryContext() */
    {
       EGLint val;
-      eglQueryContext(egl_dpy, ctx, EGL_CONTEXT_CLIENT_VERSION, &val);
-      assert(val == 2);
+      eglQueryContext (egl_dpy, ctx, EGL_CONTEXT_CLIENT_VERSION, &val);
+      assert (val == 2);
    }
 
-   *surfRet = eglCreateWindowSurface(egl_dpy, config,
-                                     (EGLNativeWindowType)win, nullptr);
+   *surfRet = eglCreateWindowSurface (egl_dpy, config,
+                                      (EGLNativeWindowType)win, nullptr);
    if (!*surfRet) {
       std::cerr << "Error: eglCreateWindowSurface failed" << std::endl;
-      exit(1);
+      exit (1);
    }
 
    /* sanity checks */
    {
       EGLint val;
-      eglQuerySurface(egl_dpy, *surfRet, EGL_WIDTH, &val);
-      assert(val == width);
-      eglQuerySurface(egl_dpy, *surfRet, EGL_HEIGHT, &val);
-      assert(val == height);
-      assert(eglGetConfigAttrib(egl_dpy, config, EGL_SURFACE_TYPE, &val));
-      assert(val & EGL_WINDOW_BIT);
+      eglQuerySurface (egl_dpy, *surfRet, EGL_WIDTH, &val);
+      assert (val == width);
+      eglQuerySurface (egl_dpy, *surfRet, EGL_HEIGHT, &val);
+      assert (val == height);
+      assert (eglGetConfigAttrib (egl_dpy, config, EGL_SURFACE_TYPE, &val));
+      assert (val & EGL_WINDOW_BIT);
    }
 
-   XFree(visInfo);
+   XFree (visInfo);
 
    *winRet = win;
    *ctxRet = ctx;
@@ -184,20 +277,20 @@ make_x_window(Display *x_dpy, EGLDisplay egl_dpy,
 
 
 static void
-event_loop(Display *dpy, Window win,
-           EGLDisplay egl_dpy, EGLSurface egl_surf)
+event_loop (Display *dpy, Window win,
+            EGLDisplay egl_dpy, EGLSurface egl_surf)
 {
    static bool exposed = false;
    int n_redraws = 0;
    struct timeval tv;
    struct timeval tv_next;
 
-   gettimeofday(&tv, nullptr);
+   gettimeofday (&tv, nullptr);
    tv.tv_usec = 0;
    tv_next.tv_sec = tv.tv_sec + 10;
    tv_next.tv_usec = 0;
 
-   int x11_fd = XConnectionNumber(dpy);
+   int x11_fd = XConnectionNumber (dpy);
    std::cout << "x11_fd = " << x11_fd << std::endl;
 
    while (1) {
@@ -207,10 +300,10 @@ event_loop(Display *dpy, Window win,
 
       if (benchMode)
       {
-         got_event = XCheckWindowEvent(dpy, win, 0xffffffff, &event);
+         got_event = XCheckWindowEvent (dpy, win, 0xffffffff, &event);
          redraw = 1;
       } else {
-         XNextEvent(dpy, &event); // block
+         XNextEvent (dpy, &event); // block
          got_event = true;
       }
 
@@ -229,7 +322,7 @@ event_loop(Display *dpy, Window win,
          {
             char buffer[10];
             int code;
-            code = XLookupKeysym(&event.xkey, 0);
+            code = XLookupKeysym (&event.xkey, 0);
             if (code == XK_Left) {
                std::cout << "XK_Left" << std::endl;
             }
@@ -243,7 +336,7 @@ event_loop(Display *dpy, Window win,
                std::cout << "XK_Down" << std::endl;
             }
             else {
-               XLookupString(&event.xkey, buffer, sizeof(buffer),
+               XLookupString (&event.xkey, buffer, sizeof (buffer),
                              nullptr, nullptr);
                if (buffer[0] == 27) {
                   /* escape */
@@ -260,13 +353,13 @@ event_loop(Display *dpy, Window win,
 
       if (exposed && redraw) {
          ++n_redraws;
-         draw();
-         eglSwapBuffers(egl_dpy, egl_surf);
+         draw ();
+         eglSwapBuffers (egl_dpy, egl_surf);
       }
 
       if (benchMode)
       {
-         gettimeofday(&tv, nullptr);
+         gettimeofday (&tv, nullptr);
          if (tv.tv_sec >= tv_next.tv_sec)
          {
             tv = tv_next;
@@ -279,7 +372,7 @@ event_loop(Display *dpy, Window win,
 }
 
 static void
-usage(void)
+usage ()
 {
    std::cout << "Usage:\n"
              << "  -display <dpy_name>  set the display to run on\n"
@@ -291,20 +384,20 @@ usage(void)
 }
 
 int
-main(int argc, char *argv[])
+main (int argc, char *argv[])
 {
-   Display *x_dpy;
+   Display * x_dpy;
    Window win;
    EGLSurface egl_surf;
    EGLContext egl_ctx;
    EGLDisplay egl_dpy;
-   char *dpyName = NULL;
+   char * dpyName = NULL;
    GLboolean printInfo = GL_FALSE;
    EGLint egl_major, egl_minor;
    int i;
 
    for (i = 1; i < argc; i++) {
-      if (strcmp(argv[i], "-display") == 0) {
+      if (strcmp (argv[i], "-display") == 0) {
          dpyName = argv[i+1];
          i++;
       }
@@ -319,44 +412,44 @@ main(int argc, char *argv[])
          benchMode = true;
       }
       else {
-         usage();
+         usage ();
          return -1;
       }
    }
 
-   x_dpy = XOpenDisplay(dpyName);
+   x_dpy = XOpenDisplay (dpyName);
    if (!x_dpy) {
       std::cerr << "Error: couldn't open display "
-                << (dpyName ? dpyName : getenv("DISPLAY"))
+                << (dpyName ? dpyName : getenv ("DISPLAY"))
                 << std::endl;
       return -1;
    }
 
-   egl_dpy = eglGetDisplay((EGLNativeDisplayType)x_dpy);
+   egl_dpy = eglGetDisplay ((EGLNativeDisplayType)x_dpy);
    if (!egl_dpy) {
       std::cerr << "Error: eglGetDisplay() failed" << std::endl;
       return -1;
    }
 
-   if (!eglInitialize(egl_dpy, &egl_major, &egl_minor)) {
+   if (!eglInitialize (egl_dpy, &egl_major, &egl_minor)) {
       std::cerr << "Error: eglInitialize() failed" << std::endl;
       return -1;
    }
 
    if (printInfo) {
-      std::cout << "\nEGL_VERSION     = " << eglQueryString(egl_dpy, EGL_VERSION)
-                << "\nEGL_VENDOR      = " << eglQueryString(egl_dpy, EGL_VENDOR)
-                << "\nEGL_EXTENSIONS  = " << eglQueryString(egl_dpy, EGL_EXTENSIONS)
-                << "\nEGL_CLIENT_APIS = " << eglQueryString(egl_dpy, EGL_CLIENT_APIS)
+      std::cout << "\nEGL_VERSION     = " << eglQueryString (egl_dpy, EGL_VERSION)
+                << "\nEGL_VENDOR      = " << eglQueryString (egl_dpy, EGL_VENDOR)
+                << "\nEGL_EXTENSIONS  = " << eglQueryString (egl_dpy, EGL_EXTENSIONS)
+                << "\nEGL_CLIENT_APIS = " << eglQueryString (egl_dpy, EGL_CLIENT_APIS)
                 << std::endl;
    }
 
-   make_x_window(x_dpy, egl_dpy,
-                 "zutty", 0, 0, win_width, win_height,
-                 &win, &egl_ctx, &egl_surf);
+   make_x_window (x_dpy, egl_dpy,
+                  "zutty", 0, 0, win_width, win_height,
+                  &win, &egl_ctx, &egl_surf);
 
-   XMapWindow(x_dpy, win);
-   if (!eglMakeCurrent(egl_dpy, egl_surf, egl_surf, egl_ctx))
+   XMapWindow (x_dpy, win);
+   if (!eglMakeCurrent (egl_dpy, egl_surf, egl_surf, egl_ctx))
    {
       std::cerr << "Error: eglMakeCurrent() failed" << std::endl;
       return -1;
@@ -364,19 +457,19 @@ main(int argc, char *argv[])
 
    if (printInfo)
    {
-      std::cout << "\nGL_RENDERER     = " << glGetString(GL_RENDERER)
-                << "\nGL_VERSION      = " << glGetString(GL_VERSION)
-                << "\nGL_VENDOR       = " << glGetString(GL_VENDOR)
-                << "\nGL_EXTENSIONS   = " << glGetString(GL_EXTENSIONS)
+      std::cout << "\nGL_RENDERER     = " << glGetString (GL_RENDERER)
+                << "\nGL_VERSION      = " << glGetString (GL_VERSION)
+                << "\nGL_VENDOR       = " << glGetString (GL_VENDOR)
+                << "\nGL_EXTENSIONS   = " << glGetString (GL_EXTENSIONS)
                 << std::endl;
    }
 
    if (printInfo)
    {
       int work_grp_cnt[3];
-      glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &work_grp_cnt[0]);
-      glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &work_grp_cnt[1]);
-      glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &work_grp_cnt[2]);
+      glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &work_grp_cnt[0]);
+      glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &work_grp_cnt[1]);
+      glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &work_grp_cnt[2]);
       std::cout << "max global (total) work group counts:"
                 << " x=" << work_grp_cnt[0]
                 << " y=" << work_grp_cnt[1]
@@ -384,9 +477,9 @@ main(int argc, char *argv[])
                 << std::endl;
 
       int work_grp_size[3];
-      glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, &work_grp_size[0]);
-      glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, &work_grp_size[1]);
-      glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, &work_grp_size[2]);
+      glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, &work_grp_size[0]);
+      glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, &work_grp_size[1]);
+      glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, &work_grp_size[2]);
       std::cout << "max local (per-shader) work group sizes:"
                 << " x=" << work_grp_size[0]
                 << " y=" << work_grp_size[1]
@@ -394,27 +487,27 @@ main(int argc, char *argv[])
                 << std::endl;
 
       int work_grp_inv;
-      glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &work_grp_inv);
+      glGetIntegerv (GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &work_grp_inv);
       std::cout << "max local work group invocations: " << work_grp_inv
                 << std::endl;
    }
 
-   init();
+   init ();
 
    /* Force initialization.
     * We can't be sure we'll get a ConfigureNotify event when the window
     * first appears.
     */
-   resize(win_width, win_height);
+   resize (win_width, win_height);
 
-   event_loop(x_dpy, win, egl_dpy, egl_surf);
+   event_loop (x_dpy, win, egl_dpy, egl_surf);
 
-   eglDestroyContext(egl_dpy, egl_ctx);
-   eglDestroySurface(egl_dpy, egl_surf);
-   eglTerminate(egl_dpy);
+   eglDestroyContext (egl_dpy, egl_ctx);
+   eglDestroySurface (egl_dpy, egl_surf);
+   eglTerminate (egl_dpy);
 
-   XDestroyWindow(x_dpy, win);
-   XCloseDisplay(x_dpy);
+   XDestroyWindow (x_dpy, win);
+   XCloseDisplay (x_dpy);
 
    return 0;
 }

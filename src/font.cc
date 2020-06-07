@@ -31,6 +31,8 @@ namespace zutty {
     * It is an error if the alternate font has different geometry.
     * Any code point not having a glyph in the alternate font will
     * have the glyph of the primary font in its atlas.
+    * Any code point not having a glyph in the primary font will be
+    * discarded.
     */
    Font::Font (const std::string& filename_, const Font& priFont)
       : filename (filename_)

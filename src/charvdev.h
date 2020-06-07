@@ -20,46 +20,60 @@
 
 namespace zutty {
 
-   struct Color
-   {
-      uint8_t red;
-      uint8_t blue;
-      uint8_t green;
-   };
-
-   struct Cell
-   {
-      uint16_t uc_pt;
-      uint8_t bold: 1;
-      uint8_t underline: 1;
-      uint8_t inverse: 1;
-      uint16_t _fill0: 13;
-      Color fg;
-      uint8_t _fill1;
-      Color bg;
-      uint8_t _fill2;
-   };
-
-   static_assert (sizeof (Cell) == 12);
-
    class CharVdev
    {
    public:
-      CharVdev (const std::string& priFontPath,
-                const std::string& altFontPath = "");
+      explicit CharVdev (const std::string& priFontPath,
+                         const std::string& altFontPath = "");
 
       ~CharVdev ();
 
       void resize (uint16_t pxWidth_, uint16_t pxHeight_);
       void draw ();
 
+      struct Color
+      {
+         uint8_t red;
+         uint8_t blue;
+         uint8_t green;
+      };
+
+      struct Cell
+      {
+         uint16_t uc_pt;
+         uint8_t bold: 1;
+         uint8_t underline: 1;
+         uint8_t inverse: 1;
+         uint16_t _fill0: 13;
+         Color fg;
+         uint8_t _fill1;
+         Color bg;
+         uint8_t _fill2;
+      };
+      static_assert (sizeof (Cell) == 12);
+
+      struct Mapping
+      {
+         explicit Mapping (uint16_t nCols_, uint16_t nRows_, Cell *& cells_);
+         ~Mapping ();
+
+         uint16_t nCols;
+         uint16_t nRows;
+         Cell *& cells;
+      };
+
+      Mapping getMapping ();
+
+      const std::vector <uint16_t> & getSupportedCodes () const
+      {
+         return supportedCodes;
+      };
+
    private:
       uint16_t nCols;
       uint16_t nRows;
       uint16_t pxWidth;
       uint16_t pxHeight;
-      Font fnt;
-      Font fnt2;
 
       // GL ids of programs, buffers, textures, attributes and uniforms:
       GLuint P_compute, P_draw;
@@ -70,8 +84,13 @@ namespace zutty {
       GLint A_pos, A_vertexTexCoord;
       GLint compU_glyphPixels, compU_sizeChars, drawU_viewPixels;
 
-      uint32_t draw_count = 0;
+      Font fnt;
+      Font fnt2;
+      std::vector <uint16_t> supportedCodes;
 
+      Cell * cells = nullptr; // valid pointer if mapped, else nullptr
+
+      void setupSupportedCodes ();
       void createShaders ();
    };
 

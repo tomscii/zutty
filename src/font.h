@@ -26,7 +26,7 @@ namespace zutty {
       /* Load a primary font, determining the atlas geometry and setting up
        * a mapping from unicode code points to atlas grid positions.
        */
-      Font (const std::string& filename);
+      explicit Font (const std::string& filename);
 
       /* Load an alternate font based on an already loaded primary font,
        * conforming to the same atlas geometry (incl. position mapping)
@@ -35,7 +35,7 @@ namespace zutty {
        * Any code point not having a glyph in the alternate font will
        * have the glyph of the primary font (if any) in its atlas.
        */
-      Font (const std::string& filename, const Font& priFont);
+      explicit Font (const std::string& filename, const Font& priFont);
 
       ~Font () = default;
 

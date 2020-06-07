@@ -11,6 +11,8 @@
 
 #include "charvdev.h"
 
+#include <algorithm>
+#include <cassert>
 #include <iostream>
 
 namespace {
@@ -170,7 +172,7 @@ void main ()
       glTexParameteri (type, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
    }
 
-   template <typename T> T *
+   template <typename T> void
    setupStorageBuffer (GLuint index, GLuint& buffer, uint32_t n_items)
    {
       if (buffer)
@@ -182,9 +184,6 @@ void main ()
       glBindBufferBase (GL_SHADER_STORAGE_BUFFER, index, buffer);
       std::size_t size = sizeof (T) * n_items;
       glBufferData (GL_SHADER_STORAGE_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
-      return reinterpret_cast <T *> (
-         glMapBufferRange (GL_SHADER_STORAGE_BUFFER, 0, size,
-                           GL_MAP_WRITE_BIT));
    }
 }
 
@@ -195,6 +194,8 @@ namespace zutty {
       : fnt (priFontPath)
       , fnt2 (altFontPath, fnt)
    {
+      setupSupportedCodes ();
+
       createShaders ();
 
       /*
@@ -220,6 +221,7 @@ namespace zutty {
          { 0, 1 },
          { 1, 1 }
       };
+
       glVertexAttribPointer (A_pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
       glVertexAttribPointer (A_vertexTexCoord, 2, GL_FLOAT, GL_FALSE, 0,
                              texCoords);
@@ -282,6 +284,8 @@ namespace zutty {
    void
    CharVdev::resize (uint16_t pxWidth_, uint16_t pxHeight_)
    {
+      assert (cells == nullptr); // no mapping in place
+
       if (pxWidth == pxWidth_ && pxHeight == pxHeight_)
          return;
 
@@ -312,87 +316,13 @@ namespace zutty {
                           GL_RGBA32F);
       glCheckError ();
 
-      Cell * cells = setupStorageBuffer <Cell> (0, B_text, nRows * nCols);
-      const Cell * cellsEnd = & cells [nRows * nCols];
-      glCheckError ();
-
-      Color fg = {255, 255, 255};
-      Color bg = {0, 0, 0};
-      uint16_t prev_uc = 0;
-      auto it = fnt.getAtlasMap ().begin ();
-      const auto itEnd = fnt.getAtlasMap ().end ();
-      for ( ; it != itEnd && cells < cellsEnd; ++it, ++cells)
-      {
-         if (prev_uc + 1 != it->first)
-         {
-            bg.red = rand () % 128;
-            bg.blue = rand () % 128;
-            bg.green = rand () % 128;
-         }
-         prev_uc = it->first;
-
-         (* cells).uc_pt = it->first;
-         (* cells).bold = 1;
-         (* cells).fg = fg;
-         (* cells).bg = bg;
-      }
-      for ( ; cells < cellsEnd; ++cells)
-      {
-         (* cells).uc_pt = ' ';
-         (* cells).bold = 0;
-         (* cells).fg = {0, 0, 0};
-         (* cells).bg = {0, 0, 0};
-      }
-      glUnmapBuffer (GL_SHADER_STORAGE_BUFFER);
-      glCheckError ();
+      setupStorageBuffer <Cell> (0, B_text, nRows * nCols);
    }
 
    void
    CharVdev::draw ()
    {
-      {
-         uint16_t cRow = nRows - 1;
-         uint16_t cCol = nCols - 1;
-         uint32_t cnt = ++draw_count;
-
-         Cell* cells = (Cell*) glMapBufferRange (
-            GL_SHADER_STORAGE_BUFFER, 0, sizeof (Cell) * nRows * nCols,
-            GL_MAP_WRITE_BIT);
-         glCheckError ();
-
-         uint32_t nGlyphs = fnt.getAtlasMap ().size ();
-         if (nGlyphs > nRows * nCols)
-            nGlyphs = nRows * nCols;
-         for (uint32_t k = 0; k < nGlyphs; ++k)
-         {
-            cells [k].bold = (draw_count >> 3) & 1;
-            cells [k].underline = (draw_count >> 4) & 1;
-            cells [k].inverse = ((draw_count >> 5) & 3) == 3;
-         }
-
-         while (cnt)
-         {
-            uint32_t digit = (cnt % 10) + '0';
-            cells [cRow * nCols + cCol].uc_pt = digit;
-            cells [cRow * nCols + cCol].fg = {255, 255, 255};
-            cells [cRow * nCols + cCol].bg = {0, 0, 0};
-            cnt /= 10;
-            --cCol;
-         }
-#if 0
-         for (int i = 0; i < 10; ++i)
-         {
-            uint16_t c1 = rand () % nCols;
-            uint16_t r1 = rand () % nRows;
-            uint16_t c2 = rand () % nCols;
-            uint16_t r2 = rand () % nRows;
-
-            std::swap (cells [r1 * nCols + c1], cells [r2 * nCols + c2]);
-         }
-#endif
-         glUnmapBuffer (GL_SHADER_STORAGE_BUFFER);
-         glCheckError ();
-      }
+      assert (cells == nullptr); // no mapping in place
 
       glUseProgram (P_compute);
       glActiveTexture (GL_TEXTURE0);
@@ -418,19 +348,60 @@ namespace zutty {
       glDrawArrays (GL_TRIANGLE_STRIP, 0, 4);
    }
 
+   CharVdev::Mapping::Mapping (uint16_t nCols_, uint16_t nRows_, Cell *& cells_)
+      : nCols (nCols_)
+      , nRows (nRows_)
+      , cells (cells_)
+   {
+   };
+
+   CharVdev::Mapping::~Mapping ()
+   {
+      assert (cells != nullptr); // mapping in place
+
+      glUnmapBuffer (GL_SHADER_STORAGE_BUFFER);
+      cells = nullptr;
+   };
+
+   CharVdev::Mapping CharVdev::getMapping ()
+   {
+      assert (cells == nullptr); // no mapping in place
+
+      cells = reinterpret_cast <Cell *> (
+                 glMapBufferRange (GL_SHADER_STORAGE_BUFFER,
+                                   0, sizeof (Cell) * nRows * nCols,
+                                   GL_MAP_WRITE_BIT));
+
+      return CharVdev::Mapping (nCols, nRows, cells);
+   };
+
    // private methods
+
+   void
+   CharVdev::setupSupportedCodes ()
+   {
+      const auto& atlasMap = fnt.getAtlasMap ();
+      supportedCodes.reserve (atlasMap.size ());
+      auto it = atlasMap.begin ();
+      const auto itEnd = atlasMap.end ();
+      for ( ; it != itEnd; ++it)
+      {
+         supportedCodes.push_back (it->first);
+      }
+      std::sort (supportedCodes.begin (), supportedCodes.end ());
+   }
 
    void
    CharVdev::createShaders ()
    {
       GLuint S_compute, S_fragment, S_vertex;
 
-      S_compute = createShader (GL_COMPUTE_SHADER, computeShaderSource,
-                                "compute");
-      S_fragment = createShader (GL_FRAGMENT_SHADER, fragmentShaderSource,
-                                 "fragment");
-      S_vertex = createShader (GL_VERTEX_SHADER, vertexShaderSource,
-                               "vertex");
+      S_compute =
+         createShader (GL_COMPUTE_SHADER, computeShaderSource, "compute");
+      S_fragment =
+         createShader (GL_FRAGMENT_SHADER, fragmentShaderSource, "fragment");
+      S_vertex =
+         createShader (GL_VERTEX_SHADER, vertexShaderSource, "vertex");
 
       P_compute = glCreateProgram ();
       glAttachShader (P_compute, S_compute);
