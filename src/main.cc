@@ -349,6 +349,48 @@ usage ()
              << std::endl;
 }
 
+static void
+printGLInfo (EGLDisplay egl_dpy)
+{
+   std::cout << "\nEGL_VERSION     = " << eglQueryString (egl_dpy, EGL_VERSION)
+             << "\nEGL_VENDOR      = " << eglQueryString (egl_dpy, EGL_VENDOR)
+             << "\nEGL_EXTENSIONS  = " << eglQueryString (egl_dpy, EGL_EXTENSIONS)
+             << "\nEGL_CLIENT_APIS = " << eglQueryString (egl_dpy, EGL_CLIENT_APIS)
+             << std::endl;
+
+   std::cout << "\nGL_RENDERER     = " << glGetString (GL_RENDERER)
+             << "\nGL_VERSION      = " << glGetString (GL_VERSION)
+             << "\nGL_VENDOR       = " << glGetString (GL_VENDOR)
+             << "\nGL_EXTENSIONS   = " << glGetString (GL_EXTENSIONS)
+             << std::endl;
+
+   int work_grp_cnt[3];
+   glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &work_grp_cnt[0]);
+   glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &work_grp_cnt[1]);
+   glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &work_grp_cnt[2]);
+   std::cout << "\nCompute shader:\n"
+             << "- max. global (total) work group counts:"
+             << " x=" << work_grp_cnt[0]
+             << " y=" << work_grp_cnt[1]
+             << " z=" << work_grp_cnt[2]
+             << std::endl;
+
+   int work_grp_size[3];
+   glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, &work_grp_size[0]);
+   glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, &work_grp_size[1]);
+   glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, &work_grp_size[2]);
+   std::cout << "- max. local (per-shader) work group sizes:"
+             << " x=" << work_grp_size[0]
+             << " y=" << work_grp_size[1]
+             << " z=" << work_grp_size[2]
+             << std::endl;
+
+   int work_grp_inv;
+   glGetIntegerv (GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &work_grp_inv);
+   std::cout << "- max. local work group invocations: " << work_grp_inv << "\n"
+             << std::endl;
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -357,8 +399,8 @@ main (int argc, char *argv[])
    EGLSurface egl_surf;
    EGLContext egl_ctx;
    EGLDisplay egl_dpy;
-   char * dpyName = NULL;
-   GLboolean printInfo = GL_FALSE;
+   char * dpyName = nullptr;
+   bool printInfo = false;
    EGLint egl_major, egl_minor;
    int i;
 
@@ -387,7 +429,7 @@ main (int argc, char *argv[])
          ++i;
       }
       else if (strcmp(argv[i], "-info") == 0) {
-         printInfo = GL_TRUE;
+         printInfo = true;
       }
       else if (strcmp(argv[i], "-bench") == 0) {
          benchMode = true;
@@ -424,14 +466,6 @@ main (int argc, char *argv[])
       return -1;
    }
 
-   if (printInfo) {
-      std::cout << "\nEGL_VERSION     = " << eglQueryString (egl_dpy, EGL_VERSION)
-                << "\nEGL_VENDOR      = " << eglQueryString (egl_dpy, EGL_VENDOR)
-                << "\nEGL_EXTENSIONS  = " << eglQueryString (egl_dpy, EGL_EXTENSIONS)
-                << "\nEGL_CLIENT_APIS = " << eglQueryString (egl_dpy, EGL_CLIENT_APIS)
-                << std::endl;
-   }
-
    priFont = std::make_unique <zutty::Font> (fontpath + fontname + fontext);
    altFont = std::make_unique <zutty::Font> (fontpath + fontname + "B" + fontext,
                                              * priFont.get ());
@@ -449,50 +483,15 @@ main (int argc, char *argv[])
       return -1;
    }
 
-   if (printInfo)
-   {
-      std::cout << "\nGL_RENDERER     = " << glGetString (GL_RENDERER)
-                << "\nGL_VERSION      = " << glGetString (GL_VERSION)
-                << "\nGL_VENDOR       = " << glGetString (GL_VENDOR)
-                << "\nGL_EXTENSIONS   = " << glGetString (GL_EXTENSIONS)
-                << std::endl;
-   }
-
-   if (printInfo)
-   {
-      int work_grp_cnt[3];
-      glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &work_grp_cnt[0]);
-      glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &work_grp_cnt[1]);
-      glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &work_grp_cnt[2]);
-      std::cout << "max global (total) work group counts:"
-                << " x=" << work_grp_cnt[0]
-                << " y=" << work_grp_cnt[1]
-                << " z=" << work_grp_cnt[2]
-                << std::endl;
-
-      int work_grp_size[3];
-      glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, &work_grp_size[0]);
-      glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, &work_grp_size[1]);
-      glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, &work_grp_size[2]);
-      std::cout << "max local (per-shader) work group sizes:"
-                << " x=" << work_grp_size[0]
-                << " y=" << work_grp_size[1]
-                << " z=" << work_grp_size[2]
-                << std::endl;
-
-      int work_grp_inv;
-      glGetIntegerv (GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &work_grp_inv);
-      std::cout << "max local work group invocations: " << work_grp_inv
-                << std::endl;
-   }
-
    renderer = std::make_unique <Renderer> (
       * priFont.get (),
       * altFont.get (),
-      [egl_dpy, egl_surf, egl_ctx] ()
+      [egl_dpy, egl_surf, egl_ctx, printInfo] ()
       {
          if (!eglMakeCurrent (egl_dpy, egl_surf, egl_surf, egl_ctx))
             throw std::runtime_error ("Error: eglMakeCurrent() failed");
+         if (printInfo)
+            printGLInfo (egl_dpy);
       },
       [egl_dpy, egl_surf] ()
       {
