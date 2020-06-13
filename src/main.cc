@@ -10,7 +10,7 @@
  */
 
 #include "font.h"
-#include "gl.h"
+#include "renderer.h"
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -20,36 +20,39 @@
 #include <iostream>
 #include <math.h>
 #include <memory>
+#include <sstream>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/time.h>
 
-using namespace zutty;
+using zutty::CharVdev;
+using zutty::Frame;
+using zutty::Renderer;
 
 static bool benchMode = false;
 
 static const std::string fontpath = "/usr/share/fonts/X11/misc/";
 static const std::string fontext = ".pcf.gz";
 static std::string fontname = "9x18";
-static CharVdev* charVdev = nullptr;
 
-static int win_width = 400, win_height = 300;
+static int win_width, win_height;
+static uint16_t geomCols = 80;
+static uint16_t geomRows = 25;
 
 static uint32_t draw_count = 0;
 
+static std::unique_ptr <zutty::Font> priFont = nullptr;
+static std::unique_ptr <zutty::Font> altFont = nullptr;
+static std::unique_ptr <Renderer> renderer = nullptr;
+static Frame frame;
+
 static void
-demo_draw ()
+demo_draw (Frame& frame)
 {
-   CharVdev::Mapping m = charVdev->getMapping ();
-   CharVdev::Cell* cells = m.cells;
-   uint16_t nCols = m.nCols;
-   uint16_t nRows = m.nRows;
+   CharVdev::Cell * cells = frame.cells.get ();
+   uint16_t nCols = frame.nCols;
+   uint16_t nRows = frame.nRows;
 
-   uint16_t cRow = nRows - 1;
-   uint16_t cCol = nCols - 1;
-   uint32_t cnt = ++draw_count;
-
-   uint32_t nGlyphs = charVdev->getSupportedCodes ().size ();
+   uint32_t nGlyphs = priFont->getSupportedCodes ().size ();
    if (nGlyphs > nRows * nCols)
       nGlyphs = nRows * nCols;
    for (uint32_t k = 0; k < nGlyphs; ++k)
@@ -59,15 +62,6 @@ demo_draw ()
       cells [k].inverse = ((draw_count >> 5) & 3) == 3;
    }
 
-   while (cnt)
-   {
-      uint32_t digit = (cnt % 10) + '0';
-      cells [cRow * nCols + cCol].uc_pt = digit;
-      cells [cRow * nCols + cCol].fg = {255, 255, 255};
-      cells [cRow * nCols + cCol].bg = {0, 0, 0};
-      cnt /= 10;
-      --cCol;
-   }
 #if 0
    for (int i = 0; i < 10; ++i)
    {
@@ -79,23 +73,23 @@ demo_draw ()
       std::swap (cells [r1 * nCols + c1], cells [r2 * nCols + c2]);
    }
 #endif
-   // m gets unmapped here
+
+   ++draw_count;
 }
 
 static void
-demo_resize ()
+demo_resize (Frame& frame)
 {
-   CharVdev::Mapping m = charVdev->getMapping ();
-   CharVdev::Cell * cells = m.cells;
-   uint16_t nCols = m.nCols;
-   uint16_t nRows = m.nRows;
+   CharVdev::Cell * cells = frame.cells.get ();
+   uint16_t nCols = frame.nCols;
+   uint16_t nRows = frame.nRows;
 
    const CharVdev::Cell * cellsEnd = & cells [nRows * nCols];
 
    CharVdev::Color fg = {255, 255, 255};
    CharVdev::Color bg = {0, 0, 0};
    uint16_t prev_uc = 0;
-   const auto & allCodes = charVdev->getSupportedCodes ();
+   const auto & allCodes = priFont->getSupportedCodes ();
    auto it = allCodes.begin ();
    const auto itEnd = allCodes.end ();
    for ( ; it != itEnd && cells < cellsEnd; ++it, ++cells)
@@ -117,40 +111,33 @@ demo_resize ()
    {
       (* cells).uc_pt = ' ';
       (* cells).bold = 0;
+      (* cells).inverse = 0;
+      (* cells).underline = 0;
       (* cells).fg = {0, 0, 0};
-      (* cells).bg = {0, 0, 0};
+      (* cells).bg = {72, 48, 96};
    }
-   // m gets unmapped here
 }
 
 static void
 draw ()
 {
-   demo_draw ();
+   demo_draw (frame);
 
-   charVdev->draw ();
+   renderer->update (frame);
 }
 
 /* new window size or exposure */
 static void
 resize (int width, int height)
 {
-   charVdev->resize (width, height);
+   frame.pxWidth = width;
+   frame.pxHeight = height;
+   frame.nCols = frame.pxWidth / priFont->getPx ();
+   frame.nRows = frame.pxHeight / priFont->getPy ();
+   frame.cells = std::shared_ptr <CharVdev::Cell> (
+      new CharVdev::Cell [frame.nRows * frame.nCols]);
 
-   demo_resize ();
-}
-
-static void
-init ()
-{
-#if 1 /* test code */
-   typedef void (*proc)();
-   proc p = eglGetProcAddress("glMapBufferOES");
-   assert(p);
-#endif
-
-   charVdev = new CharVdev (fontpath + fontname + fontext,
-                            fontpath + fontname + "B" + fontext);
+   demo_resize (frame);
 }
 
 /*
@@ -277,18 +264,9 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
 
 
 static void
-event_loop (Display *dpy, Window win,
-            EGLDisplay egl_dpy, EGLSurface egl_surf)
+event_loop (Display *dpy, Window win)
 {
    static bool exposed = false;
-   int n_redraws = 0;
-   struct timeval tv;
-   struct timeval tv_next;
-
-   gettimeofday (&tv, nullptr);
-   tv.tv_usec = 0;
-   tv_next.tv_sec = tv.tv_sec + 10;
-   tv_next.tv_usec = 0;
 
    int x11_fd = XConnectionNumber (dpy);
    std::cout << "x11_fd = " << x11_fd << std::endl;
@@ -352,21 +330,7 @@ event_loop (Display *dpy, Window win,
       }
 
       if (exposed && redraw) {
-         ++n_redraws;
          draw ();
-         eglSwapBuffers (egl_dpy, egl_surf);
-      }
-
-      if (benchMode)
-      {
-         gettimeofday (&tv, nullptr);
-         if (tv.tv_sec >= tv_next.tv_sec)
-         {
-            tv = tv_next;
-            tv_next.tv_sec += 10;
-            std::cout << n_redraws << " redraws in 10 seconds" << std::endl;
-            n_redraws = 0;
-         }
       }
    }
 }
@@ -375,11 +339,13 @@ static void
 usage ()
 {
    std::cout << "Usage:\n"
-             << "  -display <dpy_name>  set the display to run on\n"
-             << "  -font <fontname>     font name to load (default: "
+             << "  -display <dpy_name>      set the display to run on\n"
+             << "  -font <fontname>         font name to load (default: "
              << fontname << ")\n"
-             << "  -info                display OpenGL renderer info\n"
-             << "  -bench               redraw continuously; report FPS"
+             << "  -geometry <COLS>x<ROWS>  set display geometry (default: "
+             << geomCols << "x" << geomRows << ")\n"
+             << "  -info                    display OpenGL renderer info\n"
+             << "  -bench                   redraw continuously; report FPS"
              << std::endl;
 }
 
@@ -405,6 +371,21 @@ main (int argc, char *argv[])
          fontname = argv[i+1];
          i++;
       }
+      else if (strcmp(argv[i], "-geometry") == 0) {
+         std::stringstream iss (argv[i+1]);
+         int cols, rows;
+         char fill;
+         iss >> cols >> fill >> rows;
+         if (iss.fail () || fill != 'x' || cols < 1 || rows < 1)
+         {
+            std::cerr << "Error: -geometry: expected format <COLS>x<ROWS>"
+                      << std::endl;
+            return -1;
+         }
+         geomCols = cols;
+         geomRows = rows;
+         ++i;
+      }
       else if (strcmp(argv[i], "-info") == 0) {
          printInfo = GL_TRUE;
       }
@@ -415,6 +396,13 @@ main (int argc, char *argv[])
          usage ();
          return -1;
       }
+   }
+
+   if (! XInitThreads ())
+   {
+      std::cerr << "Error: couldn't initialize XLib for multithreaded use"
+                << std::endl;
+      return -1;
    }
 
    x_dpy = XOpenDisplay (dpyName);
@@ -444,12 +432,18 @@ main (int argc, char *argv[])
                 << std::endl;
    }
 
-   make_x_window (x_dpy, egl_dpy,
-                  "zutty", 0, 0, win_width, win_height,
+   priFont = std::make_unique <zutty::Font> (fontpath + fontname + fontext);
+   altFont = std::make_unique <zutty::Font> (fontpath + fontname + "B" + fontext,
+                                             * priFont.get ());
+   win_width = geomCols * priFont->getPx ();
+   win_height = geomRows * priFont->getPy ();
+
+   make_x_window (x_dpy, egl_dpy, "zutty", 0, 0, win_width, win_height,
                   &win, &egl_ctx, &egl_surf);
 
    XMapWindow (x_dpy, win);
-   if (!eglMakeCurrent (egl_dpy, egl_surf, egl_surf, egl_ctx))
+
+   if (!eglMakeCurrent(egl_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT))
    {
       std::cerr << "Error: eglMakeCurrent() failed" << std::endl;
       return -1;
@@ -492,15 +486,28 @@ main (int argc, char *argv[])
                 << std::endl;
    }
 
-   init ();
+   renderer = std::make_unique <Renderer> (
+      * priFont.get (),
+      * altFont.get (),
+      [egl_dpy, egl_surf, egl_ctx] ()
+      {
+         if (!eglMakeCurrent (egl_dpy, egl_surf, egl_surf, egl_ctx))
+            throw std::runtime_error ("Error: eglMakeCurrent() failed");
+      },
+      [egl_dpy, egl_surf] ()
+      {
+         eglSwapBuffers (egl_dpy, egl_surf);
+      },
+      benchMode);
 
    /* Force initialization.
-    * We can't be sure we'll get a ConfigureNotify event when the window
-    * first appears.
+    * We might not get a ConfigureNotify event when the window first appears.
     */
    resize (win_width, win_height);
 
-   event_loop (x_dpy, win, egl_dpy, egl_surf);
+   event_loop (x_dpy, win);
+
+   renderer = nullptr; // ~Renderer () shuts down renderer thread
 
    eglDestroyContext (egl_dpy, egl_ctx);
    eglDestroySurface (egl_dpy, egl_surf);

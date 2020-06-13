@@ -95,8 +95,8 @@ present.
 
 This is a 256x256 2D texture that maps all 16-bit unicode code points
 to an atlas grid position. It is initialized with the GL data type
-GL_LIMUNANCE_ALPHA, from an array with two 8-bit integers per texel (8
-bits for either atlas grid coordinate).
+GL_LUMINANCE_ALPHA (two channels), from an array with two 8-bit
+integers per texel (8 bits for either atlas grid coordinate).
 
 This allows direct lookups for any 16 bit Unicode code point in the
 shader and allows the simulated character video memory to take unicode

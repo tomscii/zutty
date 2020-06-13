@@ -9,7 +9,7 @@ def options(opt):
 def configure(cfg):
     cfg.load('compiler_cxx')
     cfg.env.append_value('LINKFLAGS',
-                         ['-lGLESv2', '-lEGL', '-lX11', '-lm'])
+                         ['-lGLESv2', '-lEGL', '-lX11', '-lm', '-lpthread'])
 
 def build(bld):
     src = bld.path.ant_glob('*.cc')

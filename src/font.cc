@@ -46,12 +46,6 @@ namespace zutty {
       load (true); // load as overlay
    }
 
-   void Font::clearAtlasData ()
-   {
-      atlasBuf.clear ();
-      atlasBuf.shrink_to_fit ();
-   }
-
    // private methods
 
    /* Load font from glyph bitmaps rasterized by FreeType.
@@ -168,6 +162,8 @@ namespace zutty {
 
       FT_Done_Face (face);
       FT_Done_FreeType (ft);
+
+      setupSupportedCodes ();
    }
 
    void Font::loadFace (const FT_Face& face, FT_ULong c)
@@ -250,6 +246,19 @@ namespace zutty {
             std::string ("Unhandled pixel_type=") +
             std::to_string (bmp.pixel_mode));
       }
+   }
+
+   void
+   Font::setupSupportedCodes ()
+   {
+      supportedCodes.reserve (atlasMap.size ());
+      auto it = atlasMap.begin ();
+      const auto itEnd = atlasMap.end ();
+      for ( ; it != itEnd; ++it)
+      {
+         supportedCodes.push_back (it->first);
+      }
+      std::sort (supportedCodes.begin (), supportedCodes.end ());
    }
 
 } // namespace zutty

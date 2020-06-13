@@ -47,18 +47,17 @@ namespace zutty {
       const std::vector <uint8_t>& getAtlas () const { return atlasBuf; };
       const uint8_t* getAtlasData () const { return atlasBuf.data (); };
 
-      /* Release memory held by the atlas buffer. To be called after
-       * getAtlasData () has been called and its contents have been loaded
-       * into OpenGL memory, so it is no longer needed in main memory.
-       */
-      void clearAtlasData ();
+      const std::vector <uint16_t> & getSupportedCodes () const
+      {
+         return supportedCodes;
+      };
 
       struct AtlasPos {
          uint8_t x;
          uint8_t y;
       };
-      using atlasMap_t = std::map <uint16_t, AtlasPos>;
-      const atlasMap_t& getAtlasMap () const { return atlasMap; };
+      using AtlasMap = std::map <uint16_t, AtlasPos>;
+      const AtlasMap& getAtlasMap () const { return atlasMap; };
 
    private:
       std::string filename;
@@ -67,7 +66,8 @@ namespace zutty {
       uint16_t nx; // number of glyphs in atlas texture per row
       uint16_t ny; // number of rows in atlas texture
       std::vector <uint8_t> atlasBuf; // loaded atlas data
-      atlasMap_t atlasMap; // unicode -> atlas position
+      AtlasMap atlasMap; // unicode -> atlas position
+      std::vector <uint16_t> supportedCodes; // list of unicodes with glyphs
 
       /* Start with 1 so as to leave a blank glyph at (0,0).
        * That blank will get referenced for any out-of-bounds text position
@@ -81,6 +81,7 @@ namespace zutty {
       void load (bool overlay = false);
       void loadFace (const FT_Face& face, FT_ULong c);
       void loadFace (const FT_Face& face, FT_ULong c, const AtlasPos& apos);
+      void setupSupportedCodes ();
    };
 
 } // namespace zutty

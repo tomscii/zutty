@@ -23,8 +23,8 @@ namespace zutty {
    class CharVdev
    {
    public:
-      explicit CharVdev (const std::string& priFontPath,
-                         const std::string& altFontPath = "");
+      explicit CharVdev (const Font& priFont,
+                         const Font& altFont);
 
       ~CharVdev ();
 
@@ -64,11 +64,6 @@ namespace zutty {
 
       Mapping getMapping ();
 
-      const std::vector <uint16_t> & getSupportedCodes () const
-      {
-         return supportedCodes;
-      };
-
    private:
       uint16_t nCols;
       uint16_t nRows;
@@ -84,13 +79,11 @@ namespace zutty {
       GLint A_pos, A_vertexTexCoord;
       GLint compU_glyphPixels, compU_sizeChars, drawU_viewPixels;
 
-      Font fnt;
-      Font fnt2;
-      std::vector <uint16_t> supportedCodes;
+      const Font& priFont;
+      const Font& altFont;
 
       Cell * cells = nullptr; // valid pointer if mapped, else nullptr
 
-      void setupSupportedCodes ();
       void createShaders ();
    };
 

@@ -189,13 +189,11 @@ void main ()
 
 namespace zutty {
 
-   CharVdev::CharVdev (const std::string& priFontPath,
-                       const std::string& altFontPath)
-      : fnt (priFontPath)
-      , fnt2 (altFontPath, fnt)
+   CharVdev::CharVdev (const Font& priFont_,
+                       const Font& altFont_)
+      : priFont (priFont_)
+      , altFont (altFont_)
    {
-      setupSupportedCodes ();
-
       createShaders ();
 
       /*
@@ -231,14 +229,15 @@ namespace zutty {
        * Setup compute program
        */
       glUseProgram (P_compute);
-      glUniform2i (compU_glyphPixels, fnt.getPx (), fnt.getPy ());
+      glUniform2i (compU_glyphPixels, priFont.getPx (), priFont.getPy ());
       glUniform2i (compU_sizeChars, nCols, nRows);
       glCheckError ();
 
       // Setup atlas texture
       setupTexture (GL_TEXTURE1, GL_TEXTURE_2D_ARRAY, T_atlas);
       glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_R8,
-                     fnt.getPx () * fnt.getNx (), fnt.getPy () * fnt.getNy (),
+                     priFont.getPx () * priFont.getNx (),
+                     priFont.getPy () * priFont.getNy (),
                      2);
       glCheckError ();
 
@@ -246,27 +245,27 @@ namespace zutty {
                       0,    // mipmap level, always zero
                       0, 0, // X and Y offsets into texture area
                       0,    // layer index offset
-                      fnt.getPx () * fnt.getNx (), fnt.getPy () * fnt.getNy (),
+                      priFont.getPx () * priFont.getNx (),
+                      priFont.getPy () * priFont.getNy (),
                       1,    // number of layers, i.e., fonts, loaded
-                      GL_RED, GL_UNSIGNED_BYTE, fnt.getAtlasData ());
+                      GL_RED, GL_UNSIGNED_BYTE, priFont.getAtlasData ());
       glCheckError ();
-      fnt.clearAtlasData ();
 
       glTexSubImage3D(GL_TEXTURE_2D_ARRAY,
                       0,    // mipmap level, always zero
                       0, 0, // X and Y offsets into texture area
                       1,    // layer index offset
-                      fnt.getPx () * fnt.getNx (), fnt.getPy () * fnt.getNy (),
+                      priFont.getPx () * priFont.getNx (),
+                      priFont.getPy () * priFont.getNy (),
                       1,    // number of layers, i.e., fonts, loaded
-                      GL_RED, GL_UNSIGNED_BYTE, fnt2.getAtlasData ());
+                      GL_RED, GL_UNSIGNED_BYTE, altFont.getAtlasData ());
       glCheckError ();
-      fnt2.clearAtlasData ();
 
       // Setup atlas mapping texture
       auto atlasMap = std::vector <uint8_t> ();
       atlasMap.resize (2 * 256 * 256, 0);
-      auto it = fnt.getAtlasMap ().begin ();
-      auto itEnd = fnt.getAtlasMap ().end ();
+      auto it = priFont.getAtlasMap ().begin ();
+      auto itEnd = priFont.getAtlasMap ().end ();
       for (; it != itEnd; ++it)
       {
          atlasMap [2 * it->first] = it->second.x;
@@ -291,15 +290,15 @@ namespace zutty {
 
       pxWidth = pxWidth_;
       pxHeight = pxHeight_;
-      nCols = pxWidth / fnt.getPx ();
-      nRows = pxHeight / fnt.getPy ();
+      nCols = pxWidth / priFont.getPx ();
+      nRows = pxHeight / priFont.getPy ();
 
       std::cout << "resize to " << pxWidth << " x " << pxHeight
                 << " pixels, " << nCols << " x " << nRows << " chars"
                 << std::endl;
 
-      GLint viewWidth = nCols * fnt.getPx ();
-      GLint viewHeight = nRows * fnt.getPy ();
+      GLint viewWidth = nCols * priFont.getPx ();
+      GLint viewHeight = nRows * priFont.getPy ();
       glViewport (0, pxHeight - viewHeight, viewWidth, viewHeight);
 
       glUseProgram (P_draw);
@@ -376,20 +375,6 @@ namespace zutty {
    };
 
    // private methods
-
-   void
-   CharVdev::setupSupportedCodes ()
-   {
-      const auto& atlasMap = fnt.getAtlasMap ();
-      supportedCodes.reserve (atlasMap.size ());
-      auto it = atlasMap.begin ();
-      const auto itEnd = atlasMap.end ();
-      for ( ; it != itEnd; ++it)
-      {
-         supportedCodes.push_back (it->first);
-      }
-      std::sort (supportedCodes.begin (), supportedCodes.end ());
-   }
 
    void
    CharVdev::createShaders ()
