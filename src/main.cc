@@ -10,19 +10,21 @@
  */
 
 #include "font.h"
+#include "pty.h"
 #include "renderer.h"
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 
-#include <assert.h>
+#include <cassert>
 #include <iostream>
-#include <math.h>
 #include <memory>
+#include <poll.h>
 #include <sstream>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 using zutty::CharVdev;
 using zutty::Frame;
@@ -203,7 +205,8 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
    attr.background_pixel = 0;
    attr.border_pixel = 0;
    attr.colormap = XCreateColormap (x_dpy, root, visInfo->visual, AllocNone);
-   attr.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask;
+   attr.event_mask = StructureNotifyMask | ExposureMask |
+      KeyPressMask | KeyReleaseMask;
    mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
 
    win = XCreateWindow (x_dpy, root, 0, 0, width, height,
@@ -263,75 +266,218 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
 }
 
 
-static void
-event_loop (Display *dpy, Window win)
+int
+startShell (uint16_t nCols, uint16_t nRows, const char* const argv[])
+{
+   int fdm;
+   pid_t pid;
+   struct winsize size;
+
+   size.ws_col = nCols;
+   size.ws_row = nRows;
+   pid = pty_fork (&fdm, nullptr, 0, nullptr, &size);
+
+   if (pid < 0) {
+      throw std::runtime_error ("fork error");
+   } else if (pid == 0) { // child:
+      if (execvp (argv[0], (char * const *) argv) < 0)
+         throw std::runtime_error (std::string ("can't execvp: ") + argv[0]);
+   }
+
+   return fdm;
+}
+
+static bool
+ptyRead (int pty_fd)
+{
+   char ptybuf [100];
+   ssize_t n = read (pty_fd, ptybuf, sizeof (ptybuf));
+   std::cout << "n = " << n << std::endl;
+   for (int k = 0; k < n; ++k)
+      if (ptybuf[k] < ' ')
+         std::cout << "<" << (int)ptybuf[k] << ">";
+      else
+         std::cout << ptybuf[k];
+   std::cout << std::endl;
+
+   return false;
+}
+
+static bool
+sendChar (int pty_fd, uint8_t ch)
+{
+   if (write (pty_fd, &ch, 1) != 1)
+   {
+      std::cout << "write error" << std::endl;
+      return true;
+   }
+   return false;
+}
+
+static bool
+x11Event (XEvent& event, int pty_fd, bool& destroyed)
 {
    static bool exposed = false;
+   bool redraw = false;
+   destroyed = false;
 
+   switch (event.type) {
+   case Expose:
+      exposed = true;
+      redraw = true;
+      break;
+   case ConfigureNotify:
+      resize (event.xconfigure.width, event.xconfigure.height);
+      redraw = true;
+      break;
+   case ReparentNotify:
+      std::cout << "ReparentNotify" << std::endl;
+      redraw = true;
+      break;
+   case MapNotify:
+      std::cout << "MapNotify" << std::endl;
+      break;
+   case UnmapNotify:
+      std::cout << "UnmapNotify" << std::endl;
+      break;
+   case DestroyNotify:
+      std::cout << "DestroyNotify" << std::endl;
+      destroyed = true;
+      return true;
+   case KeyPress:
+   {
+      char buffer[10];
+      int code;
+      code = XLookupKeysym (&event.xkey, 0);
+      //std::cout << "KP code = " << code << std::endl;
+      switch (code)
+      {
+      case XK_Escape:
+         std::cout << "XK_Escape" << std::endl;
+         return true;
+      case XK_Return:
+         std::cout << "XK_Return" << std::endl;
+         if (sendChar (pty_fd, '\n'))
+             return true;
+         break;
+
+#define KEYCASE(Key)                                                 \
+         case Key:                                                   \
+            std::cout << "KeyPress  : " << #Key << std::endl;        \
+            break
+
+      // Cursor control & motion
+      KEYCASE (XK_Home);
+      KEYCASE (XK_End);
+      KEYCASE (XK_Left);
+      KEYCASE (XK_Right);
+      KEYCASE (XK_Up);
+      KEYCASE (XK_Down);
+      KEYCASE (XK_Page_Up);
+      KEYCASE (XK_Page_Down);
+      // TTY function keys
+      KEYCASE (XK_BackSpace);
+      KEYCASE (XK_Delete);
+      KEYCASE (XK_Linefeed);
+      KEYCASE (XK_Tab);
+      // Modifiers
+      KEYCASE (XK_Shift_L);
+      KEYCASE (XK_Shift_R);
+      KEYCASE (XK_Control_L);
+      KEYCASE (XK_Control_R);
+      KEYCASE (XK_Caps_Lock);
+      KEYCASE (XK_Shift_Lock);
+      KEYCASE (XK_Meta_L);
+      KEYCASE (XK_Meta_R);
+      KEYCASE (XK_Alt_L);
+      KEYCASE (XK_Alt_R);
+      KEYCASE (XK_Super_L);
+      KEYCASE (XK_Super_R);
+      KEYCASE (XK_Hyper_L);
+      KEYCASE (XK_Hyper_R);
+      default:
+         XLookupString (&event.xkey, buffer, sizeof (buffer),
+                        nullptr, nullptr);
+         //std::cout << "buffer[0] = '" << buffer[0] << "'" << std::endl;
+         if (sendChar (pty_fd, buffer[0]))
+             return true;
+         break;
+      }
+   }
+   redraw = true;
+   break;
+   case KeyRelease:
+   {
+      int code;
+      code = XLookupKeysym (&event.xkey, 0);
+      //std::cout << "KR code = " << code << std::endl;
+      switch (code)
+      {
+#undef KEYCASE
+#define KEYCASE(Key)                                                 \
+         case Key:                                                   \
+            std::cout << "KeyRelease: " << #Key << std::endl;        \
+            break
+      // Modifiers
+      KEYCASE (XK_Shift_L);
+      KEYCASE (XK_Shift_R);
+      KEYCASE (XK_Control_L);
+      KEYCASE (XK_Control_R);
+      KEYCASE (XK_Caps_Lock);
+      KEYCASE (XK_Shift_Lock);
+      KEYCASE (XK_Meta_L);
+      KEYCASE (XK_Meta_R);
+      KEYCASE (XK_Alt_L);
+      KEYCASE (XK_Alt_R);
+      KEYCASE (XK_Super_L);
+      KEYCASE (XK_Super_R);
+      KEYCASE (XK_Hyper_L);
+      KEYCASE (XK_Hyper_R);
+      default:
+         break;
+      }
+   }
+   break;
+   default:
+      std::cout << "X event.type = " << event.type << std::endl;
+      break;
+   }
+
+   if (exposed && redraw) {
+      draw ();
+   }
+
+   return false;
+}
+
+static bool
+eventLoop (Display *dpy, Window win, int pty_fd)
+{
    int x11_fd = XConnectionNumber (dpy);
    std::cout << "x11_fd = " << x11_fd << std::endl;
+   std::cout << "pty_fd = " << pty_fd << std::endl;
+
+   struct pollfd pollset[] = {
+      {pty_fd, POLLIN, 0},
+      {x11_fd, POLLIN, 0},
+   };
 
    while (1) {
-      int redraw = 0;
+      if (poll (pollset, 2, -1) < 0)
+         return false;
+
+      if (pollset[0].revents & POLLHUP)
+         return false;
+      if (pollset[0].revents & POLLIN)
+         if (ptyRead (pty_fd))
+            return false;
+
       XEvent event;
-      bool got_event = false;
-
-      if (benchMode)
-      {
-         got_event = XCheckWindowEvent (dpy, win, 0xffffffff, &event);
-         redraw = 1;
-      } else {
-         XNextEvent (dpy, &event); // block
-         got_event = true;
-      }
-
-      if (got_event)
-      {
-         switch (event.type) {
-         case Expose:
-            exposed = true;
-            redraw = 1;
-            break;
-         case ConfigureNotify:
-            resize (event.xconfigure.width, event.xconfigure.height);
-            redraw = 1;
-            break;
-         case KeyPress:
-         {
-            char buffer[10];
-            int code;
-            code = XLookupKeysym (&event.xkey, 0);
-            if (code == XK_Left) {
-               std::cout << "XK_Left" << std::endl;
-            }
-            else if (code == XK_Right) {
-               std::cout << "XK_Right" << std::endl;
-            }
-            else if (code == XK_Up) {
-               std::cout << "XK_Up" << std::endl;
-            }
-            else if (code == XK_Down) {
-               std::cout << "XK_Down" << std::endl;
-            }
-            else {
-               XLookupString (&event.xkey, buffer, sizeof (buffer),
-                             nullptr, nullptr);
-               if (buffer[0] == 27) {
-                  /* escape */
-                  return;
-               }
-            }
-         }
-         redraw = 1;
-         break;
-         default:
-            ; /*no-op*/
-         }
-      }
-
-      if (exposed && redraw) {
-         draw ();
-      }
+      bool destroyed = false;
+      if (pollset[1].revents & POLLIN)
+         if (XCheckWindowEvent (dpy, win, 0xffffffff, &event))
+            if (x11Event (event, pty_fd, destroyed))
+               return destroyed;
    }
 }
 
@@ -448,7 +594,8 @@ main (int argc, char *argv[])
    }
 
    x_dpy = XOpenDisplay (dpyName);
-   if (!x_dpy) {
+   if (!x_dpy)
+   {
       std::cerr << "Error: couldn't open display "
                 << (dpyName ? dpyName : getenv ("DISPLAY"))
                 << std::endl;
@@ -456,7 +603,8 @@ main (int argc, char *argv[])
    }
 
    egl_dpy = eglGetDisplay ((EGLNativeDisplayType)x_dpy);
-   if (!egl_dpy) {
+   if (!egl_dpy)
+   {
       std::cerr << "Error: eglGetDisplay() failed" << std::endl;
       return -1;
    }
@@ -504,7 +652,10 @@ main (int argc, char *argv[])
     */
    resize (win_width, win_height);
 
-   event_loop (x_dpy, win);
+   const char * const sh_argv[] = { "bash", nullptr };
+   int pty_fd = startShell (geomCols, geomRows, sh_argv);
+
+   bool destroyed = eventLoop (x_dpy, win, pty_fd);
 
    renderer = nullptr; // ~Renderer () shuts down renderer thread
 
@@ -512,7 +663,8 @@ main (int argc, char *argv[])
    eglDestroySurface (egl_dpy, egl_surf);
    eglTerminate (egl_dpy);
 
-   XDestroyWindow (x_dpy, win);
+   if (! destroyed)
+      XDestroyWindow (x_dpy, win);
    XCloseDisplay (x_dpy);
 
    return 0;
