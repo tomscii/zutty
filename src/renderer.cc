@@ -61,20 +61,20 @@ namespace zutty {
 
    Renderer::~Renderer ()
    {
-      Frame frame;
-      frame.exit = true;
-      update (frame);
+      Vterm vt;
+      vt.exit = true;
+      update (vt);
       thr.join ();
    }
 
    void
-   Renderer::update (const Frame& frame)
+   Renderer::update (const Vterm& vt)
    {
-      std::unique_lock <std::mutex> lock (frameMutex);
-      nextFrame = frame;
-      nextFrame.seqNo = ++seqNo;
+      std::unique_lock <std::mutex> lock (vtMutex);
+      nextVt = vt;
+      nextVt.seqNo = ++seqNo;
       lock.unlock ();
-      frameCond.notify_one();
+      vtCond.notify_one();
    }
 
    void
@@ -87,7 +87,7 @@ namespace zutty {
 
       charVdev = std::make_unique <CharVdev> (priFont, altFont);
 
-      Frame lastFrame;
+      Vterm lastVt;
 
       int n_redraws = 0;
       struct timeval tv;
@@ -101,29 +101,29 @@ namespace zutty {
 
       while (1)
       {
-         std::unique_lock <std::mutex> lock (frameMutex);
-         frameCond.wait (lock,
-                         [&] ()
-                         {
-                            return lastFrame.seqNo != nextFrame.seqNo;
-                         });
+         std::unique_lock <std::mutex> lock (vtMutex);
+         vtCond.wait (lock,
+                      [&] ()
+                      {
+                         return lastVt.seqNo != nextVt.seqNo;
+                      });
 
-         if (nextFrame.exit)
+         if (nextVt.exit)
             return;
 
-         if ((lastFrame.pxWidth != nextFrame.pxWidth) ||
-             (lastFrame.pxHeight != nextFrame.pxHeight))
-            charVdev->resize (nextFrame.pxWidth, nextFrame.pxHeight);
+         if ((lastVt.winPx != nextVt.winPx) ||
+             (lastVt.winPy != nextVt.winPy))
+            charVdev->resize (nextVt.winPx, nextVt.winPy);
 
-         lastFrame = nextFrame;
+         lastVt = nextVt;
          lock.unlock ();
 
          {
             CharVdev::Mapping m = charVdev->getMapping ();
-            assert (m.nCols == lastFrame.nCols);
-            assert (m.nRows == lastFrame.nRows);
+            assert (m.nCols == lastVt.nCols);
+            assert (m.nRows == lastVt.nRows);
 
-            std::memcpy (m.cells, lastFrame.cells.get (),
+            std::memcpy (m.cells, lastVt.cells.get (),
                          m.nRows * m.nCols * sizeof (CharVdev::Cell));
 
             if (benchmark)

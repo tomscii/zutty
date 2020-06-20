@@ -12,6 +12,7 @@
 #pragma once
 
 #include "charvdev.h"
+#include "vterm.h"
 
 #include <condition_variable>
 #include <cstdint>
@@ -21,17 +22,6 @@
 #include <thread>
 
 namespace zutty {
-
-   struct Frame
-   {
-      uint64_t seqNo = 0; // update counter
-      uint16_t pxWidth;
-      uint16_t pxHeight;
-      uint16_t nCols;
-      uint16_t nRows;
-      std::shared_ptr <CharVdev::Cell> cells;
-      bool exit = false;
-   };
 
    class Renderer {
    public:
@@ -43,18 +33,16 @@ namespace zutty {
 
       ~Renderer ();
 
-      void update (const Frame& frame);
-
-      CharVdev * getCharVdev () const { return charVdev.get (); }
+      void update (const Vterm& vt);
 
    private:
       std::unique_ptr <CharVdev> charVdev;
       const std::function <void ()> swapBuffers;
-      Frame nextFrame;
+      Vterm nextVt;
       uint64_t seqNo;
 
-      std::condition_variable frameCond;
-      std::mutex frameMutex;
+      std::condition_variable vtCond;
+      std::mutex vtMutex;
       std::thread thr;
 
       void renderThread (const Font& priFont,

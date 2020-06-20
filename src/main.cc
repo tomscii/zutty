@@ -27,7 +27,7 @@
 #include <unistd.h>
 
 using zutty::CharVdev;
-using zutty::Frame;
+using zutty::Vterm;
 using zutty::Renderer;
 
 static bool benchMode = false;
@@ -45,14 +45,14 @@ static uint32_t draw_count = 0;
 static std::unique_ptr <zutty::Font> priFont = nullptr;
 static std::unique_ptr <zutty::Font> altFont = nullptr;
 static std::unique_ptr <Renderer> renderer = nullptr;
-static Frame frame;
+static std::unique_ptr <Vterm> vt = nullptr;
 
 static void
-demo_draw (Frame& frame)
+demo_draw (Vterm& vt)
 {
-   CharVdev::Cell * cells = frame.cells.get ();
-   uint16_t nCols = frame.nCols;
-   uint16_t nRows = frame.nRows;
+   CharVdev::Cell * cells = vt.cells.get ();
+   uint16_t nCols = vt.nCols;
+   uint16_t nRows = vt.nRows;
 
    uint32_t nGlyphs = priFont->getSupportedCodes ().size ();
    if (nGlyphs > nRows * nCols)
@@ -80,11 +80,11 @@ demo_draw (Frame& frame)
 }
 
 static void
-demo_resize (Frame& frame)
+demo_resize (Vterm& vt)
 {
-   CharVdev::Cell * cells = frame.cells.get ();
-   uint16_t nCols = frame.nCols;
-   uint16_t nRows = frame.nRows;
+   CharVdev::Cell * cells = vt.cells.get ();
+   uint16_t nCols = vt.nCols;
+   uint16_t nRows = vt.nRows;
 
    const CharVdev::Cell * cellsEnd = & cells [nRows * nCols];
 
@@ -123,23 +123,18 @@ demo_resize (Frame& frame)
 static void
 draw ()
 {
-   demo_draw (frame);
+   //demo_draw (* vt.get ());
 
-   renderer->update (frame);
+   renderer->update (* vt.get ());
 }
 
 /* new window size or exposure */
 static void
 resize (int width, int height)
 {
-   frame.pxWidth = width;
-   frame.pxHeight = height;
-   frame.nCols = frame.pxWidth / priFont->getPx ();
-   frame.nRows = frame.pxHeight / priFont->getPy ();
-   frame.cells = std::shared_ptr <CharVdev::Cell> (
-      new CharVdev::Cell [frame.nRows * frame.nCols]);
+   vt->resize (width, height);
 
-   demo_resize (frame);
+   //demo_resize (* vt.get ());
 }
 
 /*
@@ -285,22 +280,6 @@ startShell (uint16_t nCols, uint16_t nRows, const char* const argv[])
    }
 
    return fdm;
-}
-
-static bool
-ptyRead (int pty_fd)
-{
-   char ptybuf [100];
-   ssize_t n = read (pty_fd, ptybuf, sizeof (ptybuf));
-   std::cout << "n = " << n << std::endl;
-   for (int k = 0; k < n; ++k)
-      if (ptybuf[k] < ' ')
-         std::cout << "<" << (int)ptybuf[k] << ">";
-      else
-         std::cout << ptybuf[k];
-   std::cout << std::endl;
-
-   return false;
 }
 
 static bool
@@ -469,8 +448,10 @@ eventLoop (Display *dpy, Window win, int pty_fd)
       if (pollset[0].revents & POLLHUP)
          return false;
       if (pollset[0].revents & POLLIN)
-         if (ptyRead (pty_fd))
-            return false;
+      {
+         vt->readPty ();
+         renderer->update (* vt.get ());
+      }
 
       XEvent event;
       bool destroyed = false;
@@ -647,13 +628,16 @@ main (int argc, char *argv[])
       },
       benchMode);
 
+   const char * const sh_argv[] = { "bash", nullptr };
+   int pty_fd = startShell (geomCols, geomRows, sh_argv);
+
+   vt = std::make_unique <Vterm> (priFont->getPx (), priFont->getPy (),
+                                  win_width, win_height, pty_fd);
+
    /* Force initialization.
     * We might not get a ConfigureNotify event when the window first appears.
     */
    resize (win_width, win_height);
-
-   const char * const sh_argv[] = { "bash", nullptr };
-   int pty_fd = startShell (geomCols, geomRows, sh_argv);
 
    bool destroyed = eventLoop (x_dpy, win, pty_fd);
 
