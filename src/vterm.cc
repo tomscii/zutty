@@ -12,23 +12,24 @@
 #include "pty.h"
 #include "vterm.h"
 
-#include <iostream>
+#include <cstring>
 
 namespace zutty {
 
    Vterm::Vterm (uint16_t glyphPx_, uint16_t glyphPy_,
                  uint16_t winPx_, uint16_t winPy_,
                  int ptyFd_)
-      : glyphPx (glyphPx_)
-      , glyphPy (glyphPy_)
-      , winPx (winPx_)
+      : winPx (winPx_)
       , winPy (winPy_)
-      , nCols (winPx / glyphPx)
-      , nRows (winPy / glyphPy)
+      , nCols (winPx / glyphPx_)
+      , nRows (winPy / glyphPy_)
+      , glyphPx (glyphPx_)
+      , glyphPy (glyphPy_)
       , ptyFd (ptyFd_)
       , cells (std::shared_ptr <CharVdev::Cell> (
                   new CharVdev::Cell [nRows * nCols]))
-      , cp (cells.get ())
+      , cur (0)
+      , top (0)
    {
       memset (cells.get (), 0, nRows * nCols * sizeof (CharVdev::Cell));
    }
@@ -46,9 +47,10 @@ namespace zutty {
       cells = std::shared_ptr <CharVdev::Cell> (
          new CharVdev::Cell [nRows * nCols]);
       memset (cells.get (), 0, nRows * nCols * sizeof (CharVdev::Cell));
-      cp = cells.get ();
-      curX = 0;
-      curY = 0;
+      cur = 0;
+      top = 0;
+      posX = 0;
+      posY = 0;
 
       struct winsize size;
       size.ws_col = nCols;
@@ -58,52 +60,11 @@ namespace zutty {
    }
 
    void
-   Vterm::readPty ()
+   Vterm::copyCells (CharVdev::Cell * const dst)
    {
-      unsigned char buf [1024];
-      ssize_t n = read (ptyFd, buf, sizeof (buf));
-      std::cout << "n = " << n << std::endl;
-      for (int k = 0; k < n; ++k)
-      {
-         if (buf[k] < ' ')
-            std::cout << "<" << (unsigned int)buf[k] << ">";
-         else
-            std::cout << buf[k];
-
-         switch (buf [k])
-         {
-         case '\r':
-            cp -= curX;
-            curX = 0;
-            break;
-         case '\n':
-            cp += nCols;
-            curY += 1;
-            if (curY == nRows)
-            {
-               curY = 0;
-               cp = cells.get () + curX;
-            }
-            break;
-         default:
-            cp->uc_pt = buf [k];
-            cp->fg = fg;
-            cp->bg = bg;
-            ++cp;
-            ++curX;
-            if (curX == nCols)
-            {
-               curX = 0;
-               ++curY;
-               if (curY == nRows)
-               {
-                  curY = 0;
-                  cp = cells.get ();
-               }
-            }
-         }
-      }
-      std::cout << std::endl;
+      uint32_t end = nRows * nCols;
+      memcpy (dst, cells.get () + top, (end - top) * sizeof (CharVdev::Cell));
+      memcpy (dst + (end - top), cells.get (), top * sizeof (CharVdev::Cell));
    }
 
 } // namespace zutty

@@ -12,7 +12,6 @@
 #include "renderer.h"
 
 #include <cassert>
-#include <cstring>
 #include <iostream>
 #include <stdexcept>
 #include <sys/time.h>
@@ -123,8 +122,7 @@ namespace zutty {
             assert (m.nCols == lastVt.nCols);
             assert (m.nRows == lastVt.nRows);
 
-            std::memcpy (m.cells, lastVt.cells.get (),
-                         m.nRows * m.nCols * sizeof (CharVdev::Cell));
+            lastVt.copyCells (m.cells);
 
             if (benchmark)
                benchDraw (m);

@@ -9,13 +9,13 @@
  * See the file LICENSE for the full license.
  */
 
-#include "font.h"
-#include "pty.h"
-#include "renderer.h"
-
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
+
+#include "font.h"
+#include "pty.h"
+#include "renderer.h"
 
 #include <cassert>
 #include <iostream>
@@ -40,16 +40,18 @@ static int win_width, win_height;
 static uint16_t geomCols = 80;
 static uint16_t geomRows = 25;
 
-static uint32_t draw_count = 0;
-
 static std::unique_ptr <zutty::Font> priFont = nullptr;
 static std::unique_ptr <zutty::Font> altFont = nullptr;
 static std::unique_ptr <Renderer> renderer = nullptr;
 static std::unique_ptr <Vterm> vt = nullptr;
 
+//#define DEMO
+#ifdef DEMO
 static void
 demo_draw (Vterm& vt)
 {
+   static uint32_t draw_count = 0;
+
    CharVdev::Cell * cells = vt.cells.get ();
    uint16_t nCols = vt.nCols;
    uint16_t nRows = vt.nRows;
@@ -119,11 +121,14 @@ demo_resize (Vterm& vt)
       (* cells).bg = {72, 48, 96};
    }
 }
+#endif
 
 static void
 draw ()
 {
-   //demo_draw (* vt.get ());
+#ifdef DEMO
+   demo_draw (* vt.get ());
+#endif
 
    renderer->update (* vt.get ());
 }
@@ -134,7 +139,9 @@ resize (int width, int height)
 {
    vt->resize (width, height);
 
-   //demo_resize (* vt.get ());
+#ifdef DEMO
+   demo_resize (* vt.get ());
+#endif
 }
 
 /*
@@ -294,6 +301,18 @@ sendChar (int pty_fd, uint8_t ch)
 }
 
 static bool
+sendChars (int pty_fd, const char * ch)
+{
+   while (* ch)
+   {
+      if (sendChar (pty_fd, * ch))
+         return true;
+      ++ch;
+   }
+   return false;
+}
+
+static bool
 x11Event (XEvent& event, int pty_fd, bool& destroyed)
 {
    static bool exposed = false;
@@ -331,14 +350,19 @@ x11Event (XEvent& event, int pty_fd, bool& destroyed)
       //std::cout << "KP code = " << code << std::endl;
       switch (code)
       {
-      case XK_Escape:
-         std::cout << "XK_Escape" << std::endl;
-         return true;
-      case XK_Return:
-         std::cout << "XK_Return" << std::endl;
-         if (sendChar (pty_fd, '\n'))
-             return true;
-         break;
+#define KEYSEQ(Key, Seq)                                             \
+         case Key:                                                   \
+            std::cout << "KeyPress  : " << #Key << std::endl;        \
+            if (sendChars (pty_fd, Seq))                             \
+               return true;                                          \
+            break
+
+      KEYSEQ (XK_Insert, "\x1b[2~");
+      KEYSEQ (XK_Delete, "\x1b[3~");
+      KEYSEQ (XK_Up,     "\x1b[A");
+      KEYSEQ (XK_Down,   "\x1b[B");
+      KEYSEQ (XK_Right,  "\x1b[C");
+      KEYSEQ (XK_Left,   "\x1b[D");
 
 #define KEYCASE(Key)                                                 \
          case Key:                                                   \
@@ -348,17 +372,14 @@ x11Event (XEvent& event, int pty_fd, bool& destroyed)
       // Cursor control & motion
       KEYCASE (XK_Home);
       KEYCASE (XK_End);
-      KEYCASE (XK_Left);
-      KEYCASE (XK_Right);
-      KEYCASE (XK_Up);
-      KEYCASE (XK_Down);
       KEYCASE (XK_Page_Up);
       KEYCASE (XK_Page_Down);
       // TTY function keys
-      KEYCASE (XK_BackSpace);
-      KEYCASE (XK_Delete);
-      KEYCASE (XK_Linefeed);
-      KEYCASE (XK_Tab);
+      //KEYCASE (XK_BackSpace);
+      //KEYCASE (XK_Delete);
+      //KEYCASE (XK_Insert);
+      //KEYCASE (XK_Linefeed);
+      //KEYCASE (XK_Tab);
       // Modifiers
       KEYCASE (XK_Shift_L);
       KEYCASE (XK_Shift_R);
