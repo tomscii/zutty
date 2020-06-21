@@ -282,39 +282,20 @@ startShell (uint16_t nCols, uint16_t nRows, const char* const argv[])
    if (pid < 0) {
       throw std::runtime_error ("fork error");
    } else if (pid == 0) { // child:
+      if (setenv ("TERM", "xterm-256color", 1) < 0)
+         throw std::runtime_error ("can't setenv (TERM)");
       if (execvp (argv[0], (char * const *) argv) < 0)
-         throw std::runtime_error (std::string ("can't execvp: ") + argv[0]);
+         throw std::runtime_error (std::string ("can't execvp: ") + argv [0]);
    }
 
    return fdm;
 }
 
 static bool
-sendChar (int pty_fd, uint8_t ch)
-{
-   if (write (pty_fd, &ch, 1) != 1)
-   {
-      std::cout << "write error" << std::endl;
-      return true;
-   }
-   return false;
-}
-
-static bool
-sendChars (int pty_fd, const char * ch)
-{
-   while (* ch)
-   {
-      if (sendChar (pty_fd, * ch))
-         return true;
-      ++ch;
-   }
-   return false;
-}
-
-static bool
 x11Event (XEvent& event, int pty_fd, bool& destroyed)
 {
+   using Key = Vterm::VtKey;
+
    static bool exposed = false;
    bool redraw = false;
    destroyed = false;
@@ -350,36 +331,40 @@ x11Event (XEvent& event, int pty_fd, bool& destroyed)
       //std::cout << "KP code = " << code << std::endl;
       switch (code)
       {
-#define KEYSEQ(Key, Seq)                                             \
-         case Key:                                                   \
-            std::cout << "KeyPress  : " << #Key << std::endl;        \
-            if (sendChars (pty_fd, Seq))                             \
-               return true;                                          \
+#define KEYSEND(XKey, VtKey)                                          \
+         case XKey:                                                   \
+            std::cout << "KeyPress  : " << #XKey << std::endl;        \
+            vt->writePty (VtKey);                                     \
             break
 
-      KEYSEQ (XK_Insert, "\x1b[2~");
-      KEYSEQ (XK_Delete, "\x1b[3~");
-      KEYSEQ (XK_Up,     "\x1b[A");
-      KEYSEQ (XK_Down,   "\x1b[B");
-      KEYSEQ (XK_Right,  "\x1b[C");
-      KEYSEQ (XK_Left,   "\x1b[D");
+      KEYSEND (XK_Insert,    Key::Insert);
+      KEYSEND (XK_Delete,    Key::Delete);
+      KEYSEND (XK_Home,      Key::Home);
+      KEYSEND (XK_End,       Key::End);
+      KEYSEND (XK_Up,        Key::Up);
+      KEYSEND (XK_Down,      Key::Down);
+      KEYSEND (XK_Right,     Key::Right);
+      KEYSEND (XK_Left,      Key::Left);
+      KEYSEND (XK_Page_Up,   Key::PageUp);
+      KEYSEND (XK_Page_Down, Key::PageDown);
+      KEYSEND (XK_F1,        Key::F1);
+      KEYSEND (XK_F2,        Key::F2);
+      KEYSEND (XK_F3,        Key::F3);
+      KEYSEND (XK_F4,        Key::F4);
+      KEYSEND (XK_F5,        Key::F5);
+      KEYSEND (XK_F6,        Key::F6);
+      KEYSEND (XK_F7,        Key::F7);
+      KEYSEND (XK_F8,        Key::F8);
+      KEYSEND (XK_F9,        Key::F9);
+      KEYSEND (XK_F10,       Key::F10);
+      KEYSEND (XK_F11,       Key::F11);
+      KEYSEND (XK_F12,       Key::F12);
 
 #define KEYCASE(Key)                                                 \
          case Key:                                                   \
             std::cout << "KeyPress  : " << #Key << std::endl;        \
             break
 
-      // Cursor control & motion
-      KEYCASE (XK_Home);
-      KEYCASE (XK_End);
-      KEYCASE (XK_Page_Up);
-      KEYCASE (XK_Page_Down);
-      // TTY function keys
-      //KEYCASE (XK_BackSpace);
-      //KEYCASE (XK_Delete);
-      //KEYCASE (XK_Insert);
-      //KEYCASE (XK_Linefeed);
-      //KEYCASE (XK_Tab);
       // Modifiers
       KEYCASE (XK_Shift_L);
       KEYCASE (XK_Shift_R);
@@ -399,7 +384,7 @@ x11Event (XEvent& event, int pty_fd, bool& destroyed)
          XLookupString (&event.xkey, buffer, sizeof (buffer),
                         nullptr, nullptr);
          //std::cout << "buffer[0] = '" << buffer[0] << "'" << std::endl;
-         if (sendChar (pty_fd, buffer[0]))
+         if (vt->writePty (buffer[0]) != 1)
              return true;
          break;
       }
@@ -468,11 +453,9 @@ eventLoop (Display *dpy, Window win, int pty_fd)
 
       if (pollset[0].revents & POLLHUP)
          return false;
+
       if (pollset[0].revents & POLLIN)
-      {
          vt->readPty ();
-         renderer->update (* vt.get ());
-      }
 
       XEvent event;
       bool destroyed = false;
@@ -654,6 +637,7 @@ main (int argc, char *argv[])
 
    vt = std::make_unique <Vterm> (priFont->getPx (), priFont->getPy (),
                                   win_width, win_height, pty_fd);
+   vt->setRefreshHandler ([] (const Vterm& v) { renderer->update (v); });
 
    /* Force initialization.
     * We might not get a ConfigureNotify event when the window first appears.

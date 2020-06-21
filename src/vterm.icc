@@ -14,116 +14,340 @@
 
 #include <algorithm>
 #include <iostream>
+#include <sstream>
+
+// for the debug/step facility:
+#include <chrono>
+#include <thread>
+#include <sys/types.h>
+#include <signal.h>
 
 namespace {
 
    using namespace zutty;
 
-   inline void
-   unhandledInput (char ch, Vterm::InputState& state,
-                   const uint8_t * chBegin, const uint8_t * chEnd)
+#define LOG
+//#define LOG_TRACE
+//#define STEP_DEBUGGER
+
+#ifdef LOG
+   #define logE      std::cout << "Error: "
+   #define logEcont  std::cout
+   #define logU      std::cout << "(unimpl) "
+   #define logUcont  std::cout
+   #define logI      std::cout << "Info | "
+#else
+   #define logE      nullptr && std::cout
+   #define logEcont  nullptr && std::cout
+   #define logU      nullptr && std::cout
+   #define logUcont  nullptr && std::cout
+   #define logI      nullptr && std::cout
+#endif
+
+#ifdef LOG_TRACE
+   #define logT      std::cout << "Trace | "
+   #define logTcont  std::cout
+   #define TRACE_FUN                           \
+      logT << __FUNCTION__ << " [";            \
+      for (size_t k = 0; k < nInputOps; ++k) { \
+         if (k) logTcont << ";";               \
+         logTcont << inputOps [k];             \
+      }                                        \
+      logTcont << "]   \t"                     \
+      << "p(" << posY << "," << posX           \
+      << ")  d(" << nRows << "," << nCols      \
+      << ")  cur=" << cur                      \
+      << "  top=" << top                       \
+      << std::endl
+
+#else
+   #define logT      nullptr && std::cout
+   #define logTcont  nullptr && std::cout
+   #define TRACE_FUN
+#endif
+
+#ifdef LOG_TRACE
+   inline int
+   debugPrintInput (std::ostream & os,
+                    unsigned char* start, unsigned char* end,
+                    bool breakOnEsc = false)
    {
-      std::cout << "Unhandled input char '" << ch << "' ("
-                << (unsigned int)ch << ") in state " << (int)state
-                << ". Escape sequence so far: '";
-      for (auto it = chBegin; it != chEnd; ++it)
-         std::cout << *it;
-      std::cout << "'" << std::endl;
-
-      state = Vterm::InputState::Normal;
+      int count = 0;
+      os << "'";
+      for (auto it = start; it != end; ++it)
+      {
+         if (breakOnEsc && *it == '\e')
+            break;
+         switch (*it)
+         {
+         case '\a': os << "\\a"; break;
+         case '\b': os << "\\b"; break;
+         case '\e': os << "\\e"; break;
+         case '\n': os << "\\n"; break;
+         case '\r': os << "\\r"; break;
+         case '\t': os << "\\t"; break;
+         case '\v': os << "\\v"; break;
+         default:
+            if (*it < ' ')
+               os << "<" << (unsigned int)*it << ">";
+            else
+               os << *it;
+            break;
+         }
+         ++count;
+      }
+      os << "' (" << count << " bytes)" << std::endl;
+      return count;
    }
-
+#else
+   inline int
+   debugPrintInput (bool, unsigned char*, unsigned char*, bool = false)
+   { return 0; }
+   inline int
+   debugPrintInput (std::ostream&, unsigned char*, unsigned char*, bool = false)
+   { return 0; }
+#endif // LOG_TRACE
 }
 
 namespace zutty {
+
+#ifdef STEP_DEBUGGER
+   #define DEBUGSTOP debugStop()
+
+   inline void
+   Vterm::debugStop ()
+   {
+      logT << "*** DEBUG STOP, "
+           << readPos + 1 - lastStopPos << " bytes since last:\n        ";
+      debugPrintInput (logTcont, inputBuf + lastStopPos, inputBuf + readPos + 1);
+      lastStopPos = readPos + 1;
+
+      logT << "Issue 'kill -CONT " << getpid () << "' or 'fg' to continue."
+           << std::endl;
+
+      refreshVideo (* this);
+      using namespace std::chrono_literals;
+      std::this_thread::sleep_for (100ms);
+
+      kill (getpid (), SIGSTOP);
+   }
+#else
+   #define DEBUGSTOP
+#endif // STEP_DEBUGGER
+
+   inline void
+   Vterm::unhandledInput (char ch)
+   {
+      logE << "Unhandled input char '" << ch
+           << "' (" << (unsigned int)ch << ") in state " << (int)inputState
+           << ". Escape sequence so far: ";
+      debugPrintInput (logEcont, inputBuf + lastEscBegin, inputBuf + readPos + 1);
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::traceNormalInput ()
+   {
+   #ifdef LOG_TRACE
+      if (lastNormalBegin < readPos)
+      {
+         std::ostringstream oss;
+         oss << "Inserted: ";
+         if (debugPrintInput (oss, inputBuf + lastNormalBegin,
+                              inputBuf + readPos, true))
+            logT << oss.str () << std::endl;
+      }
+      lastNormalBegin = readPos + 1;
+   #endif
+   }
+
+   inline void
+   Vterm::resetTerminal ()
+   {
+      posX = 0;
+      posY = 0;
+      top = 0;
+      setCur ();
+      resetAttrs ();
+      fillScreen (' ');
+   }
+
+   inline void
+   Vterm::resetAttrs ()
+   {
+      inputOps [0] = 0;
+      nInputOps = 1;
+      csi_SGR ();
+   }
+
+   inline void
+   Vterm::fillScreen (uint16_t ch)
+   {
+      for (uint32_t k = 0; k < nRows * nCols; ++k)
+      {
+         cell (k) = attrs;
+         cell (k).uc_pt = ch;
+      }
+   }
+
+   inline void
+   Vterm::setState (InputState newState)
+   {
+      if (newState == inputState)
+         return;
+
+      if (newState == InputState::Normal)
+      {
+         DEBUGSTOP;
+         nInputOps = 0;
+         inputOps [0] = 0;
+         lastNormalBegin = readPos + 1;
+      }
+      else
+      {
+         traceNormalInput ();
+      }
+
+      inputState = newState;
+   }
+
+   inline int
+   Vterm::writePty (uint8_t ch)
+   {
+      return write (ptyFd, &ch, 1);
+   }
+
+   inline int
+   Vterm::writePty (const char* cstr)
+   {
+      return write (ptyFd, cstr, strlen (cstr));
+   }
 
    inline void
    Vterm::readPty ()
    {
       ssize_t n = read (ptyFd, inputBuf, sizeof (inputBuf));
-   #if 1
-      std::cout << "read " << n << " bytes: ";
-      for (int k = 0; k < n; ++k)
-      {
-         if (inputBuf[k] < ' ')
-            std::cout << "<" << (unsigned int)inputBuf[k] << ">";
-         else
-            std::cout << inputBuf[k];
-      }
-      std::cout << std::endl;
-   #endif
-      int escBegin = 0;
+
+      logT << "read input: ";
+      debugPrintInput (logTcont, inputBuf, inputBuf + n);
+
+      readPos = 0;
+      lastEscBegin = 0;
+      lastNormalBegin = 0;
+      lastStopPos = 0;
       hideCursor ();
-      for (int k = 0; k < n; ++k)
+      for (readPos = 0; readPos < n; ++readPos)
       {
-         const char& ch = inputBuf [k];
+         const char& ch = inputBuf [readPos];
          switch (inputState)
          {
          case InputState::Normal:
             switch (ch)
             {
             case '\e':
-               inputState = InputState::Escape;
+               setState (InputState::Escape);
                inputOps [0] = 0;
                nInputOps = 1;
-               escBegin = k + 1;
+               lastEscBegin = readPos;
                break;
-            case '\r': carriageReturn (); break;
-            case '\n': esc_IND (); break;
-            case '\b': csi_CUB (); break;
+            case '\r': traceNormalInput (); inp_CR (); break;
+            case '\v':
+            case '\n': traceNormalInput (); esc_IND (); break;
+            case '\t': traceNormalInput (); inp_HT (); break;
+            case '\b': traceNormalInput (); csi_CUB (); break;
             case '\a':
-               std::cout << "* Bell *" << std::endl;
+               traceNormalInput ();
+               logI << "* Bell *" << std::endl;
+               break;
+            case 0x0e:
+               traceNormalInput ();
+               //logU << "Locking Shift 1: map G1 to GL" << std::endl;
+               break;
+            case 0x0f:
+               traceNormalInput ();
+               //logU << "Locking Shift 0: map G0 to GL" << std::endl;
                break;
             default:
-            {
-               auto& c = cell (cur);
-               c = attrs;
-               c.uc_pt = ch;
-            }
-            advancePosition ();
+               if ((ch & 0x80) == 0)
+                  insertChar (ch);
+               else if (((uint8_t)ch >> 6) == 0x2) // 10xx'xxxx
+               {
+                  logT << "utf-8 sequence cont" << std::endl;
+                  unicode_cp <<= 6;
+                  unicode_cp += (uint8_t)ch & 0x3f;
+                  if (! --utf8_rem)
+                     insertChar (unicode_cp);
+              }
+               else if (((uint8_t)ch >> 5) == 0x6) // 110x'xxxx
+               {
+                  logT << "utf-8 2-byte sequence" << std::endl;
+                  unicode_cp = ch & 0x1f;
+                  utf8_rem = 1;
+               }
+               else if (((uint8_t)ch >> 4) == 0xe) // 1110'xxxx
+               {
+                  logT << "utf-8 3-byte sequence" << std::endl;
+                  unicode_cp = ch & 0x0f;
+                  utf8_rem = 2;
+               }
+               else if (((uint8_t)ch >> 3) == 0x1e) // 1111'0xxx
+               {
+                  logT << "utf-8 4-byte sequence" << std::endl;
+                  unicode_cp = ch & 0x07;
+                  utf8_rem = 3;
+               }
             }
             break;
          case InputState::Escape:
             switch (ch)
             {
-            case '\e':
-               inputState = InputState::Normal;
-               break;
-            case '[':
-               inputState = InputState::CSI;
-               break;
-            case '(':
-               attrs.bold = 0;
-               inputState = InputState::Normal;
-               break;
-            case ')':
-               attrs.bold = 1;
-               inputState = InputState::Normal;
-               break;
+            case '\e': setState (InputState::Normal); break;
+            case '#': setState (InputState::EscapeHash); break;
+            case '[': setState (InputState::CSI); break;
+            case '(': setState (InputState::SelectCharset); break;
+            case ')': setState (InputState::SelectCharset); break;
+            case '*': setState (InputState::SelectCharset); break;
+            case '+': setState (InputState::SelectCharset); break;
             case 'D': esc_IND (); break;
             case 'M': esc_RI (); break;
             case 'E': esc_NEL (); break;
+            case 'H': esc_HTS (); break;
             case '7': esc_DECSC (); break;
             case '8': esc_DECRC (); break;
             case '=':
-               std::cout << "VT52 Enter alternate keypad mode" << std::endl;
-               inputState = InputState::Normal;
+               logU << "VT52 Enter alternate keypad mode" << std::endl;
+               setState (InputState::Normal);
+               DEBUGSTOP;
                break;
             case '>':
-               std::cout << "VT52 Exit alternate keypad mode" << std::endl;
-               inputState = InputState::Normal;
+               logU << "VT52 Exit alternate keypad mode" << std::endl;
+               setState (InputState::Normal);
                break;
             default:
-               unhandledInput (ch, inputState,
-                               inputBuf + escBegin, inputBuf + k + 1);
+               unhandledInput (ch);
                break;
             }
+            break;
+         case InputState::EscapeHash:
+            switch (ch)
+            {
+            case '8': esch_DECALN (); break;
+            default:
+               unhandledInput (ch);
+               break;
+            }
+            break;
+         case InputState::SelectCharset:
+            logT << "Designate Character Set: input '" << ch << "'"
+                 << std::endl;
+            if (ch >= 0x30) // Final
+               setState (InputState::Normal);
             break;
          case InputState::CSI:
             switch (ch)
             {
             case '\e':
-               inputState = InputState::Normal;
+               setState (InputState::Normal);
                break;
             case '0': case '1': case '2': case '3': case '4':
             case '5': case '6': case '7': case '8': case '9':
@@ -135,32 +359,51 @@ namespace zutty {
                   inputOps [nInputOps ++] = 0;
                else
                {
-                  std::cout << "inputOps full, increase maxEscOps (currently: "
-                            << maxEscOps << ")!" << std::endl;
-                  inputState = InputState::Normal;
+                  logE << "inputOps full, increase maxEscOps (currently: "
+                       << maxEscOps << ")!" << std::endl;
+                  setState (InputState::Normal);
                }
                break;
             case 'A': csi_CUU (); break;
             case 'B': csi_CUD (); break;
             case 'C': csi_CUF (); break;
             case 'D': csi_CUB (); break;
+            case 'E': csi_CNL (); break;
+            case 'F': csi_CPL (); break;
+            case 'G': csi_CHA (); break;
             case 'H': case 'f': csi_CUP (); break;
+            case 'I': csi_CHT (); break;
             case 'J': csi_ED (); break;
             case 'K': csi_EL (); break;
             case 'L': csi_IL (); break;
             case 'M': csi_DL (); break;
-            case '@': csi_ICH (); break;
             case 'P': csi_DCH (); break;
+            case 'S': csi_SU (); break;
+            case 'T': csi_SD (); break;
+            case 'X': csi_ECH (); break;
+            case '@': csi_ICH (); break;
+            case 'c': csi_priDA (); break;
+            case 'd': csi_VPA (); break;
+            case 'g': csi_TBC (); break;
             case 'h': csi_SM (); break;
             case 'l': csi_RM (); break;
             case 'm': csi_SGR (); break;
             case 'r': csi_STBM (); break;
             case '?':
-               inputState = InputState::CSI_priv;
+               setState (InputState::CSI_priv);
                break;
+            case '\a': break; // ignore
+            case '\b': // undo last character in CSI sequence:
+               if (readPos && inputBuf [readPos - 1] == ';')
+                  --nInputOps;
+               else
+                  inputOps [nInputOps - 1] /= 10;
+               break;
+            case '\t': inp_HT (); setState (InputState::CSI); break;
+            case '\r': inp_CR (); setState (InputState::CSI); break;
+            case '\v': esc_IND (); setState (InputState::CSI); break;
             default:
-               unhandledInput (ch, inputState,
-                               inputBuf + escBegin, inputBuf + k + 1);
+               unhandledInput (ch);
                break;
             }
             break;
@@ -168,7 +411,7 @@ namespace zutty {
             switch (ch)
             {
             case '\e':
-               inputState = InputState::Normal;
+               setState (InputState::Normal);
                break;
             case '0': case '1': case '2': case '3': case '4':
             case '5': case '6': case '7': case '8': case '9':
@@ -180,21 +423,22 @@ namespace zutty {
                   inputOps [nInputOps ++] = 0;
                else
                {
-                  std::cout << "inputOps full, increase maxEscOps (currently: "
-                            << maxEscOps << ")!" << std::endl;
-                  inputState = InputState::Normal;
+                  logE << "inputOps full, increase maxEscOps (currently: "
+                       << maxEscOps << ")!" << std::endl;
+                  setState (InputState::Normal);
                }
                break;
             case 'h': csipriv_SM (); break;
             case 'l': csipriv_RM (); break;
             default:
-               unhandledInput (ch, inputState,
-                               inputBuf + escBegin, inputBuf + k + 1);
+               unhandledInput (ch);
                break;
             }
          }
       }
+      traceNormalInput ();
       showCursor ();
+      refreshVideo (* this);
    }
 
    inline CharVdev::Cell &
@@ -203,9 +447,9 @@ namespace zutty {
 #if 1 /* strict / debug */
       if (idx >= nRows * nCols)
       {
-         std::cout << "cell accessor: idx=" << idx
-                   << " out of range, size=" << nRows * nCols
-                   << std::endl;
+         logE << "cell accessor: idx=" << idx
+              << " out of range, size=" << nRows * nCols
+              << std::endl;
          throw std::runtime_error ("cell accessor: index out of bounds");
       }
 #endif
@@ -218,9 +462,9 @@ namespace zutty {
 #if 1 /* strict / debug */
       if (row >= nRows || col >= nCols)
       {
-         std::cout << "cell accessor: " << row << "," << col
-                   << " out of range, size=" << nRows << "," << nCols
-                   << std::endl;
+         logE << "cell accessor: " << row << "," << col
+              << " out of range, size=" << nRows << "," << nCols
+              << std::endl;
          throw std::runtime_error ("cell accessor: index out of bounds");
       }
 #endif
@@ -267,6 +511,11 @@ namespace zutty {
    inline void
    Vterm::moveLines (uint16_t startY, uint16_t countY, int offset)
    {
+      logT << "moveLines: startY=" << startY
+           << " countY=" << countY
+           << " offset=" << offset
+           << std::endl;
+
       if (offset > 0) // move lines down -- work bottom up
       {
          for (uint16_t pY = startY + countY - 1; pY >= startY; --pY)
@@ -279,58 +528,100 @@ namespace zutty {
             for (uint16_t pX = 0; pX < nCols; ++pX)
                cell (pY, pX) = attrs;
       }
-      else if (offset < 0) // push lines up -- work top down
+      else if (offset < 0) // move lines up -- work top down
       {
          for (uint16_t pY = startY; pY < startY + countY; ++pY)
             for (uint16_t pX = 0; pX < nCols; ++pX)
-               cell (pY, pX) = cell (pY - offset, pX);
-         for (uint16_t pY = startY + countY; pY < startY + countY + offset; ++pY)
+               cell (pY + offset, pX) = cell (pY, pX);
+         for (uint16_t pY = startY + countY + offset; pY < startY + countY; ++pY)
             for (uint16_t pX = 0; pX < nCols; ++pX)
                cell (pY, pX) = attrs;
       }
    }
 
    inline void
-   Vterm::lineFeed ()
+   Vterm::insertChar (uint16_t unicode_pt)
    {
+      if (! autoWrapMode && posX == nCols)
+         return;
+
+      normalizePosition ();
+      auto& c = cell (cur);
+      c = attrs;
+      c.uc_pt = unicode_pt;
+      advancePosition ();
+    }
+
+   inline void
+   Vterm::inp_LF ()
+   {
+      TRACE_FUN;
       esc_IND ();
       eraseRange (cur, startOfNextLine ());
    }
 
    inline void
-   Vterm::carriageReturn ()
+   Vterm::inp_CR ()
    {
+      TRACE_FUN;
       posX = 0;
       setCur ();
    }
 
    inline void
-   Vterm::advancePosition ()
+   Vterm::inp_HT ()
    {
-      ++cur;
-      ++posX;
+      TRACE_FUN;
+      if (tabStops.empty ())
+      {
+         // Hard default of 8 chars limited to right margin
+         posX = std::min(((posX / 8) + 1) * 8, nCols - 1);
+      }
+      else
+      {
+         // Next tabstop column set, or the right margin
+         auto ts = std::lower_bound (tabStops.begin (), tabStops.end (), posX);
+         posX = (ts == tabStops.end ()) ? nCols - 1 : * ts;
+      }
+      setCur ();
+   }
+
+   inline void
+   Vterm::normalizePosition ()
+   {
       if (posX == nCols)
       {
-         carriageReturn ();
-         lineFeed ();
+         inp_CR ();
+         inp_LF ();
       }
+   }
+
+   inline void
+   Vterm::advancePosition ()
+   {
+      ++posX;
+      setCur ();
    }
 
    inline void
    Vterm::showCursor ()
    {
-      cell (cur).inverse = 1;
+      TRACE_FUN;
+      if (showCursorMode)
+         cell (cur).inverse = 1;
    }
 
    inline void
    Vterm::hideCursor ()
    {
+      TRACE_FUN;
       cell (cur).inverse = 0;
    }
 
    inline void
    Vterm::esc_IND ()
    {
+      TRACE_FUN;
       if (posY == nRows - 1)
       {
          top += nCols;
@@ -346,255 +637,157 @@ namespace zutty {
          ++posY;
          setCur ();
       }
-      inputState = InputState::Normal;
+      setState (InputState::Normal);
    }
 
    inline void
    Vterm::esc_RI ()
    {
+      TRACE_FUN;
       if (posY > 0)
       {
          --posY;
          setCur ();
       }
-      inputState = InputState::Normal;
+      else
+      {
+         if (top >= nCols)
+         {
+            top -= nCols;
+         }
+         else
+         {
+            top = (nRows - 1) * nCols;
+         }
+         setCur ();
+         eraseRange (top, top + nCols);
+      }
+      setState (InputState::Normal);
    }
 
    inline void
    Vterm::esc_NEL ()
    {
+      TRACE_FUN;
       esc_IND ();
       posX = 0;
-      cur = startOfThisLine ();
-      inputState = InputState::Normal;
+      setCur ();
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::esc_HTS ()
+   {
+      TRACE_FUN;
+      tabStops.push_back (posX);
+      std::sort (tabStops.begin (), tabStops.end ());
+      setState (InputState::Normal);
    }
 
    inline void
    Vterm::esc_DECSC ()
    {
-      std::cout << "TODO DECSC" << std::endl;
-      inputState = InputState::Normal;
+      TRACE_FUN;
+      logU << "DECSC" << std::endl;
+      setState (InputState::Normal);
    }
 
    inline void
    Vterm::esc_DECRC ()
    {
-      std::cout << "TODO DECRC" << std::endl;
-      inputState = InputState::Normal;
-   }
-
-   inline void
-   Vterm::csi_SM ()
-   {
-      for (size_t k = 0; k < nInputOps; ++k)
-      {
-         const auto& arg = inputOps [k];
-
-         switch (arg)
-         {
-         case 4:
-            std::cout << "Insert/replace mode set to insert" << std::endl;
-            break;
-         default:
-            std::cout << "set mode: unknown arg: " << arg << std::endl;
-            break;
-         }
-      }
-      inputState = InputState::Normal;
-   }
-
-   inline void
-   Vterm::csi_RM ()
-   {
-      for (size_t k = 0; k < nInputOps; ++k)
-      {
-         const auto& arg = inputOps [k];
-
-         switch (arg)
-         {
-         case 4:
-            std::cout << "Insert/replace mode set to replace" << std::endl;
-            break;
-         default:
-            std::cout << "reset mode: unknown arg: " << arg << std::endl;
-            break;
-         }
-      }
-      inputState = InputState::Normal;
-   }
-
-   inline void
-   Vterm::csipriv_SM ()
-   {
-      for (size_t k = 0; k < nInputOps; ++k)
-      {
-         const auto& arg = inputOps [k];
-
-         switch (arg)
-         {
-         case 1:
-            std::cout << "Cursor keys send application control functions" << std::endl;
-            break;
-         case 25:
-            std::cout << "Show cursor" << std::endl;
-            break;
-         case 1049:
-            std::cout << "Enable alternative screen buffer" << std::endl;
-            break;
-         default:
-            std::cout << "set mode priv: unknown arg: " << arg << std::endl;
-            break;
-         }
-      }
-      inputState = InputState::Normal;
-   }
-
-   inline void
-   Vterm::csipriv_RM ()
-   {
-      for (size_t k = 0; k < nInputOps; ++k)
-      {
-         const auto& arg = inputOps [k];
-
-         switch (arg)
-         {
-         case 1:
-            std::cout << "Cursor keys generate ANSI cursor control sequences" << std::endl;
-            break;
-         case 25:
-            std::cout << "Hide cursor" << std::endl;
-            break;
-         case 1049:
-            std::cout << "Disable alternative screen buffer" << std::endl;
-            break;
-         default:
-            std::cout << "reset mode priv: unknown arg: " << arg << std::endl;
-            break;
-         }
-      }
-      inputState = InputState::Normal;
-   }
-
-   inline void
-   Vterm::csi_SGR ()
-   {
-      for (size_t k = 0; k < nInputOps; ++k)
-      {
-         const auto& attr = inputOps [k];
-
-         switch (attr)
-         {
-         case 0:
-            attrs.uc_pt = ' ';
-            attrs.bold = 0;
-            attrs.underline = 0;
-            attrs.inverse = 0;
-            attrs.fg = {255, 255, 255};
-            attrs.bg = {0, 0, 0};
-            break;
-         case 1: attrs.bold = 1; break;
-         case 2: attrs.bold = 0; break;
-         case 3: attrs.inverse = 1; break; // italic
-         case 4: attrs.underline = 1; break;
-         case 7: attrs.inverse = 1; break;
-         case 10: attrs.bold = 0; break;
-         case 11: case 12: case 13: case 14: case 15:
-         case 16: case 17: case 18: case 19: attrs.bold = 1; break;
-         case 23: attrs.inverse = 0; break;
-         case 24: attrs.underline = 0; break;
-         case 27: attrs.inverse = 0; break;
-         case 30: attrs.fg = {  0,   0,   0}; break;
-         case 31: attrs.fg = {205,   0,   0}; break;
-         case 32: attrs.fg = {  0, 205,   0}; break;
-         case 33: attrs.fg = {205, 205,   0}; break;
-         case 34: attrs.fg = {  0,   0, 238}; break;
-         case 35: attrs.fg = {205,   0, 205}; break;
-         case 36: attrs.fg = {  0, 205, 205}; break;
-         case 37: attrs.fg = {229, 229, 229}; break;
-         // TODO case 38: fgcolor based on multiple components
-         case 39: attrs.fg = defaultFg; break;
-
-         // bright colored foregrounds
-         case 90: attrs.fg = {127, 127, 127}; break;
-         case 91: attrs.fg = {255,   0,   0}; break;
-         case 92: attrs.fg = {  0, 255,   0}; break;
-         case 93: attrs.fg = {255, 255,   0}; break;
-         case 94: attrs.fg = { 92,  92, 255}; break;
-         case 95: attrs.fg = {255,   0, 255}; break;
-         case 96: attrs.fg = {  0, 255, 255}; break;
-         case 97: attrs.fg = {255, 255, 255}; break;
-
-         case 40: attrs.bg = {  0,   0,   0}; break;
-         case 41: attrs.bg = {205,   0,   0}; break;
-         case 42: attrs.bg = {  0, 205,   0}; break;
-         case 43: attrs.bg = {205, 205,   0}; break;
-         case 44: attrs.bg = {  0,   0, 238}; break;
-         case 45: attrs.bg = {205,   0, 205}; break;
-         case 46: attrs.bg = {  0, 205, 205}; break;
-         case 47: attrs.bg = {229, 229, 229}; break;
-         // TODO case 48: bgcolor based on multiple components
-         case 49: attrs.bg = defaultBg; break;
-
-         // bright colored backgrounds
-         case 100: attrs.bg = {127, 127, 127}; break;
-         case 101: attrs.bg = {255,   0,   0}; break;
-         case 102: attrs.bg = {  0, 255,   0}; break;
-         case 103: attrs.bg = {255, 255,   0}; break;
-         case 104: attrs.bg = { 92,  92, 255}; break;
-         case 105: attrs.bg = {255,   0, 255}; break;
-         case 106: attrs.bg = {  0, 255, 255}; break;
-         case 107: attrs.bg = {255, 255, 255}; break;
-         default:
-            std::cout << "Unimplemented attribute: " << attr << std::endl;
-            break;
-         }
-      }
-      inputState = InputState::Normal;
+      TRACE_FUN;
+      logU << "DECRC" << std::endl;
+      setState (InputState::Normal);
    }
 
    inline void
    Vterm::csi_CUU ()
    {
+      TRACE_FUN;
       uint16_t arg = inputOps [0] ? inputOps [0] : 1;
       arg = std::min (arg, posY);
       posY -= arg;
       setCur ();
-      inputState = InputState::Normal;
+      setState (InputState::Normal);
    }
 
    inline void
    Vterm::csi_CUD ()
    {
+      TRACE_FUN;
       int arg = inputOps [0] ? inputOps [0] : 1;
       arg = std::min (arg, nRows - posY - 1);
       posY += arg;
       setCur ();
-      inputState = InputState::Normal;
+      setState (InputState::Normal);
    }
 
    inline void
    Vterm::csi_CUF ()
    {
+      TRACE_FUN;
       int arg = inputOps [0] ? inputOps [0] : 1;
       arg = std::min (arg, nCols - posX - 1);
       posX += arg;
       setCur ();
-      inputState = InputState::Normal;
+      setState (InputState::Normal);
    }
 
    inline void
    Vterm::csi_CUB ()
    {
+      TRACE_FUN;
       uint16_t arg = inputOps [0] ? inputOps [0] : 1;
       arg = std::min (arg, posX);
       posX -= arg;
       setCur ();
-      inputState = InputState::Normal;
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_CNL ()
+   {
+      TRACE_FUN;
+      csi_CUD ();
+      inp_CR ();
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_CPL ()
+   {
+      TRACE_FUN;
+      csi_CUU ();
+      inp_CR ();
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_CHA ()
+   {
+      TRACE_FUN;
+      uint16_t col = inputOps [0] ? inputOps [0] : 1;
+      col = std::max ((uint16_t)1, std::min (col, nCols));
+      posX = col - 1;
+      setCur ();
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_VPA ()
+   {
+      TRACE_FUN;
+      uint16_t row = inputOps [0] ? inputOps [0] : 1;
+      row = std::max ((uint16_t)1, std::min (row, nRows));
+      posY = row - 1;
+      setCur ();
+      setState (InputState::Normal);
    }
 
    inline void
    Vterm::csi_CUP ()
    {
+      TRACE_FUN;
       uint16_t row = inputOps [0] ? inputOps [0] : 1;
       uint16_t col = (nInputOps > 1 && inputOps [1]) ? inputOps [1] : 1;
       row = std::max ((uint16_t)1, std::min (row, nRows));
@@ -602,14 +795,41 @@ namespace zutty {
       posX = col - 1;
       posY = row - 1;
       setCur ();
-      inputState = InputState::Normal;
-      std::cout << "Cursor positioned to (" << posY << "," << posX << ")"
-                << std::endl;
+      setState (InputState::Normal);
+      logT << "Cursor positioned to (" << posY << "," << posX << ")"
+           << std::endl;
+   }
+
+   inline void
+   Vterm::csi_SU ()
+   {
+      TRACE_FUN;
+      // NOP since the terminal page size and screen size are identical
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_SD ()
+   {
+      TRACE_FUN;
+      // NOP since the terminal page size and screen size are identical
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_CHT ()
+   {
+      TRACE_FUN;
+      uint16_t arg = inputOps [0] ? inputOps [0] : 1;
+      for (int k = 0; k < arg; ++k)
+         inp_HT ();
+      setState (InputState::Normal);
    }
 
    inline void
    Vterm::csi_ED ()
    {
+      TRACE_FUN;
       uint32_t begin = cur;
       uint32_t end = cur + 1;
       switch (inputOps [0])
@@ -625,17 +845,18 @@ namespace zutty {
          end = top;
          break;
       default:
-         std::cout << "Erase in Display with illegal param: "
-                   << inputOps [0] << std::endl;
+         logI << "Erase in Display with illegal param: "
+              << inputOps [0] << std::endl;
          break;
       }
       eraseRange (begin, end);
-      inputState = InputState::Normal;
+      setState (InputState::Normal);
    }
 
    inline void
    Vterm::csi_EL ()
    {
+      TRACE_FUN;
       uint32_t begin = cur;
       uint32_t end = cur + 1;
       switch (inputOps [0])
@@ -651,37 +872,40 @@ namespace zutty {
          end = startOfNextLine ();
          break;
       default:
-         std::cout << "Erase in Line with illegal param: "
-                   << inputOps [0] << std::endl;
+         logI << "Erase in Line with illegal param: "
+              << inputOps [0] << std::endl;
          break;
       }
       eraseRange (begin, end);
-      inputState = InputState::Normal;
+      setState (InputState::Normal);
    }
 
    inline void
    Vterm::csi_IL ()
    {
+      TRACE_FUN;
       int arg = inputOps [0] ? inputOps [0] : 1;
       arg = std::min (arg, nRows - posY);
       moveLines (posY, nRows - posY - arg, arg);
-      carriageReturn ();
-      inputState = InputState::Normal;
+      inp_CR ();
+      setState (InputState::Normal);
    }
 
    inline void
    Vterm::csi_DL ()
    {
+      TRACE_FUN;
       int arg = inputOps [0] ? inputOps [0] : 1;
       arg = std::min (arg, nRows - posY);
       moveLines (posY + arg, nRows - posY - arg, -arg);
-      carriageReturn ();
-      inputState = InputState::Normal;
+      inp_CR ();
+      setState (InputState::Normal);
    }
 
    inline void
    Vterm::csi_ICH ()
    {
+      TRACE_FUN;
       uint32_t arg = inputOps [0] ? inputOps [0] : 1;
       uint32_t len = nCols - posX;
       arg = std::min (arg, len);
@@ -689,38 +913,342 @@ namespace zutty {
       memmove (cells.get () + cur + arg, cells.get () + cur,
                len * sizeof (CharVdev::Cell));
       eraseRange (cur, cur + arg);
-      inputState = InputState::Normal;
+      setState (InputState::Normal);
    }
 
    inline void
    Vterm::csi_DCH ()
    {
+      TRACE_FUN;
       uint32_t arg = inputOps [0] ? inputOps [0] : 1;
-      uint32_t len = nCols - posX - 1;
+      uint32_t len = nCols - posX;
+      arg = std::min (arg, len);
+      len -= arg;
       memmove (cells.get () + cur, cells.get () + cur + arg,
                len * sizeof (CharVdev::Cell));
       eraseRange (cur + len, cur + len + arg);
-      inputState = InputState::Normal;
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_ECH ()
+   {
+      TRACE_FUN;
+      uint32_t arg = inputOps [0] ? inputOps [0] : 1;
+      uint32_t len = nCols - posX - 1;
+      arg = std::min (arg, len);
+      eraseRange (cur, cur + arg);
+      setState (InputState::Normal);
    }
 
    inline void
    Vterm::csi_STBM ()
    {
+      TRACE_FUN;
       if ((nInputOps == 1 && inputOps [0] == 0) ||
           (nInputOps == 2 && inputOps [0] == 1 && inputOps [1] == nRows))
       {
-         // no-op
-         inputState = InputState::Normal;
+         posX = 0;
+         posY = 0;
+         setCur ();
+         setState (InputState::Normal);
          return;
       }
 
-      // TODO this is unimplemented
-      std::cout << "setScrollingMargins (";
+      logU << "setScrollingMargins (";
       for (size_t k = 0; k < nInputOps; ++k)
-         std::cout << inputOps [k] << " ";
-      std::cout << "), nRows = " << nRows << std::endl;
-      inputState = InputState::Normal;
+         logUcont << inputOps [k] << " ";
+      logUcont << "), nRows = " << nRows << std::endl;
+      setState (InputState::Normal);
    }
 
+   inline void
+   Vterm::csi_TBC ()
+   {
+      TRACE_FUN;
+      switch (inputOps [0])
+      {
+      case 0:
+      {
+         auto it = std::find (tabStops.begin (), tabStops.end (), posX);
+         if (it != tabStops.end ())
+            tabStops.erase (it);
+      }
+         break;
+      case 3:
+         tabStops.clear ();
+         break;
+      default:
+         break;
+      }
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_SM ()
+   {
+      TRACE_FUN;
+      for (size_t k = 0; k < nInputOps; ++k)
+      {
+         const auto& arg = inputOps [k];
+
+         switch (arg)
+         {
+         case 4:
+            logU << "Insert/replace mode set to insert" << std::endl;
+            break;
+         default:
+            logU << "set mode " << arg << std::endl;
+            break;
+         }
+      }
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_RM ()
+   {
+      TRACE_FUN;
+      for (size_t k = 0; k < nInputOps; ++k)
+      {
+         const auto& arg = inputOps [k];
+
+         switch (arg)
+         {
+         case 4:
+            logU << "Insert/replace mode set to replace" << std::endl;
+            break;
+         default:
+            logU << "reset mode " << arg << std::endl;
+            break;
+         }
+      }
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csipriv_SM ()
+   {
+      TRACE_FUN;
+      for (size_t k = 0; k < nInputOps; ++k)
+      {
+         const auto& arg = inputOps [k];
+
+         switch (arg)
+         {
+         case 1: cursorKeyMode = CursorKeyMode::Application; break;
+         case 3:
+            resetTerminal ();
+            logT << "DECCOLM: Selected 132 columns per line" << std::endl;
+            break;
+         case 4:
+            logT << "DECSCLM: Selected smooth scroll" << std::endl;
+            break;
+         case 5:
+            logU << "DECSCNM: Selected inverse video mode" << std::endl;
+            break;
+         case 6:
+            logU << "DECOM: Selected origin mode: relative to scrolling region" << std::endl;
+            break;
+         case 7: autoWrapMode = true; break;
+         case 8:
+            logU << "DECARM: Auto-repeat mode enabled" << std::endl;
+            break;
+         case 25: showCursorMode = true; break;
+         case 1000:
+            logU << "Enable mouse tracking mode" << std::endl;
+            break;
+         case 1049: altScreenBufferMode = true;
+            logU << "Enable alternative screen buffer" << std::endl;
+            break;
+         default:
+            logU << "set priv mode " << arg << std::endl;
+            break;
+         }
+      }
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csipriv_RM ()
+   {
+      TRACE_FUN;
+      for (size_t k = 0; k < nInputOps; ++k)
+      {
+         const auto& arg = inputOps [k];
+
+         switch (arg)
+         {
+         case 1: cursorKeyMode = CursorKeyMode::ANSI; break;
+         case 2:
+            logU << "DECANM: Selected ANSI/VT52 mode" << std::endl;
+            break;
+         case 3:
+            resetTerminal ();
+            logT << "DECCOLM: Selected 80 columns per line" << std::endl;
+            break;
+         case 4:
+            logT << "DECSCLM: Selected jump scroll" << std::endl;
+            break;
+         case 5:
+            logU << "DECSCNM: Selected normal video mode" << std::endl;
+            break;
+         case 6:
+            logU << "DECOM: Selected origin mode: upper-left screen corner" << std::endl;
+            break;
+         case 7: autoWrapMode = false; break;
+         case 8:
+            logU << "DECARM: Auto-repeat mode disabled" << std::endl;
+            break;
+         case 25: showCursorMode = false; break;
+         case 1000:
+            logU << "Disable mouse tracking mode" << std::endl;
+            break;
+         case 1049: altScreenBufferMode = false;
+            logU << "Disable alternative screen buffer" << std::endl;
+            break;
+         default:
+            logU << "reset priv mode " << arg << std::endl;
+            break;
+         }
+      }
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_SGR ()
+   {
+      TRACE_FUN;
+      for (size_t k = 0; k < nInputOps; ++k)
+      {
+         const auto& attr = inputOps [k];
+
+         switch (attr)
+         {
+         case 0:
+            attrs.uc_pt = ' ';
+            attrs.bold = 0;
+            attrs.underline = 0;
+            attrs.inverse = 0;
+            attrs.fg = defaultFg;
+            attrs.bg = defaultBg;
+            fg = &attrs.fg;
+            bg = &attrs.bg;
+            break;
+         case 1: attrs.bold = 1; break;
+         case 2: attrs.bold = 0; break;
+         case 3: attrs.inverse = 1; break; // italic
+         case 4: attrs.underline = 1; break;
+         case 7: fg = &attrs.bg; bg = &attrs.fg; break;
+         case 10: attrs.bold = 0; break;
+         case 11: case 12: case 13: case 14: case 15:
+         case 16: case 17: case 18: case 19: attrs.bold = 1; break;
+         case 23: attrs.inverse = 0; break;
+         case 24: attrs.underline = 0; break;
+         case 27: fg = &attrs.fg; bg = &attrs.bg; break;
+
+         // standard foregrounds (bright if bold)
+         case 30: *fg = attrs.bold ? palette256 [8] : palette256 [0]; break;
+         case 31: *fg = attrs.bold ? palette256 [9] : palette256 [1]; break;
+         case 32: *fg = attrs.bold ? palette256 [10] : palette256 [2]; break;
+         case 33: *fg = attrs.bold ? palette256 [11] : palette256 [3]; break;
+         case 34: *fg = attrs.bold ? palette256 [12] : palette256 [4]; break;
+         case 35: *fg = attrs.bold ? palette256 [13] : palette256 [5]; break;
+         case 36: *fg = attrs.bold ? palette256 [14] : palette256 [6]; break;
+         case 37: *fg = attrs.bold ? palette256 [15] : palette256 [7]; break;
+
+         case 38:
+            if (k >= nInputOps - 1) break;
+            switch (inputOps [++k])
+            {
+            case 5:
+               if (k >= nInputOps - 1) break;
+               *fg = palette256 [inputOps [++k]];
+               break;
+            case 2:
+               if (k >= nInputOps - 3) break;
+               (*fg).red   = inputOps [++k];
+               (*fg).green = inputOps [++k];
+               (*fg).blue  = inputOps [++k];
+               break;
+            default:
+               break;
+            }
+            break;
+         case 39: *fg = defaultFg; break;
+
+         // standard backgrounds
+         case 40: *bg = palette256 [0]; break;
+         case 41: *bg = palette256 [1]; break;
+         case 42: *bg = palette256 [2]; break;
+         case 43: *bg = palette256 [3]; break;
+         case 44: *bg = palette256 [4]; break;
+         case 45: *bg = palette256 [5]; break;
+         case 46: *bg = palette256 [6]; break;
+         case 47: *bg = palette256 [7]; break;
+         case 48:
+            if (k >= nInputOps - 1) break;
+            switch (inputOps [++k])
+            {
+            case 5:
+               if (k >= nInputOps - 1) break;
+               *bg = palette256 [inputOps [++k]];
+               break;
+            case 2:
+               if (k >= nInputOps - 3) break;
+               (*bg).red   = inputOps [++k];
+               (*bg).green = inputOps [++k];
+               (*bg).blue  = inputOps [++k];
+               break;
+            default:
+               break;
+            }
+            break;
+         case 49: *bg = defaultBg; break;
+
+         // bright colored foregrounds
+         case 90: *fg = palette256 [8]; break;
+         case 91: *fg = palette256 [9]; break;
+         case 92: *fg = palette256 [10]; break;
+         case 93: *fg = palette256 [11]; break;
+         case 94: *fg = palette256 [12]; break;
+         case 95: *fg = palette256 [13]; break;
+         case 96: *fg = palette256 [14]; break;
+         case 97: *fg = palette256 [15]; break;
+
+         // bright colored backgrounds
+         case 100: *bg = palette256 [8]; break;
+         case 101: *bg = palette256 [9]; break;
+         case 102: *bg = palette256 [10]; break;
+         case 103: *bg = palette256 [11]; break;
+         case 104: *bg = palette256 [12]; break;
+         case 105: *bg = palette256 [13]; break;
+         case 106: *bg = palette256 [14]; break;
+         case 107: *bg = palette256 [15]; break;
+
+         default:
+            logU << "attribute: " << attr << std::endl;
+            break;
+         }
+      }
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_priDA ()
+   {
+      TRACE_FUN;
+      writePty ("\e[?6c"); // vt102
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::esch_DECALN ()
+   {
+      TRACE_FUN;
+      resetAttrs ();
+      fillScreen ('E');
+      setState (InputState::Normal);
+   }
 
 } // namespace zutty
