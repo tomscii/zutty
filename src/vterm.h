@@ -69,6 +69,7 @@ namespace zutty {
       void resetTerminal ();
       void resetAttrs ();
       void fillScreen (uint16_t ch);
+      void linearizeCellStorage ();
 
       enum class InputState
       {
@@ -82,11 +83,16 @@ namespace zutty {
 
       void setState (InputState inputState);
 
+      uint32_t getIdx (uint16_t pY, uint16_t pX);
       uint32_t setCur ();
       uint32_t startOfThisLine ();
       uint32_t startOfNextLine ();
+      void doEraseRange (uint32_t start, uint32_t end);
       void eraseRange (uint32_t start, uint32_t end);
-      void moveLines (uint16_t startY, uint16_t countY, int offset);
+      void eraseRow (uint16_t pY);
+      void copyRow (uint16_t dstY, uint16_t srcY);
+      void insertLines (uint16_t count);
+      void deleteLines (uint16_t count);
 
       void normalizePosition ();
       void advancePosition ();
@@ -146,11 +152,13 @@ namespace zutty {
       std::function <void (const Vterm&)> refreshVideo;
 
       std::shared_ptr <CharVdev::Cell> cells;
-      uint32_t cur;
-      uint32_t top;
-      uint16_t posX = 0;
-      uint16_t posY = 0;
-      CharVdev::Cell attrs; // prototype cell with current attributes
+      uint32_t cur;           // current screen position (abs. offset in cells)
+      uint32_t scrollHead;    // scrolling area start of top row (abs. offset)
+      uint16_t marginTop;     // current margin top (number of rows above)
+      uint16_t marginBottom;  // current margin bottom (number of rows above + 1)
+      uint16_t posX = 0;      // current cursor horizontal position (on-screen)
+      uint16_t posY = 0;      // current cursor vertical position (on-screen)
+      CharVdev::Cell attrs;   // prototype cell with current attributes
       CharVdev::Color* fg = &attrs.fg;
       CharVdev::Color* bg = &attrs.bg;
       CharVdev::Color defaultFg = {255, 255, 255};
@@ -165,6 +173,23 @@ namespace zutty {
       bool showCursorMode = true;
       bool altScreenBufferMode = false;
       bool autoWrapMode = true;
+      enum class OriginMode
+      {
+         Absolute, ScrollingRegion
+      };
+      OriginMode originMode = OriginMode::Absolute;
+
+      struct SavedCursor
+      {
+         uint16_t posX = 0;
+         uint16_t posY = 0;
+         CharVdev::Cell attrs;
+         bool autoWrapMode = true;
+         OriginMode originMode = OriginMode::Absolute;
+         // NYI: charset shift state; selective erase mode
+         bool isSet = false;
+      };
+      SavedCursor savedCursor;
 
       unsigned char inputBuf [4096];
       int readPos = 0;

@@ -56,8 +56,9 @@ namespace {
       logTcont << "]   \t"                     \
       << "p(" << posY << "," << posX           \
       << ")  d(" << nRows << "," << nCols      \
+      << ")  mgn[" << marginTop << "," << marginBottom  \
       << ")  cur=" << cur                      \
-      << "  top=" << top                       \
+      << "  head=" << scrollHead               \
       << std::endl
 
 #else
@@ -155,7 +156,7 @@ namespace zutty {
          oss << "Inserted: ";
          if (debugPrintInput (oss, inputBuf + lastNormalBegin,
                               inputBuf + readPos, true))
-            logT << oss.str () << std::endl;
+            logT << oss.str ();
       }
       lastNormalBegin = readPos + 1;
    #endif
@@ -166,10 +167,13 @@ namespace zutty {
    {
       posX = 0;
       posY = 0;
-      top = 0;
+      scrollHead = 0;
+      marginTop = 0;
+      marginBottom = nRows;
       setCur ();
       resetAttrs ();
       fillScreen (' ');
+      originMode = OriginMode::Absolute;
    }
 
    inline void
@@ -188,6 +192,16 @@ namespace zutty {
          cell (k) = attrs;
          cell (k).uc_pt = ch;
       }
+   }
+
+   inline void
+   Vterm::linearizeCellStorage ()
+   {
+      auto newCells = std::shared_ptr <CharVdev::Cell> (
+         new CharVdev::Cell [nRows * nCols]);
+      copyCells (newCells.get ());
+      cells = newCells;
+      scrollHead = marginTop * nCols;
    }
 
    inline void
@@ -468,14 +482,27 @@ namespace zutty {
          throw std::runtime_error ("cell accessor: index out of bounds");
       }
 #endif
-      uint32_t idx = (top + nCols * row + col) % (nRows * nCols);
+      uint32_t idx = getIdx (row, col);
       return cells.get () [idx];
+   }
+
+   inline uint32_t
+   Vterm::getIdx (uint16_t pY, uint16_t pX)
+   {
+      if (pY < marginTop)
+         return nCols * pY + pX;
+      else if (posY < marginBottom)
+         return nCols * marginTop +
+            (scrollHead + (pY - 2*marginTop) * nCols + pX) %
+            ((marginBottom - marginTop) * nCols);
+      else
+         return nCols * pY + pX;
    }
 
    inline uint32_t
    Vterm::setCur ()
    {
-      cur = (top + nCols * posY + posX) % (nRows * nCols);
+      cur = getIdx (posY, posX);
       return cur;
    }
 
@@ -491,52 +518,143 @@ namespace zutty {
       return cur - posX + nCols;
    }
 
-   // start and end are physical indexes into cells
+   inline void
+   Vterm::doEraseRange (uint32_t start, uint32_t end)
+   {
+      for (uint32_t k = start; k < end; ++k)
+         cell (k) = attrs;
+   }
+
+   // The cell storage area is conceptually divided into 4 areas, some of
+   // which may be empty at any time:
+   // (1) top margin area
+   // (2) displayed-top half of scrolling area (below scrollHead)
+   // (3) displayed-bottom half of scrolling area (above scrollHead)
+   // (4) bottom margin area
+   // In physical storage, the scrolling area is organized as a circular buffer
+   // with (2) and (3) reversed. This allows us to scroll by just moving the
+   // scrollHead and overwriting scrolled-off data instead of copying blocks
+   // of data on each scroll.
+   // Params: start and end are physical indexes into cells
    inline void
    Vterm::eraseRange (uint32_t start, uint32_t end)
    {
-      if (start < end)
-         for (uint32_t k = start; k < end; ++k)
-            cell (k) = attrs;
+      logT << "eraseRange (" << start << "," << end << ")" << std::endl;
+      if (start == 0 && end == nRows * nCols)
+      {
+            // whole screen
+            doEraseRange (start, end);
+      }
+      else if (start < marginTop * nCols)
+      {
+         if (end <= marginTop * nCols)
+         {
+            // start in (1), end in (1):
+            doEraseRange (start, end);
+         }
+         else if (end <= scrollHead)
+         {
+            // start in (1), end in (3):
+            doEraseRange (start, end);
+            doEraseRange (scrollHead, marginBottom * nCols);
+         }
+         else if (end <= marginBottom * nCols)
+         {
+            // start in (1), end in (2):
+            doEraseRange (start, marginTop * nCols);
+            doEraseRange (scrollHead, end);
+         }
+         else
+         {
+            // start in (1), end in (4):
+            doEraseRange (start, end);
+         }
+      }
+      else if (start < scrollHead)
+      {
+         if (end <= scrollHead)
+         {
+            // start in (3), end in (3):
+            doEraseRange (start, end);
+         }
+         else
+         {
+            // start in (3), end in (4):
+            doEraseRange (start, scrollHead);
+            doEraseRange (marginBottom * nCols, end);
+         }
+      }
+      else if (start < marginBottom * nCols)
+      {
+         if (end <= scrollHead)
+         {
+            // start in (2), end in (3):
+            doEraseRange (start, marginBottom * nCols);
+            doEraseRange (marginTop * nCols, end);
+         }
+         else if (end <= marginBottom * nCols)
+         {
+            // start in (2), end in (2):
+            doEraseRange (start, end);
+         }
+         else
+         {
+            // start in (2), end in (4):
+            doEraseRange (start, marginBottom * nCols);
+            doEraseRange (marginTop * nCols, scrollHead);
+            doEraseRange (marginBottom * nCols, end);
+         }
+      }
       else
       {
-         for (uint32_t k = start; k < nRows * nCols; ++k)
-            cell (k) = attrs;
-         for (uint32_t k = 0; k < end; ++k)
-            cell (k) = attrs;
+         // start in (4), end in (4)
+         doEraseRange (start, end);
       }
    }
 
-   // start and count are logical line numbers [0..nRows)
    inline void
-   Vterm::moveLines (uint16_t startY, uint16_t countY, int offset)
+   Vterm::eraseRow (uint16_t pY)
    {
-      logT << "moveLines: startY=" << startY
-           << " countY=" << countY
-           << " offset=" << offset
-           << std::endl;
+      uint32_t idx = getIdx (pY, 0);
+      doEraseRange (idx, idx + nCols);
+   }
 
-      if (offset > 0) // move lines down -- work bottom up
+   inline void
+   Vterm::copyRow (uint16_t dstY, uint16_t srcY)
+   {
+      uint32_t dstIdx = getIdx (dstY, 0);
+      uint32_t srcIdx = getIdx (srcY, 0);
+      memcpy (cells.get () + dstIdx, cells.get () + srcIdx,
+              nCols * sizeof (CharVdev::Cell));
+   }
+
+   // insert lines at and below posY, within the scrolling area
+   inline void
+   Vterm::insertLines (uint16_t count)
+   {
+      logT << "insertLines: count=" << count << std::endl;
+
+      for (uint16_t pY = marginBottom - count - 1; pY >= posY; --pY)
       {
-         for (uint16_t pY = startY + countY - 1; pY >= startY; --pY)
-         {
-            for (uint16_t pX = 0; pX < nCols; ++pX)
-               cell (pY + offset, pX) = cell (pY, pX);
-            if (!pY) break;
-         }
-         for (uint16_t pY = startY; pY < startY + offset; ++pY)
-            for (uint16_t pX = 0; pX < nCols; ++pX)
-               cell (pY, pX) = attrs;
+         copyRow (pY + count, pY);
+         if (!pY) break;
       }
-      else if (offset < 0) // move lines up -- work top down
-      {
-         for (uint16_t pY = startY; pY < startY + countY; ++pY)
-            for (uint16_t pX = 0; pX < nCols; ++pX)
-               cell (pY + offset, pX) = cell (pY, pX);
-         for (uint16_t pY = startY + countY + offset; pY < startY + countY; ++pY)
-            for (uint16_t pX = 0; pX < nCols; ++pX)
-               cell (pY, pX) = attrs;
-      }
+
+      for (uint16_t pY = posY; pY < posY + count; ++pY)
+         eraseRow (pY);
+   }
+
+   // delete lines at and below posY, within the scrolling area
+   inline void
+   Vterm::deleteLines (uint16_t count)
+   {
+      logT << "deleteLines: count=" << count << std::endl;
+
+      for (uint16_t pY = posY; pY < marginBottom - count; ++pY)
+         copyRow (pY, pY + count);
+
+      for (uint16_t pY = marginBottom - count; pY < marginBottom; ++pY)
+         eraseRow (pY);
    }
 
    inline void
@@ -622,17 +740,18 @@ namespace zutty {
    Vterm::esc_IND ()
    {
       TRACE_FUN;
-      if (posY == nRows - 1)
+      if (posY == marginBottom - 1)
       {
-         top += nCols;
-         top %= nRows * nCols;
+         scrollHead += nCols;
+         if (scrollHead == marginBottom * nCols)
+            scrollHead = marginTop * nCols;
          setCur ();
-         if (top == 0)
-            eraseRange ((nRows - 1) * nCols, nRows * nCols);
+         if (scrollHead == marginTop * nCols)
+            eraseRange ((marginBottom - 1) * nCols, marginBottom * nCols);
          else
-            eraseRange (top - nCols, top);
+            eraseRange (scrollHead - nCols, scrollHead);
       }
-      else
+      else if (posY < nRows - 1)
       {
          ++posY;
          setCur ();
@@ -644,23 +763,19 @@ namespace zutty {
    Vterm::esc_RI ()
    {
       TRACE_FUN;
-      if (posY > 0)
+      if (posY == marginTop)
+      {
+         if (scrollHead >= (marginTop + 1u) * nCols)
+            scrollHead -= nCols;
+         else
+            scrollHead = (marginBottom - 1u) * nCols;
+         setCur ();
+         eraseRange (scrollHead, scrollHead + nCols);
+      }
+      else if (posY > 0)
       {
          --posY;
          setCur ();
-      }
-      else
-      {
-         if (top >= nCols)
-         {
-            top -= nCols;
-         }
-         else
-         {
-            top = (nRows - 1) * nCols;
-         }
-         setCur ();
-         eraseRange (top, top + nCols);
       }
       setState (InputState::Normal);
    }
@@ -688,7 +803,12 @@ namespace zutty {
    Vterm::esc_DECSC ()
    {
       TRACE_FUN;
-      logU << "DECSC" << std::endl;
+      savedCursor.posX = posX;
+      savedCursor.posY = posY;
+      savedCursor.attrs = attrs;
+      savedCursor.autoWrapMode = autoWrapMode;
+      savedCursor.originMode = originMode;
+      savedCursor.isSet = true;
       setState (InputState::Normal);
    }
 
@@ -696,7 +816,20 @@ namespace zutty {
    Vterm::esc_DECRC ()
    {
       TRACE_FUN;
-      logU << "DECRC" << std::endl;
+      if (!savedCursor.isSet)
+      {
+         logI << "Asked to restore cursor (DECRC) but it has not been saved."
+              << std::endl;
+      }
+      else
+      {
+         posX = savedCursor.posX;
+         posY = savedCursor.posY;
+         setCur ();
+         attrs = savedCursor.attrs;
+         autoWrapMode = savedCursor.autoWrapMode;
+         originMode = savedCursor.originMode;
+      }
       setState (InputState::Normal);
    }
 
@@ -705,7 +838,10 @@ namespace zutty {
    {
       TRACE_FUN;
       uint16_t arg = inputOps [0] ? inputOps [0] : 1;
-      arg = std::min (arg, posY);
+      if (posY >= marginTop)
+         arg = std::min ((int)arg, posY - marginTop);
+      else
+         arg = std::min (arg, posY);
       posY -= arg;
       setCur ();
       setState (InputState::Normal);
@@ -716,7 +852,10 @@ namespace zutty {
    {
       TRACE_FUN;
       int arg = inputOps [0] ? inputOps [0] : 1;
-      arg = std::min (arg, nRows - posY - 1);
+      if (posY < marginBottom)
+         arg = std::min (arg, marginBottom - posY - 1);
+      else
+         arg = std::min (arg, nRows - posY - 1);
       posY += arg;
       setCur ();
       setState (InputState::Normal);
@@ -739,6 +878,8 @@ namespace zutty {
       TRACE_FUN;
       uint16_t arg = inputOps [0] ? inputOps [0] : 1;
       arg = std::min (arg, posX);
+      if (posX == nCols)
+         arg = std::min (arg + 1, (int)posX);
       posX -= arg;
       setCur ();
       setState (InputState::Normal);
@@ -790,10 +931,20 @@ namespace zutty {
       TRACE_FUN;
       uint16_t row = inputOps [0] ? inputOps [0] : 1;
       uint16_t col = (nInputOps > 1 && inputOps [1]) ? inputOps [1] : 1;
-      row = std::max ((uint16_t)1, std::min (row, nRows));
-      col = std::max ((uint16_t)1, std::min (col, nCols));
-      posX = col - 1;
-      posY = row - 1;
+      switch (originMode)
+      {
+      case OriginMode::Absolute:
+         row = std::max ((uint16_t)1, std::min (row, nRows)) - 1;
+         break;
+      case OriginMode::ScrollingRegion:
+         row = std::max ((uint16_t)1, std::min (row, marginBottom)) - 1;
+         row += marginTop;
+         break;
+      }
+      col = std::max ((uint16_t)1, std::min (col, nCols)) - 1;
+
+      posX = col;
+      posY = row;
       setCur ();
       setState (InputState::Normal);
       logT << "Cursor positioned to (" << posY << "," << posX << ")"
@@ -835,14 +986,14 @@ namespace zutty {
       switch (inputOps [0])
       {
       case 0: // clear from cursor to end of screen
-         end = top;
+         end = nRows * nCols;
          break;
-      case 1: // clear from cursor to beginning of screen
-         begin = top;
+      case 1: // clear from beginning of screen to cursor
+         begin = 0;
          break;
       case 2: // clear entire screen
-         begin = top;
-         end = top;
+         begin = 0;
+         end = nRows * nCols;
          break;
       default:
          logI << "Erase in Display with illegal param: "
@@ -884,9 +1035,11 @@ namespace zutty {
    Vterm::csi_IL ()
    {
       TRACE_FUN;
+      if (posY < marginTop || posY >= marginBottom)
+         return;
       int arg = inputOps [0] ? inputOps [0] : 1;
-      arg = std::min (arg, nRows - posY);
-      moveLines (posY, nRows - posY - arg, arg);
+      arg = std::min (arg, marginBottom - posY);
+      insertLines (arg);
       inp_CR ();
       setState (InputState::Normal);
    }
@@ -895,9 +1048,11 @@ namespace zutty {
    Vterm::csi_DL ()
    {
       TRACE_FUN;
+      if (posY < marginTop || posY >= marginBottom)
+         return;
       int arg = inputOps [0] ? inputOps [0] : 1;
-      arg = std::min (arg, nRows - posY);
-      moveLines (posY + arg, nRows - posY - arg, -arg);
+      arg = std::min (arg, marginBottom - posY);
+      deleteLines (arg);
       inp_CR ();
       setState (InputState::Normal);
    }
@@ -945,20 +1100,36 @@ namespace zutty {
    Vterm::csi_STBM ()
    {
       TRACE_FUN;
-      if ((nInputOps == 1 && inputOps [0] == 0) ||
-          (nInputOps == 2 && inputOps [0] == 1 && inputOps [1] == nRows))
+      if (nInputOps == 1 && inputOps [0] == 0)
       {
-         posX = 0;
-         posY = 0;
-         setCur ();
-         setState (InputState::Normal);
-         return;
+         if (marginTop != 0 || marginBottom != nRows)
+         {
+            linearizeCellStorage ();
+            marginTop = 0;
+            marginBottom = nRows;
+            scrollHead = 0;
+         }
+      }
+      else if (nInputOps == 2)
+      {
+         uint16_t newMarginTop = inputOps [0] > 0 ? inputOps [0] - 1 : 0;
+         uint16_t newMarginBottom = inputOps [1];
+         newMarginTop = std::min ((int)newMarginTop, nRows - 1);
+         newMarginBottom = std::max (newMarginTop + 1,
+                                     (int)std::min (newMarginBottom, nRows));
+
+         if (newMarginTop != marginTop || newMarginBottom != marginBottom)
+         {
+            linearizeCellStorage ();
+            marginTop = newMarginTop;
+            marginBottom = newMarginBottom;
+            scrollHead = marginTop * nCols;
+         }
       }
 
-      logU << "setScrollingMargins (";
-      for (size_t k = 0; k < nInputOps; ++k)
-         logUcont << inputOps [k] << " ";
-      logUcont << "), nRows = " << nRows << std::endl;
+      posX = 0;
+      posY = marginTop;
+      setCur ();
       setState (InputState::Normal);
    }
 
@@ -1047,12 +1218,13 @@ namespace zutty {
          case 5:
             logU << "DECSCNM: Selected inverse video mode" << std::endl;
             break;
-         case 6:
-            logU << "DECOM: Selected origin mode: relative to scrolling region" << std::endl;
-            break;
+         case 6: originMode = OriginMode::ScrollingRegion; break;
          case 7: autoWrapMode = true; break;
          case 8:
             logU << "DECARM: Auto-repeat mode enabled" << std::endl;
+            break;
+         case 12:
+            logU << "Start blinking cursor" << std::endl;
             break;
          case 25: showCursorMode = true; break;
          case 1000:
@@ -1093,12 +1265,13 @@ namespace zutty {
          case 5:
             logU << "DECSCNM: Selected normal video mode" << std::endl;
             break;
-         case 6:
-            logU << "DECOM: Selected origin mode: upper-left screen corner" << std::endl;
-            break;
+         case 6: originMode = OriginMode::Absolute; break;
          case 7: autoWrapMode = false; break;
          case 8:
             logU << "DECARM: Auto-repeat mode disabled" << std::endl;
+            break;
+         case 12:
+            logU << "Stop blinking cursor" << std::endl;
             break;
          case 25: showCursorMode = false; break;
          case 1000:
@@ -1139,13 +1312,21 @@ namespace zutty {
          case 2: attrs.bold = 0; break;
          case 3: attrs.inverse = 1; break; // italic
          case 4: attrs.underline = 1; break;
-         case 7: fg = &attrs.bg; bg = &attrs.fg; break;
+         case 7:
+            std::swap (*fg, *bg);
+            fg = &attrs.bg;
+            bg = &attrs.fg;
+            break;
          case 10: attrs.bold = 0; break;
          case 11: case 12: case 13: case 14: case 15:
          case 16: case 17: case 18: case 19: attrs.bold = 1; break;
          case 23: attrs.inverse = 0; break;
          case 24: attrs.underline = 0; break;
-         case 27: fg = &attrs.fg; bg = &attrs.bg; break;
+         case 27:
+            std::swap (*fg, *bg);
+            fg = &attrs.fg;
+            bg = &attrs.bg;
+            break;
 
          // standard foregrounds (bright if bold)
          case 30: *fg = attrs.bold ? palette256 [8] : palette256 [0]; break;

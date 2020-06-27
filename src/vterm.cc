@@ -124,7 +124,9 @@ namespace zutty {
       , cells (std::shared_ptr <CharVdev::Cell> (
                   new CharVdev::Cell [nRows * nCols]))
       , cur (0)
-      , top (0)
+      , scrollHead (0)
+      , marginTop (0)
+      , marginBottom (nRows)
    {
       memset (cells.get (), 0, nRows * nCols * sizeof (CharVdev::Cell));
 
@@ -152,10 +154,13 @@ namespace zutty {
          new CharVdev::Cell [nRows * nCols]);
       memset (cells.get (), 0, nRows * nCols * sizeof (CharVdev::Cell));
       cur = 0;
-      top = 0;
+      scrollHead = 0;
+      marginTop = 0;
+      marginBottom = nRows;
       posX = 0;
       posY = 0;
       tabStops.clear ();
+      originMode = OriginMode::Absolute;
 
       struct winsize size;
       size.ws_col = nCols;
@@ -167,9 +172,24 @@ namespace zutty {
    void
    Vterm::copyCells (CharVdev::Cell * const dst)
    {
-      uint32_t end = nRows * nCols;
-      memcpy (dst, cells.get () + top, (end - top) * sizeof (CharVdev::Cell));
-      memcpy (dst + (end - top), cells.get (), top * sizeof (CharVdev::Cell));
+      constexpr const size_t cellSize = sizeof (CharVdev::Cell);
+
+      CharVdev::Cell* p = dst;
+      CharVdev::Cell* s = cells.get ();
+      uint32_t n = marginTop * nCols;
+      memcpy (p, s, n * cellSize);
+
+      p += n;
+      n = marginBottom * nCols - scrollHead;
+      memcpy (p, s + scrollHead, n * cellSize);
+
+      p += n;
+      n = scrollHead - marginTop * nCols;
+      memcpy (p, s + marginTop * nCols, n * cellSize);
+
+      p += n;
+      n = (nRows - marginBottom) * nCols;
+      memcpy (p, s + marginBottom * nCols, n * cellSize);
    }
 
    int
