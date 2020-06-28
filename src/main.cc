@@ -282,8 +282,16 @@ startShell (uint16_t nCols, uint16_t nRows, const char* const argv[])
    if (pid < 0) {
       throw std::runtime_error ("fork error");
    } else if (pid == 0) { // child:
+      struct termios term;
+      if (tcgetattr (STDIN_FILENO, &term) < 0)
+         throw std::runtime_error ("tcgetattr");
+      term.c_iflag |= IUTF8;
+      if (tcsetattr (STDIN_FILENO, TCSANOW, &term) < 0)
+         throw std::runtime_error ("tcsetattr");
+
       if (setenv ("TERM", "xterm-256color", 1) < 0)
          throw std::runtime_error ("can't setenv (TERM)");
+
       if (execvp (argv[0], (char * const *) argv) < 0)
          throw std::runtime_error (std::string ("can't execvp: ") + argv [0]);
    }
@@ -337,6 +345,8 @@ x11Event (XEvent& event, int pty_fd, bool& destroyed)
             vt->writePty (VtKey);                                     \
             break
 
+      KEYSEND (XK_Return,    Key::Return);
+      KEYSEND (XK_BackSpace, Key::Backspace);
       KEYSEND (XK_Insert,    Key::Insert);
       KEYSEND (XK_Delete,    Key::Delete);
       KEYSEND (XK_Home,      Key::Home);
@@ -359,6 +369,33 @@ x11Event (XEvent& event, int pty_fd, bool& destroyed)
       KEYSEND (XK_F10,       Key::F10);
       KEYSEND (XK_F11,       Key::F11);
       KEYSEND (XK_F12,       Key::F12);
+      KEYSEND (XK_F13,       Key::F13);
+      KEYSEND (XK_F14,       Key::F14);
+      KEYSEND (XK_F15,       Key::F15);
+      KEYSEND (XK_F16,       Key::F16);
+      KEYSEND (XK_F17,       Key::F17);
+      KEYSEND (XK_F18,       Key::F18);
+      KEYSEND (XK_F19,       Key::F19);
+      KEYSEND (XK_F20,       Key::F20);
+      KEYSEND (XK_KP_F1,     Key::KP_F1);
+      KEYSEND (XK_KP_F2,     Key::KP_F2);
+      KEYSEND (XK_KP_F3,     Key::KP_F3);
+      KEYSEND (XK_KP_F4,     Key::KP_F4);
+      KEYSEND (XK_KP_Add,    Key::KP_Plus);
+      KEYSEND (XK_KP_Subtract, Key::KP_Minus);
+      KEYSEND (XK_KP_Separator, Key::KP_Comma);
+      KEYSEND (XK_KP_Decimal, Key::KP_Dot);
+      KEYSEND (XK_KP_Enter,  Key::KP_Enter);
+      KEYSEND (XK_KP_0,      Key::KP_0);
+      KEYSEND (XK_KP_1,      Key::KP_1);
+      KEYSEND (XK_KP_2,      Key::KP_2);
+      KEYSEND (XK_KP_3,      Key::KP_3);
+      KEYSEND (XK_KP_4,      Key::KP_4);
+      KEYSEND (XK_KP_5,      Key::KP_5);
+      KEYSEND (XK_KP_6,      Key::KP_6);
+      KEYSEND (XK_KP_7,      Key::KP_7);
+      KEYSEND (XK_KP_8,      Key::KP_8);
+      KEYSEND (XK_KP_9,      Key::KP_9);
 
 #define KEYCASE(Key)                                                 \
          case Key:                                                   \

@@ -1,0 +1,207 @@
+#+TITLE: Results of testing Zutty with Vttest
+#+OPTIONS: toc:3 num:nil val:nil html-style:nil H:1 ^:{}
+
+Version of test program:
+: VT100 test program, version 2.7 (20140305)
+
+Section numbering reflects Vttest menu options.
+
+Legend:
+- [ ] TODO / Needs fixing / non-perfect result
+- [X] Perfect result (less any detail for which support is not being
+      planned at all)
+- [?] There is some ambiguity on whether result is OK; needs further
+      work or attention
+- [-] Support for this feature is not planned
+
+Meta:
+- [X] Backspace key works to allow correcting menu entries.
+
+* 1. Test of cursor movements
+
+- [X] The screen should be cleared, and have an unbroken border... (80 column mode)
+- [X] The screen should be cleared, and have an unbroken border... (132 column mode)
+
+   - We do not support terminal-initiated change of window size.
+     Correctness can be confirmed by manually setting zutty to
+     132 columns and re-running the test.
+- [X] Test of autowrap, mixing control and print characters. (80 column mode)
+- [X] Test of autowrap, mixing control and print characters. (132 column mode)
+
+   - The terminal does not change size, but the pattern is correct.
+     Correctness can be further confirmed by manually setting zutty
+     to 132 columns and re-running the test.
+- [X] Test of cursor-control characters inside ESC sequences.
+- [X] Test of leading zeros in ESC sequences.
+
+* 2. Test of screen features
+
+- [X] There should be three identical lines of *'s completely filling...
+- [X] Test of TAB setting/resetting.
+- [ ] 132 column mode, light background
+
+   - No inverse video mode, no window size change
+- [ ] 80 column mode, light background
+
+   - No inverse video mode
+- [ ] 132 column mode, dark background
+
+   - No window size change
+- [X] 80 column mode, dark background
+- [X] Soft scroll down region [12..13]
+
+   - No soft scroll, but end state is correct
+- [X] Soft scroll down region [1..24]
+
+   - No soft scroll, but end state is correct
+- [X] Jump scroll down region [12..13]
+- [X] Jump scroll down region [1..24]
+- [X] Origin mode test; two lines at the bottom of the screen.
+- [X] Origin mode test; one line at the top and one at the bottom of the screen.
+- [ ] Graphic rendition test patterns on dark background
+
+   - Blinking is not supported
+- [ ] Graphic rendition test patterns on light background
+
+   - Blinking is not supported; inverse video mode is not supported
+- [ ] Test of SAVE/RESTORE CURSOR feature.
+
+   - The lines are incorrectly drawn as 'q'-s;
+   - The diamonds are incorrectly drawn as backticks (`).
+
+* 3. Test of character sets
+
+TODO At least partial support is needed.
+
+* 4. Test of double-sized characters
+
+Adding support for this is not planned at this time.
+
+* 5. Test of keyboard
+
+- [-] 5.1 LED Lights
+- [-] 5.2 Auto Repeat
+
+   - This seems not to be implemented by xterm either.
+- [X] 5.3 Keyboard Layout
+- [X] 5.4 Cursor Keys
+- [X] 5.5 Numeric Keypad
+- [-] 5.6 Editing Keypad
+
+   - If we had corresponding X keysymdefs, we could hook these up
+     to the appropriate Esc sequences as per the VT420 spec.
+- [?] 5.7 Function Keys
+
+   - Results not perfect, but seem to be on par with xterm.
+- [-] 5.8 AnswerBack
+- [X] 5.9 Control Keys
+
+* 6. Test of terminal reports
+
+- [X] 6.1 <ENQ> (AnswerBack Message)
+- [X] 6.2 Set/Reset Mode - LineFeed / Newline
+- [X] 6.3 Device Status Report 5 & 6
+- [X] 6.4 Primary Device Attributes
+
+   - TODO we should only send flags for what we actually support!
+- [ ] 6.5 Secondary Device Attributes
+- [ ] 6.6 Tertiary Device Attributes
+- [-] 6.7 Request Terminal Parameters
+
+   - This seems not to be implemented by xterm either.
+
+* 7. Test of VT52 mode
+
+TODO Do we need to support this?
+
+* 8. Test of VT102 features (Insert/Delete Char/Line)
+
+- [X] Screen accordion test (Insert & Delete Line).
+- [X] Top line: A's, bottom line: X's, this line, nothing more.
+- [X] Test of 'Insert Mode'. The top line should be 'A*** ... ***B'.
+- [X] Test of 'Delete Character'. The top line should be 'AB'.
+- [X] The right column should be staggered by one.
+- [?] The right column should be staggered by one. (double-width mode)
+- [X] If your terminal has the ANSI 'Insert Character' function ...
+
+The second half of tests match the above results, minus the fact that
+132 column mode is not supported. (Can be confirmed by manually setting
+zutty to 132 columns wide and re-running the tests.)
+
+* 9. Test of known bugs
+
+Zutty produces mostly identical results to xterm, discounting the fact
+that double-width lines are not supported.
+
+* 10. Test of reset and self-test
+
+- [X] 1. Reset to Initial State (RIS)
+- [-] 2. Invoke Terminal Test (DECTST)
+- [X] 3. Soft Terminal Reset (DECSTR)
+
+* 11. Test non-VT100 (e.g., VT220, XTERM) terminals
+
+** 11.1. Test of VT220 features
+
+- [X] 11.1.2.2 Test Visible/Invisible Cursor (DECTCEM)
+- [X] 11.1.2.3 Test Erase Char (ECH)
+
+** 11.2. Test of VT320 features
+
+- [X] 11.2.2.1 Test Pan Down (SU)
+- [X] 11.2.2.2 Test Pan Up (SD)
+
+** 11.3. Test of VT420 features
+
+- [X] 11.3.2.7 Test Back Index (BI)
+- [X] 11.3.2.8 Test Forward Index (FI)
+- [X] 11.3.2.9 Test cursor movement within margins
+- [X] 11.3.2.10 Test other movement (CR/HT/LF/FF) within margins
+- [X] 11.3.3.10 Test vertical scrolling (IND, RI)
+- [X] 11.3.3.11 Test insert/delete line (IL, DL)
+- [X] 11.3.3.12 Test insert/delete char (ICH, DCH)
+- [X] 11.3.3.13 Test ASCII formatting (BS, CR, TAB)
+- [X] 11.3.4.1 Test Backarrow key (DECBKM)
+
+** 11.4. Test of VT520 features
+
+- [X] 11.4.2.7 Test Character-Position-Absolute (HPA)
+- [X] 11.4.2.8 Test Cursor-Back-Tab (CBT)
+- [X] 11.4.2.9 Test Cursor-Character-Absolute (CHA)
+- [X] 11.4.2.10 Test Cursor-Horizontal-Index (CHT)
+- [X] 11.4.2.11 Test Horizontal-Position-Relative (HPR)
+- [X] 11.4.2.12 Test Line-Position-Absolute (VPA)
+- [X] 11.4.2.13 Test Next-Line (CNL)
+- [X] 11.4.2.14 Test Previous-Line (CPL)
+
+** 11.6. ISO 6429 colors
+
+- [X] 11.6.2 Display color test-pattern
+- [X] 11.6.3 Test SGR-0 color reset
+- [X] 11.6.4 Test BCE-style clear line/display (ED, EL)
+- [X] 11.6.5 Test BCE-style clear line/display (ECH, Indexing)
+- [X] 11.6.6 Test VT102-style features with BCE
+- [X] 11.6.7 Test other ISO-6429 features with BCE
+
+   - All OK except for 11.6.7.1 (Protected-Area Tests) that is unsupported.
+- [?] 11.6.8 Test screen features with BCE
+
+   - Small rendering differences as above, see 2. Screen features
+- [?] 11.6.9 Test screen features with ISO 6429 SGR 22-27 codes
+
+   - Small rendering differences as above, see 2. Screen features
+
+** 11.7. Miscellaneous ISO-6429 (ECMA-48) Tests
+
+- [-] 1. Protected-Area Tests
+- [X] 2. Test Repeat (REP)
+- [X] 3. Test Scroll-Down (SD)
+- [X] 4. Test Scroll-Left (SL)
+- [X] 5. Test Scroll-Right (SR)
+- [X] 6. Test Scroll-Up (SU)
+
+** 11.8. XTERM special features
+
+- [ ] 3. Set window title
+- [ ] 7. Alternate-Screen features
+

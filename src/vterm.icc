@@ -67,7 +67,6 @@ namespace {
    #define TRACE_FUN
 #endif
 
-#ifdef LOG_TRACE
    inline int
    debugPrintInput (std::ostream & os,
                     unsigned char* start, unsigned char* end,
@@ -84,10 +83,12 @@ namespace {
          case '\a': os << "\\a"; break;
          case '\b': os << "\\b"; break;
          case '\e': os << "\\e"; break;
+         case '\f': os << "\\f"; break;
          case '\n': os << "\\n"; break;
          case '\r': os << "\\r"; break;
          case '\t': os << "\\t"; break;
          case '\v': os << "\\v"; break;
+         case '\x7f': os << "<DEL>"; break;
          default:
             if (*it < ' ')
                os << "<" << (unsigned int)*it << ">";
@@ -100,14 +101,11 @@ namespace {
       os << "' (" << count << " bytes)" << std::endl;
       return count;
    }
-#else
+
+   // Dummy override for when log* streams are defined to nullptr
    inline int
    debugPrintInput (bool, unsigned char*, unsigned char*, bool = false)
    { return 0; }
-   inline int
-   debugPrintInput (std::ostream&, unsigned char*, unsigned char*, bool = false)
-   { return 0; }
-#endif // LOG_TRACE
 }
 
 namespace zutty {
@@ -165,20 +163,48 @@ namespace zutty {
    inline void
    Vterm::resetTerminal ()
    {
+      resetScreen ();
+      resetAttrs ();
+      fillScreen (' ');
+
+      showCursorMode = true;
+      altScreenBufferMode = false;
+      autoWrapMode = true;
+      autoNewlineMode = false;
+      insertMode = false;
+      bkspSendsDel = true;
+
+      compatLevel = CompatibilityLevel::VT400;
+      cursorKeyMode = CursorKeyMode::ANSI;
+      numpadMode = NumpadMode::Numeric;
+      originMode = OriginMode::Absolute;
+
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::resetScreen ()
+   {
       posX = 0;
       posY = 0;
       scrollHead = 0;
       marginTop = 0;
       marginBottom = nRows;
       setCur ();
-      resetAttrs ();
+
+      tabStops.clear ();
+      savedCursor_SCO.isSet = false;
+      savedCursor_DEC.isSet = false;
+
       fillScreen (' ');
-      originMode = OriginMode::Absolute;
    }
 
    inline void
    Vterm::resetAttrs ()
    {
+      fg = &attrs.fg;
+      bg = &attrs.bg;
+
       inputOps [0] = 0;
       nInputOps = 1;
       csi_SGR ();
@@ -228,12 +254,18 @@ namespace zutty {
    inline int
    Vterm::writePty (uint8_t ch)
    {
+      logT << "pty write: ";
+      auto uch = (unsigned char*)&ch;
+      debugPrintInput (logTcont, uch, uch + 1);
       return write (ptyFd, &ch, 1);
    }
 
    inline int
    Vterm::writePty (const char* cstr)
    {
+      logT << "pty write: ";
+      auto ucstr = (unsigned char*)cstr;
+      debugPrintInput (logTcont, ucstr, ucstr + strlen (cstr));
       return write (ptyFd, cstr, strlen (cstr));
    }
 
@@ -242,7 +274,7 @@ namespace zutty {
    {
       ssize_t n = read (ptyFd, inputBuf, sizeof (inputBuf));
 
-      logT << "read input: ";
+      logT << "pty read: ";
       debugPrintInput (logTcont, inputBuf, inputBuf + n);
 
       readPos = 0;
@@ -258,6 +290,8 @@ namespace zutty {
          case InputState::Normal:
             switch (ch)
             {
+            case '\x00': // ignore
+               break;
             case '\e':
                setState (InputState::Escape);
                inputOps [0] = 0;
@@ -265,7 +299,8 @@ namespace zutty {
                lastEscBegin = readPos;
                break;
             case '\r': traceNormalInput (); inp_CR (); break;
-            case '\v':
+            case '\f': // fall through, treat as LineFeed ('\n')
+            case '\v': // fall through, treat as LineFeed ('\n')
             case '\n': traceNormalInput (); esc_IND (); break;
             case '\t': traceNormalInput (); inp_HT (); break;
             case '\b': traceNormalInput (); csi_CUB (); break;
@@ -281,16 +316,23 @@ namespace zutty {
                traceNormalInput ();
                //logU << "Locking Shift 0: map G0 to GL" << std::endl;
                break;
+            case 0x05:
+               traceNormalInput ();
+               writePty ("This is Zutty.\r\n");
+               break;
             default:
                if ((ch & 0x80) == 0)
-                  insertChar (ch);
+               {
+                  unicode_cp = ch;
+                  placeGraphicChar ();
+               }
                else if (((uint8_t)ch >> 6) == 0x2) // 10xx'xxxx
                {
                   logT << "utf-8 sequence cont" << std::endl;
                   unicode_cp <<= 6;
                   unicode_cp += (uint8_t)ch & 0x3f;
                   if (! --utf8_rem)
-                     insertChar (unicode_cp);
+                     placeGraphicChar ();
               }
                else if (((uint8_t)ch >> 5) == 0x6) // 110x'xxxx
                {
@@ -326,16 +368,23 @@ namespace zutty {
             case 'M': esc_RI (); break;
             case 'E': esc_NEL (); break;
             case 'H': esc_HTS (); break;
+            case 'c': esc_RIS (); break;
+            case '6': esc_BI (); break;
             case '7': esc_DECSC (); break;
             case '8': esc_DECRC (); break;
-            case '=':
-               logU << "VT52 Enter alternate keypad mode" << std::endl;
+            case '9': esc_FI (); break;
+            case '=': numpadMode = NumpadMode::Application;
+               logU << "Application keypad mode" << std::endl;
                setState (InputState::Normal);
                DEBUGSTOP;
                break;
-            case '>':
-               logU << "VT52 Exit alternate keypad mode" << std::endl;
+            case '>': numpadMode = NumpadMode::Numeric;
+               logU << "Numeric keypad mode" << std::endl;
                setState (InputState::Normal);
+               break;
+            case 'P':
+               setState (InputState::DCS);
+               argBuf.clear ();
                break;
             default:
                unhandledInput (ch);
@@ -346,9 +395,7 @@ namespace zutty {
             switch (ch)
             {
             case '8': esch_DECALN (); break;
-            default:
-               unhandledInput (ch);
-               break;
+            default: unhandledInput (ch); break;
             }
             break;
          case InputState::SelectCharset:
@@ -360,9 +407,7 @@ namespace zutty {
          case InputState::CSI:
             switch (ch)
             {
-            case '\e':
-               setState (InputState::Normal);
-               break;
+            case '\e': setState (InputState::Normal); break;
             case '0': case '1': case '2': case '3': case '4':
             case '5': case '6': case '7': case '8': case '9':
                inputOps [nInputOps - 1] *= 10;
@@ -395,17 +440,25 @@ namespace zutty {
             case 'S': csi_SU (); break;
             case 'T': csi_SD (); break;
             case 'X': csi_ECH (); break;
+            case 'Z': csi_CBT (); break;
             case '@': csi_ICH (); break;
+            case '`': csi_HPA (); break;
+            case 'a': csi_HPR (); break;
+            case 'b': csi_REP (); break;
             case 'c': csi_priDA (); break;
             case 'd': csi_VPA (); break;
             case 'g': csi_TBC (); break;
             case 'h': csi_SM (); break;
             case 'l': csi_RM (); break;
             case 'm': csi_SGR (); break;
+            case 'n': csi_DSR (); break;
             case 'r': csi_STBM (); break;
-            case '?':
-               setState (InputState::CSI_priv);
-               break;
+            case 's': csi_SCOSC (); break;
+            case 'u': csi_SCORC (); break;
+            case '\"': setState (InputState::CSI_Quote); break;
+            case '!': setState (InputState::CSI_Bang); break;
+            case '?': setState (InputState::CSI_priv); break;
+            case ' ': setState (InputState::CSI_SPC); break;
             case '\a': break; // ignore
             case '\b': // undo last character in CSI sequence:
                if (readPos && inputBuf [readPos - 1] == ';')
@@ -415,18 +468,37 @@ namespace zutty {
                break;
             case '\t': inp_HT (); setState (InputState::CSI); break;
             case '\r': inp_CR (); setState (InputState::CSI); break;
+            case '\f': // fall through
             case '\v': esc_IND (); setState (InputState::CSI); break;
-            default:
-               unhandledInput (ch);
-               break;
+            default: unhandledInput (ch); break;
+            }
+            break;
+         case InputState::CSI_Bang:
+            switch (ch)
+            {
+            case 'p': esc_RIS (); break;
+            default: unhandledInput (ch); break;
+            }
+            break;
+         case InputState::CSI_Quote:
+            switch (ch)
+            {
+            case 'p': csiq_DECSCL (); break;
+            default: unhandledInput (ch); break;
+            }
+            break;
+         case InputState::CSI_SPC:
+            switch (ch)
+            {
+            case '@': csi_ecma48_SL (); break;
+            case 'A': csi_ecma48_SR (); break;
+            default: unhandledInput (ch); break;
             }
             break;
          case InputState::CSI_priv:
             switch (ch)
             {
-            case '\e':
-               setState (InputState::Normal);
-               break;
+            case '\e': setState (InputState::Normal); break;
             case '0': case '1': case '2': case '3': case '4':
             case '5': case '6': case '7': case '8': case '9':
                inputOps [nInputOps - 1] *= 10;
@@ -442,12 +514,29 @@ namespace zutty {
                   setState (InputState::Normal);
                }
                break;
-            case 'h': csipriv_SM (); break;
-            case 'l': csipriv_RM (); break;
+            case 'h': csi_privSM (); break;
+            case 'l': csi_privRM (); break;
+            default: unhandledInput (ch); break;
+            }
+            break;
+         case InputState::DCS:
+            switch (ch)
+            {
+            case '\e': setState (InputState::DCS_Escape); break;
+            default: argBuf.push_back (ch); break;
+            }
+            break;
+         case InputState::DCS_Escape:
+            switch (ch)
+            {
+            case '\\': handle_DCS (); break;
             default:
-               unhandledInput (ch);
+               argBuf.push_back ('\e');
+               argBuf.push_back (ch);
+               setState (InputState::DCS);
                break;
             }
+            break;
          }
       }
       traceNormalInput ();
@@ -491,9 +580,9 @@ namespace zutty {
    {
       if (pY < marginTop)
          return nCols * pY + pX;
-      else if (posY < marginBottom)
+      else if (pY < marginBottom)
          return nCols * marginTop +
-            (scrollHead + (pY - 2*marginTop) * nCols + pX) %
+            (scrollHead + (pY - 2 * marginTop) * nCols + pX) %
             ((marginBottom - marginTop) * nCols);
       else
          return nCols * pY + pX;
@@ -518,105 +607,20 @@ namespace zutty {
       return cur - posX + nCols;
    }
 
-   inline void
-   Vterm::doEraseRange (uint32_t start, uint32_t end)
-   {
-      for (uint32_t k = start; k < end; ++k)
-         cell (k) = attrs;
-   }
-
-   // The cell storage area is conceptually divided into 4 areas, some of
-   // which may be empty at any time:
-   // (1) top margin area
-   // (2) displayed-top half of scrolling area (below scrollHead)
-   // (3) displayed-bottom half of scrolling area (above scrollHead)
-   // (4) bottom margin area
-   // In physical storage, the scrolling area is organized as a circular buffer
-   // with (2) and (3) reversed. This allows us to scroll by just moving the
-   // scrollHead and overwriting scrolled-off data instead of copying blocks
-   // of data on each scroll.
-   // Params: start and end are physical indexes into cells
+   // N.B.: Only use this to erase (within) one line.
+   // Use a series of eraseRow () calls to erase larger areas!
    inline void
    Vterm::eraseRange (uint32_t start, uint32_t end)
    {
-      logT << "eraseRange (" << start << "," << end << ")" << std::endl;
-      if (start == 0 && end == nRows * nCols)
-      {
-            // whole screen
-            doEraseRange (start, end);
-      }
-      else if (start < marginTop * nCols)
-      {
-         if (end <= marginTop * nCols)
-         {
-            // start in (1), end in (1):
-            doEraseRange (start, end);
-         }
-         else if (end <= scrollHead)
-         {
-            // start in (1), end in (3):
-            doEraseRange (start, end);
-            doEraseRange (scrollHead, marginBottom * nCols);
-         }
-         else if (end <= marginBottom * nCols)
-         {
-            // start in (1), end in (2):
-            doEraseRange (start, marginTop * nCols);
-            doEraseRange (scrollHead, end);
-         }
-         else
-         {
-            // start in (1), end in (4):
-            doEraseRange (start, end);
-         }
-      }
-      else if (start < scrollHead)
-      {
-         if (end <= scrollHead)
-         {
-            // start in (3), end in (3):
-            doEraseRange (start, end);
-         }
-         else
-         {
-            // start in (3), end in (4):
-            doEraseRange (start, scrollHead);
-            doEraseRange (marginBottom * nCols, end);
-         }
-      }
-      else if (start < marginBottom * nCols)
-      {
-         if (end <= scrollHead)
-         {
-            // start in (2), end in (3):
-            doEraseRange (start, marginBottom * nCols);
-            doEraseRange (marginTop * nCols, end);
-         }
-         else if (end <= marginBottom * nCols)
-         {
-            // start in (2), end in (2):
-            doEraseRange (start, end);
-         }
-         else
-         {
-            // start in (2), end in (4):
-            doEraseRange (start, marginBottom * nCols);
-            doEraseRange (marginTop * nCols, scrollHead);
-            doEraseRange (marginBottom * nCols, end);
-         }
-      }
-      else
-      {
-         // start in (4), end in (4)
-         doEraseRange (start, end);
-      }
+      for (uint32_t k = start; k < end; ++k)
+         cell (k) = attrs;
    }
 
    inline void
    Vterm::eraseRow (uint16_t pY)
    {
       uint32_t idx = getIdx (pY, 0);
-      doEraseRange (idx, idx + nCols);
+      eraseRange (idx, idx + nCols);
    }
 
    inline void
@@ -658,15 +662,23 @@ namespace zutty {
    }
 
    inline void
-   Vterm::insertChar (uint16_t unicode_pt)
+   Vterm::placeGraphicChar ()
    {
       if (! autoWrapMode && posX == nCols)
          return;
 
       normalizePosition ();
+
+      if (insertMode)
+      {
+         nInputOps = 1;
+         inputOps [0] = 1;
+         csi_ICH ();
+      }
+
       auto& c = cell (cur);
       c = attrs;
-      c.uc_pt = unicode_pt;
+      c.uc_pt = unicode_cp;
       advancePosition ();
     }
 
@@ -687,9 +699,8 @@ namespace zutty {
    }
 
    inline void
-   Vterm::inp_HT ()
+   Vterm::jumpToNextTabStop ()
    {
-      TRACE_FUN;
       if (tabStops.empty ())
       {
          // Hard default of 8 chars limited to right margin
@@ -702,6 +713,19 @@ namespace zutty {
          posX = (ts == tabStops.end ()) ? nCols - 1 : * ts;
       }
       setCur ();
+   }
+
+   inline void
+   Vterm::inp_HT ()
+   {
+      TRACE_FUN;
+      if (posX == nCols)
+      {
+         inp_CR ();
+         esc_IND ();
+      }
+      else
+         jumpToNextTabStop ();
    }
 
    inline void
@@ -742,14 +766,9 @@ namespace zutty {
       TRACE_FUN;
       if (posY == marginBottom - 1)
       {
-         scrollHead += nCols;
-         if (scrollHead == marginBottom * nCols)
-            scrollHead = marginTop * nCols;
-         setCur ();
-         if (scrollHead == marginTop * nCols)
-            eraseRange ((marginBottom - 1) * nCols, marginBottom * nCols);
-         else
-            eraseRange (scrollHead - nCols, scrollHead);
+         nInputOps = 1;
+         inputOps [0] = 1;
+         csi_SU ();
       }
       else if (posY < nRows - 1)
       {
@@ -765,18 +784,73 @@ namespace zutty {
       TRACE_FUN;
       if (posY == marginTop)
       {
-         if (scrollHead >= (marginTop + 1u) * nCols)
-            scrollHead -= nCols;
-         else
-            scrollHead = (marginBottom - 1u) * nCols;
-         setCur ();
-         eraseRange (scrollHead, scrollHead + nCols);
+         nInputOps = 1;
+         inputOps [0] = 1;
+         csi_SD ();
       }
       else if (posY > 0)
       {
          --posY;
          setCur ();
       }
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_ecma48_SL ()
+   {
+      TRACE_FUN;
+      uint16_t arg = inputOps [0] ? inputOps [0] : 1u;
+      arg = std::min (arg, nCols);
+      // move all lines to the left by arg positions:
+      for (uint16_t r = 0; r < nRows; ++r)
+      {
+         CharVdev::Cell* p = cells.get () + nCols * r;
+         memmove (p, p + arg, (nCols - arg) * sizeof (CharVdev::Cell));
+         eraseRange (nCols * (r + 1) - arg, nCols * (r + 1));
+      }
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_ecma48_SR ()
+   {
+      TRACE_FUN;
+      uint16_t arg = inputOps [0] ? inputOps [0] : 1u;
+      arg = std::min (arg, nCols);
+      // move all lines to the right by arg positions:
+      for (uint16_t r = 0; r < nRows; ++r)
+      {
+         CharVdev::Cell* p = cells.get () + nCols * r;
+         memmove (p + arg, p, (nCols - arg) * sizeof (CharVdev::Cell));
+         eraseRange (nCols * r, nCols * r + arg);
+      }
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::esc_FI ()
+   {
+      TRACE_FUN;
+      nInputOps = 1;
+      inputOps [0] = 1;
+      if (posX < nCols - 1)
+         csi_CUF ();
+      else
+         csi_ecma48_SL ();
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::esc_BI ()
+   {
+      TRACE_FUN;
+      nInputOps = 1;
+      inputOps [0] = 1;
+      if (posX > 0)
+         csi_CUB ();
+      else
+         csi_ecma48_SR ();
       setState (InputState::Normal);
    }
 
@@ -800,15 +874,43 @@ namespace zutty {
    }
 
    inline void
+   Vterm::csi_SCOSC ()
+   {
+      TRACE_FUN;
+      savedCursor_SCO.posX = posX;
+      savedCursor_SCO.posY = posY;
+      savedCursor_SCO.isSet = true;
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_SCORC ()
+   {
+      TRACE_FUN;
+      if (!savedCursor_SCO.isSet)
+      {
+         logI << "Asked to restore cursor (SCORC) but it has not been saved."
+              << std::endl;
+      }
+      else
+      {
+         posX = savedCursor_SCO.posX;
+         posY = savedCursor_SCO.posY;
+         setCur ();
+      }
+      setState (InputState::Normal);
+   }
+
+   inline void
    Vterm::esc_DECSC ()
    {
       TRACE_FUN;
-      savedCursor.posX = posX;
-      savedCursor.posY = posY;
-      savedCursor.attrs = attrs;
-      savedCursor.autoWrapMode = autoWrapMode;
-      savedCursor.originMode = originMode;
-      savedCursor.isSet = true;
+      savedCursor_DEC.posX = posX;
+      savedCursor_DEC.posY = posY;
+      savedCursor_DEC.attrs = attrs;
+      savedCursor_DEC.autoWrapMode = autoWrapMode;
+      savedCursor_DEC.originMode = originMode;
+      savedCursor_DEC.isSet = true;
       setState (InputState::Normal);
    }
 
@@ -816,19 +918,19 @@ namespace zutty {
    Vterm::esc_DECRC ()
    {
       TRACE_FUN;
-      if (!savedCursor.isSet)
+      if (!savedCursor_DEC.isSet)
       {
          logI << "Asked to restore cursor (DECRC) but it has not been saved."
               << std::endl;
       }
       else
       {
-         posX = savedCursor.posX;
-         posY = savedCursor.posY;
+         posX = savedCursor_DEC.posX;
+         posY = savedCursor_DEC.posY;
          setCur ();
-         attrs = savedCursor.attrs;
-         autoWrapMode = savedCursor.autoWrapMode;
-         originMode = savedCursor.originMode;
+         attrs = savedCursor_DEC.attrs;
+         autoWrapMode = savedCursor_DEC.autoWrapMode;
+         originMode = savedCursor_DEC.originMode;
       }
       setState (InputState::Normal);
    }
@@ -915,6 +1017,24 @@ namespace zutty {
    }
 
    inline void
+   Vterm::csi_HPA ()
+   {
+      TRACE_FUN;
+      csi_CHA ();
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_HPR ()
+   {
+      TRACE_FUN;
+      uint16_t arg = inputOps [0] ? inputOps [0] : 1;
+      inputOps [0] = posX + arg + 1;
+      csi_CHA ();
+      setState (InputState::Normal);
+   }
+
+   inline void
    Vterm::csi_VPA ()
    {
       TRACE_FUN;
@@ -955,7 +1075,21 @@ namespace zutty {
    Vterm::csi_SU ()
    {
       TRACE_FUN;
-      // NOP since the terminal page size and screen size are identical
+      uint16_t arg = inputOps [0] ? inputOps [0] : 1;
+      for (uint16_t k = 0; k < arg; ++k)
+      {
+         scrollHead += nCols;
+         if (scrollHead == marginBottom * nCols)
+         {
+            scrollHead = marginTop * nCols;
+            eraseRange ((marginBottom - 1) * nCols, marginBottom * nCols);
+         }
+         else
+         {
+            eraseRange (scrollHead - nCols, scrollHead);
+         }
+      }
+      setCur ();
       setState (InputState::Normal);
    }
 
@@ -963,7 +1097,16 @@ namespace zutty {
    Vterm::csi_SD ()
    {
       TRACE_FUN;
-      // NOP since the terminal page size and screen size are identical
+      uint16_t arg = inputOps [0] ? inputOps [0] : 1;
+      for (uint16_t k = 0; k < arg; ++k)
+      {
+         if (scrollHead >= (marginTop + 1u) * nCols)
+            scrollHead -= nCols;
+         else
+            scrollHead = (marginBottom - 1u) * nCols;
+         eraseRange (scrollHead, scrollHead + nCols);
+      }
+      setCur ();
       setState (InputState::Normal);
    }
 
@@ -972,8 +1115,50 @@ namespace zutty {
    {
       TRACE_FUN;
       uint16_t arg = inputOps [0] ? inputOps [0] : 1;
-      for (int k = 0; k < arg; ++k)
+      if (arg == 1)
          inp_HT ();
+      else
+         for (int k = 0; k < arg; ++k)
+            jumpToNextTabStop ();
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_CBT ()
+   {
+      TRACE_FUN;
+      uint16_t arg = inputOps [0] ? inputOps [0] : 1;
+      for (uint16_t k = 0; k < arg; ++k)
+      {
+         if (tabStops.empty ())
+         {
+            if (posX > 0 && posX % 8 == 0)
+               posX -= 8;
+            else
+               posX = (posX / 8) * 8;
+         }
+         else
+         {
+            // Set posX to previous tab stop
+            auto ts = std::lower_bound (tabStops.begin (), tabStops.end (), posX);
+            if (ts != tabStops.begin ())
+               posX = * (--ts);
+            else
+               posX = 0;
+         }
+         setCur ();
+      }
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_REP ()
+   {
+      TRACE_FUN;
+      uint16_t arg = inputOps [0] ? inputOps [0] : 1;
+      for (int k = 0; k < arg; ++k)
+         placeGraphicChar ();
+      unicode_cp = ' ';
       setState (InputState::Normal);
    }
 
@@ -981,26 +1166,27 @@ namespace zutty {
    Vterm::csi_ED ()
    {
       TRACE_FUN;
-      uint32_t begin = cur;
-      uint32_t end = cur + 1;
       switch (inputOps [0])
       {
       case 0: // clear from cursor to end of screen
-         end = nRows * nCols;
+         eraseRange (cur, startOfNextLine ());
+         for (uint16_t pY = posY + 1; pY < nRows; ++pY)
+            eraseRow (pY);
          break;
       case 1: // clear from beginning of screen to cursor
-         begin = 0;
+         for (uint16_t pY = 0; pY < posY; ++pY)
+            eraseRow (pY);
+         eraseRange (startOfThisLine (), cur + 1);
          break;
       case 2: // clear entire screen
-         begin = 0;
-         end = nRows * nCols;
+         for (uint16_t pY = 0; pY < nRows; ++pY)
+            eraseRow (pY);
          break;
       default:
          logI << "Erase in Display with illegal param: "
               << inputOps [0] << std::endl;
          break;
       }
-      eraseRange (begin, end);
       setState (InputState::Normal);
    }
 
@@ -1036,7 +1222,10 @@ namespace zutty {
    {
       TRACE_FUN;
       if (posY < marginTop || posY >= marginBottom)
+      {
+         setState (InputState::Normal);
          return;
+      }
       int arg = inputOps [0] ? inputOps [0] : 1;
       arg = std::min (arg, marginBottom - posY);
       insertLines (arg);
@@ -1049,7 +1238,10 @@ namespace zutty {
    {
       TRACE_FUN;
       if (posY < marginTop || posY >= marginBottom)
+      {
+         setState (InputState::Normal);
          return;
+      }
       int arg = inputOps [0] ? inputOps [0] : 1;
       arg = std::min (arg, marginBottom - posY);
       deleteLines (arg);
@@ -1090,7 +1282,7 @@ namespace zutty {
    {
       TRACE_FUN;
       uint32_t arg = inputOps [0] ? inputOps [0] : 1;
-      uint32_t len = nCols - posX - 1;
+      uint32_t len = nCols - posX;
       arg = std::min (arg, len);
       eraseRange (cur, cur + arg);
       setState (InputState::Normal);
@@ -1114,11 +1306,13 @@ namespace zutty {
       {
          uint16_t newMarginTop = inputOps [0] > 0 ? inputOps [0] - 1 : 0;
          uint16_t newMarginBottom = inputOps [1];
-         newMarginTop = std::min ((int)newMarginTop, nRows - 1);
-         newMarginBottom = std::max (newMarginTop + 1,
-                                     (int)std::min (newMarginBottom, nRows));
 
-         if (newMarginTop != marginTop || newMarginBottom != marginBottom)
+         if (newMarginBottom < newMarginTop + 2 || nRows < newMarginBottom)
+         {
+            logI << "Illegal arguments to SetTopBottomMargins: top="
+                 << inputOps [0] << ", bottom=" << inputOps [1] << std::endl;
+         }
+         else if (newMarginTop != marginTop || newMarginBottom != marginBottom)
          {
             linearizeCellStorage ();
             marginTop = newMarginTop;
@@ -1165,9 +1359,8 @@ namespace zutty {
 
          switch (arg)
          {
-         case 4:
-            logU << "Insert/replace mode set to insert" << std::endl;
-            break;
+         case 4: insertMode = true; break;
+         case 20: autoNewlineMode = true; break;
          default:
             logU << "set mode " << arg << std::endl;
             break;
@@ -1186,9 +1379,8 @@ namespace zutty {
 
          switch (arg)
          {
-         case 4:
-            logU << "Insert/replace mode set to replace" << std::endl;
-            break;
+         case 4: insertMode = false; break;
+         case 20: autoNewlineMode = false; break;
          default:
             logU << "reset mode " << arg << std::endl;
             break;
@@ -1198,7 +1390,7 @@ namespace zutty {
    }
 
    inline void
-   Vterm::csipriv_SM ()
+   Vterm::csi_privSM ()
    {
       TRACE_FUN;
       for (size_t k = 0; k < nInputOps; ++k)
@@ -1208,8 +1400,9 @@ namespace zutty {
          switch (arg)
          {
          case 1: cursorKeyMode = CursorKeyMode::Application; break;
+         case 2: compatLevel = CompatibilityLevel::VT100; break;
          case 3:
-            resetTerminal ();
+            resetScreen ();
             logT << "DECCOLM: Selected 132 columns per line" << std::endl;
             break;
          case 4:
@@ -1227,6 +1420,7 @@ namespace zutty {
             logU << "Start blinking cursor" << std::endl;
             break;
          case 25: showCursorMode = true; break;
+         case 67: bkspSendsDel = false; break;
          case 1000:
             logU << "Enable mouse tracking mode" << std::endl;
             break;
@@ -1242,7 +1436,7 @@ namespace zutty {
    }
 
    inline void
-   Vterm::csipriv_RM ()
+   Vterm::csi_privRM ()
    {
       TRACE_FUN;
       for (size_t k = 0; k < nInputOps; ++k)
@@ -1252,11 +1446,9 @@ namespace zutty {
          switch (arg)
          {
          case 1: cursorKeyMode = CursorKeyMode::ANSI; break;
-         case 2:
-            logU << "DECANM: Selected ANSI/VT52 mode" << std::endl;
-            break;
+         case 2: compatLevel = CompatibilityLevel::VT52; break;
          case 3:
-            resetTerminal ();
+            resetScreen ();
             logT << "DECCOLM: Selected 80 columns per line" << std::endl;
             break;
          case 4:
@@ -1274,6 +1466,7 @@ namespace zutty {
             logU << "Stop blinking cursor" << std::endl;
             break;
          case 25: showCursorMode = false; break;
+         case 67: bkspSendsDel = true; break;
          case 1000:
             logU << "Disable mouse tracking mode" << std::endl;
             break;
@@ -1419,7 +1612,34 @@ namespace zutty {
    Vterm::csi_priDA ()
    {
       TRACE_FUN;
-      writePty ("\e[?6c"); // vt102
+      //writePty ("\e[?6c"); // vt102
+      //writePty ("\e[?62;1;2;6;9c"); // vt220
+      writePty ("\e[?" "64;1;2;6;9;15;18;19;21;22c"); // vt420
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_DSR ()
+   {
+      TRACE_FUN;
+      switch (inputOps [0])
+      {
+      case 5:
+         writePty ("\e[0n"); // device OK
+         break;
+      case 6:
+      {
+         std::ostringstream oss;
+         if (originMode == OriginMode::Absolute)
+            oss << "\e[" << (posY + 1) << ";" << (posX + 1) << "R";
+         else
+            oss << "\e[" << (posY - marginTop + 1) << ";" << (posX + 1) << "R";
+         writePty (oss.str ().c_str ());
+      }
+         break;
+      default:
+         break;
+      }
       setState (InputState::Normal);
    }
 
@@ -1427,8 +1647,82 @@ namespace zutty {
    Vterm::esch_DECALN ()
    {
       TRACE_FUN;
+
+      // Save current attrs
+      CharVdev::Cell origAttrs = attrs;
+      CharVdev::Color* origFg = &attrs.fg;
+      CharVdev::Color* origBg = &attrs.bg;
+
       resetAttrs ();
       fillScreen ('E');
+
+      // Restore attrs
+      fg = origFg;
+      bg = origBg;
+      attrs = origAttrs;
+
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::esc_RIS ()
+   {
+      TRACE_FUN;
+      resetTerminal ();
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::handle_DCS ()
+   {
+      TRACE_FUN;
+      auto arg = std::string ((char*)argBuf.data (), argBuf.size ());
+      if (arg == "$q\"p")
+      {
+         // DECSCL
+         writePty ("\eP1$r" "64;1;2;6;9;15;18;21;22c" "\e\\");
+      }
+      else
+      {
+         logU << "DCS: '" << arg << "'" << std::endl;
+         std::ostringstream oss;
+         oss << "\eP0$r";
+         oss << arg.substr (2);
+         oss << "\e\\";
+         writePty (oss.str ().c_str ());
+      }
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csiq_DECSCL ()
+   {
+      TRACE_FUN;
+      if (nInputOps == 2)
+      {
+         switch (inputOps [0])
+         {
+         case 61: compatLevel = CompatibilityLevel::VT100; break;
+         case 62: compatLevel = CompatibilityLevel::VT400; break;
+         case 63: compatLevel = CompatibilityLevel::VT400; break;
+         case 64: compatLevel = CompatibilityLevel::VT400; break;
+         case 65: compatLevel = CompatibilityLevel::VT400; break;
+         default:
+            logU << "DECSCL: compatibility mode " << inputOps [0] << std::endl;
+            break;
+         }
+
+         switch (inputOps [1])
+         {
+         case 0: logT << "DECSCL: 8-bit controls" << std::endl; break;
+         case 1: logT << "DECSCL: 7-bit controls" << std::endl; break;
+         case 2: logT << "DECSCL: 8-bit controls" << std::endl; break;
+         default:
+            logU << "DECSCL: C1 control transmission mode: "
+                 << inputOps [1] << std::endl;
+            break;
+         }
+      }
       setState (InputState::Normal);
    }
 

@@ -18,52 +18,174 @@ namespace {
 
    using namespace zutty;
    using Key = Vterm::VtKey;
+   using InputSpec = Vterm::InputSpec;
 
-   struct InputSpec
+   const InputSpec is_Ansi [] =
    {
-      Key key;
-      const char * ansi;
-      const char * appl;
+      {Key::Return,      "\r"},
+      {Key::Backspace,   "\x7f"},
+      {Key::Insert,      "\x1b[2~"},
+      {Key::Delete,      "\x1b[3~"},
+      {Key::Home,        "\x1b[H"},
+      {Key::End,         "\x1b[F"},
+      {Key::PageUp,      "\x1b[5~"},
+      {Key::PageDown,    "\x1b[6~"},
+      {Key::NONE,        nullptr},
    };
 
-   const InputSpec inputSpecs [] =
+   const InputSpec is_Application [] =
    {
-      {Key::Insert,      "\x1b[2~",   nullptr},
-      {Key::Delete,      "\x1b[3~",   nullptr},
-      {Key::Home,        "\x1b[H",    "\x1bOH"},
-      {Key::End,         "\x1b[F",    "\x1bOF"},
-      {Key::Up,          "\x1b[A",    "\x1bOA"},
-      {Key::Down,        "\x1b[B",    "\x1bOB"},
-      {Key::Right,       "\x1b[C",    "\x1bOC"},
-      {Key::Left,        "\x1b[D",    "\x1bOD"},
-      {Key::PageUp,      "\x1b[5~",   nullptr},
-      {Key::PageDown,    "\x1b[6~",   nullptr},
-      {Key::F1,          "\x1bOP",    nullptr},
-      {Key::F2,          "\x1bOQ",    nullptr},
-      {Key::F3,          "\x1bOR",    nullptr},
-      {Key::F4,          "\x1bOS",    nullptr},
-      {Key::F5,          "\x1b[15~",  nullptr},
-      {Key::F6,          "\x1b[17~",  nullptr},
-      {Key::F7,          "\x1b[18~",  nullptr},
-      {Key::F8,          "\x1b[19~",  nullptr},
-      {Key::F9,          "\x1b[20~",  nullptr},
-      {Key::F10,         "\x1b[21~",  nullptr},
-      {Key::F11,         "\x1b[23~",  nullptr},
-      {Key::F12,         "\x1b[24~",  nullptr},
+      {Key::Home,        "\x1bOH"},
+      {Key::End,         "\x1bOF"},
+      {Key::NONE,        nullptr},
    };
 
-   const InputSpec &
-   getInputSpec (Key key)
+   const InputSpec is_FunctionKeys [] =
    {
-      static InputSpec nullSpec = {Key::NONE, "", ""};
-      size_t nSpecs = sizeof (inputSpecs) / sizeof (InputSpec);
+      {Key::F1,          "\x1bOP"},
+      {Key::KP_F1,       "\x1bOP"},
+      {Key::F2,          "\x1bOQ"},
+      {Key::KP_F2,       "\x1bOQ"},
+      {Key::F3,          "\x1bOR"},
+      {Key::KP_F3,       "\x1bOR"},
+      {Key::F4,          "\x1bOS"},
+      {Key::KP_F4,       "\x1bOS"},
+      {Key::F5,          "\x1b[15~"},
+      {Key::F6,          "\x1b[17~"},
+      {Key::F7,          "\x1b[18~"},
+      {Key::F8,          "\x1b[19~"},
+      {Key::F9,          "\x1b[20~"},
+      {Key::F10,         "\x1b[21~"},
+      {Key::F11,         "\x1b[23~"},
+      {Key::F12,         "\x1b[24~"},
+      {Key::F13,         "\x1b[25~"},
+      {Key::F14,         "\x1b[26~"},
+      {Key::F15,         "\x1b[28~"},
+      {Key::F16,         "\x1b[29~"},
+      {Key::F17,         "\x1b[31~"},
+      {Key::F18,         "\x1b[32~"},
+      {Key::F19,         "\x1b[33~"},
+      {Key::F20,         "\x1b[34~"},
+      {Key::NONE,        nullptr},
+   };
 
-      for (size_t k = 0; k < nSpecs; ++k)
-         if (inputSpecs [k].key == key)
-            return inputSpecs [k];
+   const InputSpec is_FunctionKeys_VT52 [] =
+   {
+      {Key::F1,          "\x1bP"},
+      {Key::KP_F1,       "\x1bP"},
+      {Key::F2,          "\x1bQ"},
+      {Key::KP_F2,       "\x1bQ"},
+      {Key::F3,          "\x1bR"},
+      {Key::KP_F3,       "\x1bR"},
+      {Key::F4,          "\x1bS"},
+      {Key::KP_F4,       "\x1bS"},
+      {Key::NONE,        nullptr},
+   };
 
-      return nullSpec;
-   }
+   const InputSpec is_ArrowKeys_AnsiCursor [] =
+   {
+      {Key::Up,          "\x1b[A"},
+      {Key::Down,        "\x1b[B"},
+      {Key::Right,       "\x1b[C"},
+      {Key::Left,        "\x1b[D"},
+   };
+
+   const InputSpec is_ArrowKeys_AnsiApp [] =
+   {
+      {Key::Up,          "\x1bOA"},
+      {Key::Down,        "\x1bOB"},
+      {Key::Right,       "\x1bOC"},
+      {Key::Left,        "\x1bOD"},
+      {Key::NONE,        nullptr},
+   };
+
+   const InputSpec is_ArrowKeys_VT52 [] =
+   {
+      {Key::Up,          "\x1b""A"},
+      {Key::Down,        "\x1b""B"},
+      {Key::Right,       "\x1b""C"},
+      {Key::Left,        "\x1b""D"},
+      {Key::NONE,        nullptr},
+   };
+
+   const InputSpec is_NumpadKeys_Numeric [] =
+   {
+      {Key::KP_0,        "0"},
+      {Key::KP_1,        "1"},
+      {Key::KP_2,        "2"},
+      {Key::KP_3,        "3"},
+      {Key::KP_4,        "4"},
+      {Key::KP_5,        "5"},
+      {Key::KP_6,        "6"},
+      {Key::KP_7,        "7"},
+      {Key::KP_8,        "8"},
+      {Key::KP_9,        "9"},
+      {Key::KP_Minus,    "-"},
+      {Key::KP_Comma,    ","},
+      {Key::KP_Dot,      "."},
+      {Key::KP_Enter,    "\r"},
+      {Key::NONE,        nullptr},
+   };
+
+   const InputSpec is_NumpadKeys_Ansi [] =
+   {
+      {Key::KP_F1,       "\x1bOP"},
+      {Key::KP_F2,       "\x1bOQ"},
+      {Key::KP_F3,       "\x1bOR"},
+      {Key::KP_F4,       "\x1bOS"},
+      {Key::NONE,        nullptr},
+   };
+
+   const InputSpec is_NumpadKeys_AnsiApp [] =
+   {
+      {Key::KP_0,        "\x1bOp"},
+      {Key::KP_1,        "\x1bOq"},
+      {Key::KP_2,        "\x1bOr"},
+      {Key::KP_3,        "\x1bOs"},
+      {Key::KP_4,        "\x1bOt"},
+      {Key::KP_5,        "\x1bOu"},
+      {Key::KP_6,        "\x1bOv"},
+      {Key::KP_7,        "\x1bOw"},
+      {Key::KP_8,        "\x1bOx"},
+      {Key::KP_9,        "\x1bOy"},
+      {Key::KP_Minus,    "\x1bOm"},
+      {Key::KP_Comma,    "\x1bOl"},
+      {Key::KP_Dot,      "\x1bOn"},
+      {Key::KP_Enter,    "\x1bOM"},
+      {Key::NONE,        nullptr},
+   };
+
+   const InputSpec is_NumpadKeys_VT52App [] =
+   {
+      {Key::KP_0,        "\x1b?p"},
+      {Key::KP_1,        "\x1b?q"},
+      {Key::KP_2,        "\x1b?r"},
+      {Key::KP_3,        "\x1b?s"},
+      {Key::KP_4,        "\x1b?t"},
+      {Key::KP_5,        "\x1b?u"},
+      {Key::KP_6,        "\x1b?v"},
+      {Key::KP_7,        "\x1b?w"},
+      {Key::KP_8,        "\x1b?x"},
+      {Key::KP_9,        "\x1b?y"},
+      {Key::KP_Minus,    "\x1b?m"},
+      {Key::KP_Comma,    "\x1b?l"},
+      {Key::KP_Dot,      "\x1b?n"},
+      {Key::KP_Enter,    "\x1b?M"},
+      {Key::NONE,        nullptr},
+   };
+
+   const InputSpec is_ReturnKey_ANL [] =
+   {
+      {Key::Return,      "\r\n"},
+      {Key::KP_Enter,    "\r\n"},
+      {Key::NONE,        nullptr},
+   };
+
+   const InputSpec is_BackspaceKey_BkSp [] =
+   {
+      {Key::Backspace,   "\b"},
+      {Key::NONE,        nullptr},
+   };
 
    void
    makePalette256 (CharVdev::Color p[])
@@ -143,24 +265,23 @@ namespace zutty {
    void
    Vterm::resize (uint16_t winPx_, uint16_t winPy_)
    {
-      if (winPx == winPx_ && winPy == winPy_)
-         return;
-
       winPx = winPx_;
       winPy = winPy_;
-      nCols = winPx / glyphPx;
-      nRows = winPy / glyphPy;
+
+      uint16_t nCols_ = winPx / glyphPx;
+      uint16_t nRows_ = winPy / glyphPy;
+
+      if (nCols == nCols_ && nRows == nRows_)
+         return;
+
+      nCols = nCols_;
+      nRows = nRows_;
+
       cells = std::shared_ptr <CharVdev::Cell> (
          new CharVdev::Cell [nRows * nCols]);
       memset (cells.get (), 0, nRows * nCols * sizeof (CharVdev::Cell));
-      cur = 0;
-      scrollHead = 0;
-      marginTop = 0;
-      marginBottom = nRows;
-      posX = 0;
-      posY = 0;
-      tabStops.clear ();
-      originMode = OriginMode::Absolute;
+
+      resetTerminal ();
 
       struct winsize size;
       size.ws_col = nCols;
@@ -195,15 +316,99 @@ namespace zutty {
    int
    Vterm::writePty (VtKey key)
    {
-      InputSpec spec = getInputSpec (key);
-      const char * str;
-
-      if (cursorKeyMode == CursorKeyMode::Application)
-         str = spec.appl ? spec.appl : spec.ansi;
-      else
-         str = spec.ansi;
-
-      return writePty (str);
+      const auto& spec = getInputSpec (key);
+      return writePty (spec.input);
    }
 
+   using Key = Vterm::VtKey;
+
+   Vterm::InputSpecTable *
+   Vterm::getInputSpecTable ()
+   {
+      static InputSpecTable ist [] =
+      {
+         { [this] () { return (autoNewlineMode == true); },
+           is_ReturnKey_ANL
+         },
+
+         { [this] () { return (bkspSendsDel == false); },
+           is_BackspaceKey_BkSp
+         },
+
+         { [this] () { return (numpadMode == NumpadMode::Numeric); },
+           is_NumpadKeys_Numeric
+         },
+
+         { [this] () { return (compatLevel != CompatibilityLevel::VT52 &&
+                               numpadMode == NumpadMode::Application); },
+           is_NumpadKeys_AnsiApp
+         },
+
+         { [this] () { return (compatLevel == CompatibilityLevel::VT52 &&
+                               numpadMode == NumpadMode::Application); },
+           is_NumpadKeys_VT52App
+         },
+
+         { [this] () { return (compatLevel == CompatibilityLevel::VT52); },
+           is_ArrowKeys_VT52
+         },
+         { [this] () { return (compatLevel == CompatibilityLevel::VT52); },
+           is_FunctionKeys_VT52
+         },
+
+         { [this] () { return (cursorKeyMode == CursorKeyMode::Application); },
+           is_ArrowKeys_AnsiApp
+         },
+
+         // default entries
+         { [] () { return true; }, is_Ansi },
+         { [] () { return true; }, is_NumpadKeys_Ansi },
+         { [] () { return true; }, is_ArrowKeys_AnsiCursor },
+         { [] () { return true; }, is_FunctionKeys },
+
+         // end marker to delimit iteration
+         { [] () { return true; }, nullptr }
+      };
+      return ist;
+   }
+
+   void
+   Vterm::resetInputSpecTable ()
+   {
+      for (InputSpecTable* e = getInputSpecTable (); e->specs != nullptr; ++e)
+         e->visited = false;
+   }
+
+   const Vterm::InputSpec *
+   Vterm::selectInputSpecs ()
+   {
+      InputSpecTable* ist = getInputSpecTable ();
+      for (auto e = ist; e->specs != nullptr; ++e)
+      {
+         if (!e->visited)
+         {
+            e->visited = true;
+            if (e->predicate ())
+               return e->specs;
+         }
+      }
+      return nullptr;
+   }
+
+   const Vterm::InputSpec &
+   Vterm::getInputSpec (Key key)
+   {
+      static InputSpec nullSpec = {Key::NONE, ""};
+
+      resetInputSpecTable ();
+      const InputSpec* specs;
+      while ((specs = selectInputSpecs ()) != nullptr)
+      {
+         for (int k = 0; specs [k].key != Key::NONE; ++k)
+            if (specs [k].key == key)
+               return specs [k];
+      }
+
+      return nullSpec;
+   }
 } // namespace zutty
