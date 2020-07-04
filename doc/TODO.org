@@ -1,9 +1,8 @@
 * Vt support
 
-- keys with modifiers (e.g., Alt+LeftArrow) should work
 - alternate screen mode
 - set window title
 - X-clipboard / primary selection / copy-paste
   (OSC sequences)
 - mouse support
-- wider font support (test w/SourceCodePro)
+- more general font support (test w/SourceCodePro)

@@ -181,7 +181,7 @@ namespace zutty {
 
       compatLevel = CompatibilityLevel::VT400;
       cursorKeyMode = CursorKeyMode::ANSI;
-      numpadMode = NumpadMode::Numeric;
+      keypadMode = KeypadMode::Normal;
       originMode = OriginMode::Absolute;
       charsetState = CharsetState {};
 
@@ -208,6 +208,7 @@ namespace zutty {
    inline void
    Vterm::resetAttrs ()
    {
+      reverseVideo = false;
       fg = &attrs.fg;
       bg = &attrs.bg;
 
@@ -258,14 +259,39 @@ namespace zutty {
    }
 
    inline int
-   Vterm::writePty (uint8_t ch)
+   Vterm::writePty (uint8_t ch, VtModifier modifiers)
    {
-      logP << "write: ";
+      logP << "write (mod=" << (int)modifiers << "): ";
       auto uch = (unsigned char*)&ch;
       debugPrintInput (logPcont, uch, uch + 1);
-      if (localEcho)
-         processInput (uch, 1);
-      return write (ptyFd, &ch, 1);
+      if ((modifiers & VtModifier::alt) != VtModifier::none)
+      {
+         static uint8_t wbuf [2] = { '\e', '\0' };
+         wbuf [1] = ch;
+         if (localEcho)
+         {
+            static uint8_t pbuf [4] = { '^', '[', '\0', '\0' };
+            uint8_t k = 3;
+            if (ch >= ' ')
+               pbuf [2] = ch;
+            else
+            {
+               pbuf [2] = '^';
+               pbuf [3] = ch + 0x40;
+               k = 4;
+            }
+            logP << "pbuf: ";
+            debugPrintInput (logPcont, pbuf, pbuf + k);
+            processInput (pbuf, k);
+         }
+         return write (ptyFd, wbuf, 2);
+      }
+      else
+      {
+         if (localEcho)
+            processInput (uch, 1);
+         return write (ptyFd, &ch, 1);
+      }
    }
 
    inline int
@@ -1274,7 +1300,10 @@ namespace zutty {
          switch (arg)
          {
          case 1: cursorKeyMode = CursorKeyMode::Application; break;
-         case 2: compatLevel = CompatibilityLevel::VT100; break;
+         case 2:
+            charsetState = CharsetState {};
+            compatLevel = CompatibilityLevel::VT400;
+            break;
          case 3:
             resetScreen ();
             logT << "DECCOLM: Selected 132 columns per line" << std::endl;
@@ -1320,7 +1349,10 @@ namespace zutty {
          switch (arg)
          {
          case 1: cursorKeyMode = CursorKeyMode::ANSI; break;
-         case 2: compatLevel = CompatibilityLevel::VT52; break;
+         case 2:
+            charsetState = CharsetState {};
+            compatLevel = CompatibilityLevel::VT52;
+            break;
          case 3:
             resetScreen ();
             logT << "DECCOLM: Selected 80 columns per line" << std::endl;
@@ -1385,6 +1417,7 @@ namespace zutty {
             attrs.bold = 0;
             attrs.underline = 0;
             attrs.inverse = 0;
+            reverseVideo = false;
             fg = &attrs.fg;
             bg = &attrs.bg;
             fgPalIx = defaultFgPalIx;
@@ -1394,24 +1427,36 @@ namespace zutty {
             break;
          case 1: attrs.bold = 1; setFgFromPalIx (); break;
          case 2: attrs.bold = 0; setFgFromPalIx (); break;
-         case 3: attrs.inverse = 1; break; // italic
+         case 3: /* italic on */ break;
          case 4: attrs.underline = 1; break;
+         case 5: /* blink on */ break;
          case 7:
-            std::swap (*fg, *bg);
-            fg = &attrs.bg;
-            bg = &attrs.fg;
+            if (!reverseVideo)
+            {
+               std::swap (*fg, *bg);
+               std::swap (fgPalIx, bgPalIx);
+               fg = &attrs.bg;
+               bg = &attrs.fg;
+               reverseVideo = true;
+            }
             break;
          case 10: attrs.bold = 0;  setFgFromPalIx (); break;
          case 11: case 12: case 13: case 14: case 15:
          case 16: case 17: case 18: case 19:
             attrs.bold = 1;  setFgFromPalIx ();
             break;
-         case 23: attrs.inverse = 0; break;
+         case 23: /* italic off */ break;
+         case 25: /* blink off */ break;
          case 24: attrs.underline = 0; break;
          case 27:
-            std::swap (*fg, *bg);
-            fg = &attrs.fg;
-            bg = &attrs.bg;
+            if (reverseVideo)
+            {
+               std::swap (*fg, *bg);
+               std::swap (fgPalIx, bgPalIx);
+               fg = &attrs.fg;
+               bg = &attrs.bg;
+               reverseVideo = false;
+            }
             break;
 
          // standard foregrounds (bright if bold)
@@ -1603,7 +1648,7 @@ namespace zutty {
    Vterm::csiq_DECSCL ()
    {
       TRACE_FUN;
-      if (nInputOps == 2)
+      if (nInputOps > 0)
       {
          switch (inputOps [0])
          {
@@ -1616,7 +1661,9 @@ namespace zutty {
             logU << "DECSCL: compatibility mode " << inputOps [0] << std::endl;
             break;
          }
-
+      }
+      if (nInputOps > 1)
+      {
          switch (inputOps [1])
          {
          case 0: logT << "DECSCL: 8-bit controls" << std::endl; break;
@@ -1629,7 +1676,6 @@ namespace zutty {
          }
       }
       setState (InputState::Normal);
-      resetTerminal ();
    }
 
 } // namespace zutty

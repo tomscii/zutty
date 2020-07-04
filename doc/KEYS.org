@@ -1,0 +1,172 @@
+#+TITLE: Zutty key mapping sequences
+#+OPTIONS: toc:nil num:nil val:nil html-style:nil H:1 ^:{}
+
+This is a summary of the character sequences Zutty emits in response
+to various special keys, and how this mapping depends on the state of
+the terminal.
+
+* Mode settings affecting the emitted sequences
+
+| Mode     | Description                       | Setting   |
+|----------+-----------------------------------+-----------|
+| DECANM   | VT52 Mode                         | CSI ? 2 l |
+| DECANM   | VT100 mode                        | CSI ? 2 h |
+| DECCKM/N | Cursor Key Mode: Normal/Cursor    | CSI ? 1 l |
+| DECAKM/A | Cursor Key Mode: Application      | CSI ? 1 h |
+| DECKPNM  | Normal/Numeric Keypad Mode        | ESC >     |
+| DECKPAM  | Alternate/Application Keypad Mode | ESC =     |
+
+* Effect of modifier keys
+
+In case of modifiers being held while a key is pressed, a derived
+sequence is sent that includes a Modifier Code as an additional (last)
+parameter of the original sequence. If the original sequence did not
+start with CSI, the start is changed to CSI (with the exception of
+keypad keys). If there were no original parameters in the sequence, a
+first default parameter of 1 is added before appending the Modifier
+Code.
+
+Modifier codes:
+
+| Modifier(s)           | Code |
+|-----------------------+------|
+| Shift                 |    2 |
+| Alt                   |    3 |
+| Alt + Shift           |    4 |
+| Control               |    5 |
+| Control + Shift       |    6 |
+| Control + Alt         |    7 |
+| Control + Alt + Shift |    8 |
+
+To make it clearer, in each section we will include some examples of
+what sequences will result when some modifiers are applied.
+
+Modifiers are generally not applicable to VT52 mode, but are uniform
+across ANSI and keypad modes.
+
+* Sequences that are the same regardless of state
+
+| Key                      | Sequence |
+|--------------------------+----------|
+| Insert, KP_Insert        | CSI 2 ~  |
+| Delete, KP_Delete        | CSI 3 ~  |
+| Prior (PageUp), KP_Prior | CSI 5 ~  |
+| Next (PageDown), KP_Next | CSI 6 ~  |
+
+Modifier examples:
+- Shift + Insert: CSI 2 ; 2 ~
+- Control + PageUp: CSI 5 ; 5 ~
+
+Modifiers work even in VT52 mode.
+
+* Function keys
+
+These are independent of cursor key and numeric keypad modes.
+
+| Key       | VT100     | VT52      |
+|-----------+-----------+-----------|
+| F1, KP_F1 | SS3 P     | ESC P     |
+| F2, KP_F2 | SS3 Q     | ESC Q     |
+| F3, KP_F3 | SS3 R     | ESC R     |
+| F4, KP_F4 | SS3 S     | ESC S     |
+| F5        | CSI 1 5 ~ | CSI 1 5 ~ |
+| F6        | CSI 1 7 ~ | CSI 1 7 ~ |
+| F7        | CSI 1 8 ~ | ...       |
+| F8        | CSI 1 9 ~ |           |
+| F9        | CSI 2 0 ~ |           |
+| F10       | CSI 2 1 ~ |           |
+| F11       | CSI 2 3 ~ |           |
+| F12       | CSI 2 4 ~ |           |
+| F13       | CSI 2 5 ~ |           |
+| F14       | CSI 2 6 ~ |           |
+| F15       | CSI 2 8 ~ |           |
+| F16       | CSI 2 9 ~ |           |
+| F17       | CSI 3 1 ~ |           |
+| F18       | CSI 3 2 ~ |           |
+| F19       | CSI 3 3 ~ |           |
+| F20       | CSI 3 4 ~ |           |
+
+Modifier examples:
+- Shift + F1: CSI 1 ; 2 P
+- Alt + F4: CSI 1 ; 3 S
+- Shift + F5: CSI 1 5 ; 2 ~
+- Control + Shift + F10: CSI 21 ; 6 ~
+
+Modifiers are not applied in VT52 mode.
+
+* Sequences dependent on cursor key mode setting
+
+| Key             | VT100 Normal | VT100 App | VT52  |
+|-----------------+--------------+-----------+-------|
+| Up, KP_Up       | CSI A        | SS3 A     | ESC A |
+| Down, KP_Down   | CSI B        | SS3 B     | ESC B |
+| Right, KP_Right | CSI C        | SS3 C     | ESC C |
+| Left, KP_Left   | CSI D        | SS3 D     | ESC D |
+| KP_Begin        | CSI E        | SS3 E     | ESC E |
+| Home, KP_Home   | CSI H        | SS3 H     | ESC H |
+| End, KP_End     | CSI F        | SS3 F     | ESC F |
+
+Examples (apply both in Normal and App mode):
+- Alt + Left: CSI 1 ; 3 D
+- Control + Home: CSI 1 ; 5 H
+
+Modifiers are not applied in VT52 mode.
+
+* Sequences dependent on keypad mode setting
+
+This only affects the keypad. The corresponding non-keypad keys always
+send the characters in the Normal column. Normal mode is shared
+between VT100 and VT52:
+
+| Key          | Normal | VT100 App | VT52 App |
+|--------------+--------+-----------+----------|
+| KP_Space     | SP     | SS3 SP    | ESC ? SP |
+| KP_Tab       | TAB    | SS3 I     | ESC ? I  |
+| KP_Enter     | CR     | SS3 M     | ESC ? M  |
+| KP_Multiply  | *      | SS3 j     | ESC ? j  |
+| KP_Add       | +      | SS3 k     | ESC ? k  |
+| KP_Separator | ,      | SS3 l     | ESC ? l  |
+| KP_Subtract  | -      | SS3 m     | ESC ? m  |
+| KP_Period    | .      | SS3 n     | ESC ? n  |
+| KP_Divide    | /      | SS3 o     | ESC ? o  |
+| KP_0         | 0      | SS3 p     | ESC ? p  |
+| KP_1         | 1      | SS3 q     | ESC ? q  |
+| KP_2         | 2      | SS3 r     | ESC ? r  |
+| KP_3         | 3      | SS3 s     | ESC ? s  |
+| KP_4         | 4      | SS3 t     | ESC ? t  |
+| KP_5         | 5      | SS3 u     | ESC ? u  |
+| KP_6         | 6      | SS3 v     | ESC ? v  |
+| KP_7         | 7      | SS3 w     | ESC ? w  |
+| KP_8         | 8      | SS3 x     | ESC ? x  |
+| KP_9         | 9      | SS3 y     | ESC ? y  |
+| KP_Equal     | =      | SS3 X     | ESC ? X  |
+
+Zutty is generally implemented to be a drop-in replacement for
+xterm. However, there are some subtle differences. One of these is
+that in xterm, the numeric keypad digits KP_0 to KP_9 (generated by X
+when Num Lock is on) seem to always work like the digits on the "main"
+keyboard (at least this author has not found a way to make xterm send
+e.g., 'SS3 t' instead of the digit '4'). This is rather puzzling, as
+other non-numeric keypad keys make xterm send the "correct" sequence
+(e.g., 'SS3 j' for KP_Multiply). Zutty, on the other hand, generates
+all the sequences according to the above table.
+
+In VT100 App mode, modifier keys do NOT cause the SS3 to change to
+CSI. This is how xterm behaves, and Zutty emulates that behaviour.
+
+Examples:
+- Control + KP_Enter: SS3 5 M
+- Control + KP_Plus: SS3 5 k
+- Alt + KP_Minus: SS3 3 m
+
+Modifiers are not applied in VT52 mode.
+
+* Alt sends Escape
+
+Hitting any ordinary key (letters, punctuation symbols, etc.) not
+shown in the above tables while holding Alt will result in the key
+being prefixed by the ESC character. This is consistent with the "Meta
+sends Escape" setting of xterm, and allows programs such as Emacs to
+recognize keyboard bindings containing Alt (or Meta). However, this
+will probably need to be made configurable (to be able to turn it off)
+in case Zutty gains a more diverse userbase.

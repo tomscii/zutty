@@ -17,99 +17,97 @@
 namespace {
 
    using namespace zutty;
-   using Key = Vterm::VtKey;
+   using Key = VtKey;
    using InputSpec = Vterm::InputSpec;
+
+   #define ESC "\x1b"
+   #define CSI ESC "["
+   #define SS3 ESC "O"
+   // magic byte to act as a placeholder for the Modifier Code:
+   #define MC "\xff"
 
    const InputSpec is_Ansi [] =
    {
-      {Key::Return,      "\r"},
       {Key::Backspace,   "\x7f"},
-      {Key::Insert,      "\x1b[2~"},
-      {Key::Delete,      "\x1b[3~"},
-      {Key::Home,        "\x1b[H"},
-      {Key::End,         "\x1b[F"},
-      {Key::PageUp,      "\x1b[5~"},
-      {Key::PageDown,    "\x1b[6~"},
+      {Key::Tab,         "\t"},
+      {Key::Return,      "\r"},
+      {Key::Insert,      CSI "2~"},    {Key::KP_Insert,   CSI "2~"},
+      {Key::Delete,      CSI "3~"},    {Key::KP_Delete,   CSI "3~"},
+      {Key::PageUp,      CSI "5~"},    {Key::KP_PageUp,   CSI "5~"},
+      {Key::PageDown,    CSI "6~"},    {Key::KP_PageDown, CSI "6~"},
       {Key::NONE,        nullptr},
    };
 
-   const InputSpec is_Application [] =
+   const InputSpec is_Mod_Ansi [] =
    {
-      {Key::Home,        "\x1bOH"},
-      {Key::End,         "\x1bOF"},
+      {Key::Insert,      CSI "2;" MC "~"},  {Key::KP_Insert,   CSI "2;" MC "~"},
+      {Key::Delete,      CSI "3;" MC "~"},  {Key::KP_Delete,   CSI "3;" MC "~"},
+      {Key::PageUp,      CSI "5;" MC "~"},  {Key::KP_PageUp,   CSI "5;" MC "~"},
+      {Key::PageDown,    CSI "6;" MC "~"},  {Key::KP_PageDown, CSI "6;" MC "~"},
       {Key::NONE,        nullptr},
    };
 
-   const InputSpec is_FunctionKeys [] =
+   const InputSpec is_Ansi_FunctionKeys [] =
    {
-      {Key::F1,          "\x1bOP"},
-      {Key::KP_F1,       "\x1bOP"},
-      {Key::F2,          "\x1bOQ"},
-      {Key::KP_F2,       "\x1bOQ"},
-      {Key::F3,          "\x1bOR"},
-      {Key::KP_F3,       "\x1bOR"},
-      {Key::F4,          "\x1bOS"},
-      {Key::KP_F4,       "\x1bOS"},
-      {Key::F5,          "\x1b[15~"},
-      {Key::F6,          "\x1b[17~"},
-      {Key::F7,          "\x1b[18~"},
-      {Key::F8,          "\x1b[19~"},
-      {Key::F9,          "\x1b[20~"},
-      {Key::F10,         "\x1b[21~"},
-      {Key::F11,         "\x1b[23~"},
-      {Key::F12,         "\x1b[24~"},
-      {Key::F13,         "\x1b[25~"},
-      {Key::F14,         "\x1b[26~"},
-      {Key::F15,         "\x1b[28~"},
-      {Key::F16,         "\x1b[29~"},
-      {Key::F17,         "\x1b[31~"},
-      {Key::F18,         "\x1b[32~"},
-      {Key::F19,         "\x1b[33~"},
-      {Key::F20,         "\x1b[34~"},
+      {Key::F1,          SS3 "P"},     {Key::KP_F1,       SS3 "P"},
+      {Key::F2,          SS3 "Q"},     {Key::KP_F2,       SS3 "Q"},
+      {Key::F3,          SS3 "R"},     {Key::KP_F3,       SS3 "R"},
+      {Key::F4,          SS3 "S"},     {Key::KP_F4,       SS3 "S"},
+      {Key::F5,          CSI "15~"},
+      {Key::F6,          CSI "17~"},
+      {Key::F7,          CSI "18~"},
+      {Key::F8,          CSI "19~"},
+      {Key::F9,          CSI "20~"},
+      {Key::F10,         CSI "21~"},
+      {Key::F11,         CSI "23~"},
+      {Key::F12,         CSI "24~"},
+      {Key::F13,         CSI "25~"},
+      {Key::F14,         CSI "26~"},
+      {Key::F15,         CSI "28~"},
+      {Key::F16,         CSI "29~"},
+      {Key::F17,         CSI "31~"},
+      {Key::F18,         CSI "32~"},
+      {Key::F19,         CSI "33~"},
+      {Key::F20,         CSI "34~"},
       {Key::NONE,        nullptr},
    };
 
-   const InputSpec is_FunctionKeys_VT52 [] =
+   const InputSpec is_Mod_Ansi_FunctionKeys [] =
    {
-      {Key::F1,          "\x1bP"},
-      {Key::KP_F1,       "\x1bP"},
-      {Key::F2,          "\x1bQ"},
-      {Key::KP_F2,       "\x1bQ"},
-      {Key::F3,          "\x1bR"},
-      {Key::KP_F3,       "\x1bR"},
-      {Key::F4,          "\x1bS"},
-      {Key::KP_F4,       "\x1bS"},
+      {Key::F1,          CSI "1;" MC "P"},   {Key::KP_F1,    CSI "1;" MC "P"},
+      {Key::F2,          CSI "1;" MC "Q"},   {Key::KP_F2,    CSI "1;" MC "Q"},
+      {Key::F3,          CSI "1;" MC "R"},   {Key::KP_F3,    CSI "1;" MC "R"},
+      {Key::F4,          CSI "1;" MC "S"},   {Key::KP_F4,    CSI "1;" MC "S"},
+      {Key::F5,          CSI "15;" MC "~"},
+      {Key::F6,          CSI "17;" MC "~"},
+      {Key::F7,          CSI "18;" MC "~"},
+      {Key::F8,          CSI "19;" MC "~"},
+      {Key::F9,          CSI "20;" MC "~"},
+      {Key::F10,         CSI "21;" MC "~"},
+      {Key::F11,         CSI "23;" MC "~"},
+      {Key::F12,         CSI "24;" MC "~"},
+      {Key::F13,         CSI "25;" MC "~"},
+      {Key::F14,         CSI "26;" MC "~"},
+      {Key::F15,         CSI "28;" MC "~"},
+      {Key::F16,         CSI "29;" MC "~"},
+      {Key::F17,         CSI "31;" MC "~"},
+      {Key::F18,         CSI "32;" MC "~"},
+      {Key::F19,         CSI "33;" MC "~"},
+      {Key::F20,         CSI "34;" MC "~"},
       {Key::NONE,        nullptr},
    };
 
-   const InputSpec is_ArrowKeys_AnsiCursor [] =
+   const InputSpec is_Ansi_KeypadKeys [] =
    {
-      {Key::Up,          "\x1b[A"},
-      {Key::Down,        "\x1b[B"},
-      {Key::Right,       "\x1b[C"},
-      {Key::Left,        "\x1b[D"},
-   };
-
-   const InputSpec is_ArrowKeys_AnsiApp [] =
-   {
-      {Key::Up,          "\x1bOA"},
-      {Key::Down,        "\x1bOB"},
-      {Key::Right,       "\x1bOC"},
-      {Key::Left,        "\x1bOD"},
-      {Key::NONE,        nullptr},
-   };
-
-   const InputSpec is_ArrowKeys_VT52 [] =
-   {
-      {Key::Up,          "\x1b""A"},
-      {Key::Down,        "\x1b""B"},
-      {Key::Right,       "\x1b""C"},
-      {Key::Left,        "\x1b""D"},
-      {Key::NONE,        nullptr},
-   };
-
-   const InputSpec is_NumpadKeys_Numeric [] =
-   {
+      {Key::KP_Space,    " "},
+      {Key::KP_Tab,      "\t"},
+      {Key::KP_Enter,    "\r"},
+      {Key::KP_Star,     "*"},
+      {Key::KP_Plus,     "+"},
+      {Key::KP_Comma,    ","},
+      {Key::KP_Minus,    "-"},
+      {Key::KP_Dot,      "."},
+      {Key::KP_Slash,    "/"},
       {Key::KP_0,        "0"},
       {Key::KP_1,        "1"},
       {Key::KP_2,        "2"},
@@ -120,57 +118,137 @@ namespace {
       {Key::KP_7,        "7"},
       {Key::KP_8,        "8"},
       {Key::KP_9,        "9"},
-      {Key::KP_Minus,    "-"},
-      {Key::KP_Comma,    ","},
-      {Key::KP_Dot,      "."},
-      {Key::KP_Enter,    "\r"},
+      {Key::KP_Equal,    "="},
       {Key::NONE,        nullptr},
    };
 
-   const InputSpec is_NumpadKeys_Ansi [] =
+   const InputSpec is_Appl_KeypadKeys [] =
    {
-      {Key::KP_F1,       "\x1bOP"},
-      {Key::KP_F2,       "\x1bOQ"},
-      {Key::KP_F3,       "\x1bOR"},
-      {Key::KP_F4,       "\x1bOS"},
+      {Key::KP_Space,    SS3 " "},
+      {Key::KP_Tab,      SS3 "I"},
+      {Key::KP_Enter,    SS3 "M"},
+      {Key::KP_Star,     SS3 "j"},
+      {Key::KP_Plus,     SS3 "k"},
+      {Key::KP_Comma,    SS3 "l"},
+      {Key::KP_Minus,    SS3 "m"},
+      {Key::KP_Dot,      SS3 "n"},
+      {Key::KP_Slash,    SS3 "o"},
+      {Key::KP_0,        SS3 "p"},
+      {Key::KP_1,        SS3 "q"},
+      {Key::KP_2,        SS3 "r"},
+      {Key::KP_3,        SS3 "s"},
+      {Key::KP_4,        SS3 "t"},
+      {Key::KP_5,        SS3 "u"},
+      {Key::KP_6,        SS3 "v"},
+      {Key::KP_7,        SS3 "w"},
+      {Key::KP_8,        SS3 "x"},
+      {Key::KP_9,        SS3 "y"},
+      {Key::KP_Equal,    SS3 "X"},
       {Key::NONE,        nullptr},
    };
 
-   const InputSpec is_NumpadKeys_AnsiApp [] =
+   const InputSpec is_Mod_Appl_KeypadKeys [] =
    {
-      {Key::KP_0,        "\x1bOp"},
-      {Key::KP_1,        "\x1bOq"},
-      {Key::KP_2,        "\x1bOr"},
-      {Key::KP_3,        "\x1bOs"},
-      {Key::KP_4,        "\x1bOt"},
-      {Key::KP_5,        "\x1bOu"},
-      {Key::KP_6,        "\x1bOv"},
-      {Key::KP_7,        "\x1bOw"},
-      {Key::KP_8,        "\x1bOx"},
-      {Key::KP_9,        "\x1bOy"},
-      {Key::KP_Minus,    "\x1bOm"},
-      {Key::KP_Comma,    "\x1bOl"},
-      {Key::KP_Dot,      "\x1bOn"},
-      {Key::KP_Enter,    "\x1bOM"},
+      {Key::KP_Space,    SS3 MC " "},
+      {Key::KP_Tab,      SS3 MC "I"},
+      {Key::KP_Enter,    SS3 MC "M"},
+      {Key::KP_Star,     SS3 MC "j"},
+      {Key::KP_Plus,     SS3 MC "k"},
+      {Key::KP_Comma,    SS3 MC "l"},
+      {Key::KP_Minus,    SS3 MC "m"},
+      {Key::KP_Dot,      SS3 MC "n"},
+      {Key::KP_Slash,    SS3 MC "o"},
+      {Key::KP_0,        SS3 MC "p"},
+      {Key::KP_1,        SS3 MC "q"},
+      {Key::KP_2,        SS3 MC "r"},
+      {Key::KP_3,        SS3 MC "s"},
+      {Key::KP_4,        SS3 MC "t"},
+      {Key::KP_5,        SS3 MC "u"},
+      {Key::KP_6,        SS3 MC "v"},
+      {Key::KP_7,        SS3 MC "w"},
+      {Key::KP_8,        SS3 MC "x"},
+      {Key::KP_9,        SS3 MC "y"},
+      {Key::KP_Equal,    SS3 MC "X"},
       {Key::NONE,        nullptr},
    };
 
-   const InputSpec is_NumpadKeys_VT52App [] =
+   const InputSpec is_VT52_KeypadKeys [] =
    {
-      {Key::KP_0,        "\x1b?p"},
-      {Key::KP_1,        "\x1b?q"},
-      {Key::KP_2,        "\x1b?r"},
-      {Key::KP_3,        "\x1b?s"},
-      {Key::KP_4,        "\x1b?t"},
-      {Key::KP_5,        "\x1b?u"},
-      {Key::KP_6,        "\x1b?v"},
-      {Key::KP_7,        "\x1b?w"},
-      {Key::KP_8,        "\x1b?x"},
-      {Key::KP_9,        "\x1b?y"},
-      {Key::KP_Minus,    "\x1b?m"},
-      {Key::KP_Comma,    "\x1b?l"},
-      {Key::KP_Dot,      "\x1b?n"},
-      {Key::KP_Enter,    "\x1b?M"},
+      {Key::KP_Space,    ESC "? "},
+      {Key::KP_Tab,      ESC "?I"},
+      {Key::KP_Enter,    ESC "?M"},
+      {Key::KP_Star,     ESC "?j"},
+      {Key::KP_Plus,     ESC "?k"},
+      {Key::KP_Comma,    ESC "?l"},
+      {Key::KP_Minus,    ESC "?m"},
+      {Key::KP_Dot,      ESC "?n"},
+      {Key::KP_Slash,    ESC "?o"},
+      {Key::KP_0,        ESC "?p"},
+      {Key::KP_1,        ESC "?q"},
+      {Key::KP_2,        ESC "?r"},
+      {Key::KP_3,        ESC "?s"},
+      {Key::KP_4,        ESC "?t"},
+      {Key::KP_5,        ESC "?u"},
+      {Key::KP_6,        ESC "?v"},
+      {Key::KP_7,        ESC "?w"},
+      {Key::KP_8,        ESC "?x"},
+      {Key::KP_9,        ESC "?y"},
+      {Key::KP_Equal,    ESC "?X"},
+      {Key::NONE,        nullptr},
+   };
+
+   const InputSpec is_VT52_FunctionKeys [] =
+   {
+      {Key::F1,          ESC "P"},      {Key::KP_F1,       ESC "P"},
+      {Key::F2,          ESC "Q"},      {Key::KP_F2,       ESC "Q"},
+      {Key::F3,          ESC "R"},      {Key::KP_F3,       ESC "R"},
+      {Key::F4,          ESC "S"},      {Key::KP_F4,       ESC "S"},
+      {Key::NONE,        nullptr},
+   };
+
+   const InputSpec is_Ansi_CursorKeys [] =
+   {
+      {Key::Up,          CSI "A"},      {Key::KP_Up,       CSI "A"},
+      {Key::Down,        CSI "B"},      {Key::KP_Down,     CSI "B"},
+      {Key::Right,       CSI "C"},      {Key::KP_Right,    CSI "C"},
+      {Key::Left,        CSI "D"},      {Key::KP_Left,     CSI "D"},
+      /* TODO is there a Begin key? */  {Key::KP_Begin,    CSI "E"},
+      {Key::Home,        CSI "H"},      {Key::KP_Home,     CSI "H"},
+      {Key::End,         CSI "F"},      {Key::KP_End,      CSI "F"},
+   };
+
+   const InputSpec is_Appl_CursorKeys [] =
+   {
+      {Key::Up,          SS3 "A"},      {Key::KP_Up,       SS3 "A"},
+      {Key::Down,        SS3 "B"},      {Key::KP_Down,     SS3 "B"},
+      {Key::Right,       SS3 "C"},      {Key::KP_Right,    SS3 "C"},
+      {Key::Left,        SS3 "D"},      {Key::KP_Left,     SS3 "D"},
+      /* TODO is there a Begin key? */  {Key::KP_Begin,    SS3 "E"},
+      {Key::Home,        SS3 "H"},      {Key::KP_Home,     SS3 "H"},
+      {Key::End,         SS3 "F"},      {Key::KP_End,      SS3 "F"},
+      {Key::NONE,        nullptr},
+   };
+
+   const InputSpec is_Mod_CursorKeys [] =
+   {
+      {Key::Up,          CSI "1;" MC "A"},   {Key::KP_Up,     CSI "1;" MC "A"},
+      {Key::Down,        CSI "1;" MC "B"},   {Key::KP_Down,   CSI "1;" MC "B"},
+      {Key::Right,       CSI "1;" MC "C"},   {Key::KP_Right,  CSI "1;" MC "C"},
+      {Key::Left,        CSI "1;" MC "D"},   {Key::KP_Left,   CSI "1;" MC "D"},
+      /* TODO is there a Begin key? */       {Key::KP_Begin,  CSI "1;" MC "E"},
+      {Key::Home,        CSI "1;" MC "H"},   {Key::KP_Home,   CSI "1;" MC "H"},
+      {Key::End,         CSI "1;" MC "F"},   {Key::KP_End,    CSI "1;" MC "F"},
+   };
+
+   const InputSpec is_VT52_CursorKeys [] =
+   {
+      {Key::Up,          ESC "A"},      {Key::KP_Up,       ESC "A"},
+      {Key::Down,        ESC "B"},      {Key::KP_Down,     ESC "B"},
+      {Key::Right,       ESC "C"},      {Key::KP_Right,    ESC "C"},
+      {Key::Left,        ESC "D"},      {Key::KP_Left,     ESC "D"},
+      /* TODO is there a Begin key? */  {Key::KP_Begin,    ESC "E"},
+      {Key::Home,        ESC "H"},      {Key::KP_Home,     ESC "H"},
+      {Key::End,         ESC "F"},      {Key::KP_End,      ESC "F"},
       {Key::NONE,        nullptr},
    };
 
@@ -186,6 +264,28 @@ namespace {
       {Key::Backspace,   "\b"},
       {Key::NONE,        nullptr},
    };
+
+   #undef ESC
+   #undef CSI
+   #undef SS3
+
+   uint8_t
+   getModifierCode (VtModifier modifiers)
+   {
+      switch (modifiers)
+      {
+      case VtModifier::none:              return 0;
+      case VtModifier::shift:             return 2;
+      case VtModifier::alt:               return 3;
+      case VtModifier::shift_alt:         return 4;
+      case VtModifier::control:           return 5;
+      case VtModifier::shift_control:     return 6;
+      case VtModifier::control_alt:       return 7;
+      case VtModifier::shift_control_alt: return 8;
+      }
+      return 0;
+   }
+
 
    void
    makePalette256 (CharVdev::Color p[])
@@ -356,6 +456,7 @@ namespace zutty {
       memset (cells.get (), 0, nRows * nCols * sizeof (CharVdev::Cell));
 
       makePalette256 (palette256);
+      resetTerminal ();
    }
 
    void
@@ -384,7 +485,7 @@ namespace zutty {
          new CharVdev::Cell [nRows * nCols]);
       memset (cells.get (), 0, nRows * nCols * sizeof (CharVdev::Cell));
 
-      resetTerminal ();
+      resetScreen ();
 
       struct winsize size;
       size.ws_col = nCols;
@@ -417,13 +518,31 @@ namespace zutty {
    }
 
    int
-   Vterm::writePty (VtKey key)
+   Vterm::writePty (VtKey key, VtModifier modifiers_)
    {
+      modifiers = modifiers_;
       const auto& spec = getInputSpec (key);
-      return writePty (spec.input);
+      if (modifiers == VtModifier::none)
+      {
+         return writePty (spec.input);
+      }
+      else
+      {
+         // substitute the MC token with the actual modifier code
+         static char buf [32];
+         int k = 0;
+         for (const char* p = spec.input; *p != '\0'; ++p)
+            if (*p == *MC)
+               buf [k++] = '0' + getModifierCode (modifiers);
+            else
+               buf [k++] = *p;
+         buf [k] = '\0';
+         return writePty (buf);
+      }
    }
 
-   using Key = Vterm::VtKey;
+   using Key = VtKey;
+   using Mod = VtModifier;
 
    Vterm::InputSpecTable *
    Vterm::getInputSpecTable ()
@@ -438,36 +557,44 @@ namespace zutty {
            is_BackspaceKey_BkSp
          },
 
-         { [this] () { return (numpadMode == NumpadMode::Numeric); },
-           is_NumpadKeys_Numeric
+         { [this] () { return (compatLevel == CompatibilityLevel::VT52); },
+           is_VT52_CursorKeys
          },
-
-         { [this] () { return (compatLevel != CompatibilityLevel::VT52 &&
-                               numpadMode == NumpadMode::Application); },
-           is_NumpadKeys_AnsiApp
+         { [this] () { return (compatLevel == CompatibilityLevel::VT52); },
+           is_VT52_FunctionKeys
          },
-
          { [this] () { return (compatLevel == CompatibilityLevel::VT52 &&
-                               numpadMode == NumpadMode::Application); },
-           is_NumpadKeys_VT52App
+                               keypadMode == KeypadMode::Application); },
+           is_VT52_KeypadKeys
          },
 
-         { [this] () { return (compatLevel == CompatibilityLevel::VT52); },
-           is_ArrowKeys_VT52
+         { [this] () { return (modifiers != Mod::none); },
+           is_Mod_CursorKeys
          },
-         { [this] () { return (compatLevel == CompatibilityLevel::VT52); },
-           is_FunctionKeys_VT52
-         },
-
          { [this] () { return (cursorKeyMode == CursorKeyMode::Application); },
-           is_ArrowKeys_AnsiApp
+           is_Appl_CursorKeys
+         },
+         { [this] () { return (modifiers != Mod::none &&
+                               keypadMode == KeypadMode::Application); },
+           is_Mod_Appl_KeypadKeys
+         },
+         { [this] () { return (keypadMode == KeypadMode::Application); },
+           is_Appl_KeypadKeys
+         },
+
+         // entries to use with modifier keys being held
+         { [this] () { return (modifiers != Mod::none); },
+           is_Mod_Ansi
+         },
+         { [this] () { return (modifiers != Mod::none); },
+           is_Mod_Ansi_FunctionKeys
          },
 
          // default entries
          { [] () { return true; }, is_Ansi },
-         { [] () { return true; }, is_NumpadKeys_Ansi },
-         { [] () { return true; }, is_ArrowKeys_AnsiCursor },
-         { [] () { return true; }, is_FunctionKeys },
+         { [] () { return true; }, is_Ansi_CursorKeys },
+         { [] () { return true; }, is_Ansi_FunctionKeys },
+         { [] () { return true; }, is_Ansi_KeypadKeys },
 
          // end marker to delimit iteration
          { [] () { return true; }, nullptr }
@@ -608,11 +735,15 @@ namespace zutty {
             case '8': esc_DECRC (); break;
             case '9': esc_FI (); break;
             case '=':
-               numpadMode = NumpadMode::Application;
+               keypadMode = KeypadMode::Application;
                setState (InputState::Normal);
                break;
             case '>':
-               numpadMode = NumpadMode::Numeric;
+               keypadMode = KeypadMode::Normal;
+               setState (InputState::Normal);
+               break;
+            case '<':
+               compatLevel = CompatibilityLevel::VT400;
                setState (InputState::Normal);
                break;
             case '~': charsetState.gr = 1; setState (InputState::Normal); break;

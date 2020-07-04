@@ -208,8 +208,7 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
    attr.background_pixel = 0;
    attr.border_pixel = 0;
    attr.colormap = XCreateColormap (x_dpy, root, visInfo->visual, AllocNone);
-   attr.event_mask = StructureNotifyMask | ExposureMask |
-      KeyPressMask | KeyReleaseMask;
+   attr.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask;
    mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
 
    win = XCreateWindow (x_dpy, root, 0, 0, width, height,
@@ -300,10 +299,33 @@ startShell (uint16_t nCols, uint16_t nRows, const char* const argv[])
    return fdm;
 }
 
+static VtModifier
+convertKeyState (KeySym ks, unsigned int state)
+{
+   VtModifier mod = VtModifier::none;
+   if (state & ShiftMask)
+      switch (ks)
+      {
+      // Discard shift state for certain keypad keys, since that is implicit in
+      // the fact that we received these keysyms instead of XK_KP_Home, etc.
+      case XK_KP_Decimal:
+      case XK_KP_0: case XK_KP_1: case XK_KP_2: case XK_KP_3: case XK_KP_4:
+      case XK_KP_5: case XK_KP_6: case XK_KP_7: case XK_KP_8: case XK_KP_9:
+         break;
+      default:
+         mod = mod | VtModifier::shift;
+      }
+   if (state & ControlMask)
+      mod = mod | VtModifier::control;
+   if (state & Mod1Mask)
+      mod = mod | VtModifier::alt;
+   return mod;
+}
+
 static bool
 x11Event (XEvent& event, int pty_fd, bool& destroyed)
 {
-   using Key = Vterm::VtKey;
+   using Key = VtKey;
 
    static bool exposed = false;
    bool redraw = false;
@@ -334,133 +356,120 @@ x11Event (XEvent& event, int pty_fd, bool& destroyed)
       return true;
    case KeyPress:
    {
-      char buffer[10];
-      int code;
-      code = XLookupKeysym (&event.xkey, 0);
-      //std::cout << "KP code = " << code << std::endl;
-      switch (code)
+      char buffer[8];
+      KeySym ks;
+      XLookupString (&event.xkey, buffer, sizeof (buffer), &ks, nullptr);
+      VtModifier mod = convertKeyState (ks, event.xkey.state);
+      switch (ks)
       {
-#define KEYSEND(XKey, VtKey)                                          \
-         case XKey:                                                   \
-            std::cout << "KeyPress  : " << #XKey << std::endl;        \
-            vt->writePty (VtKey);                                     \
+#define KEYSEND(XKey, VtKey)                                            \
+         case XKey:                                                     \
+         vt->writePty (VtKey, mod);                                     \
             break
 
-      KEYSEND (XK_Return,    Key::Return);
-      KEYSEND (XK_BackSpace, Key::Backspace);
-      KEYSEND (XK_Insert,    Key::Insert);
-      KEYSEND (XK_Delete,    Key::Delete);
-      KEYSEND (XK_Home,      Key::Home);
-      KEYSEND (XK_End,       Key::End);
-      KEYSEND (XK_Up,        Key::Up);
-      KEYSEND (XK_Down,      Key::Down);
-      KEYSEND (XK_Right,     Key::Right);
-      KEYSEND (XK_Left,      Key::Left);
-      KEYSEND (XK_Page_Up,   Key::PageUp);
-      KEYSEND (XK_Page_Down, Key::PageDown);
-      KEYSEND (XK_F1,        Key::F1);
-      KEYSEND (XK_F2,        Key::F2);
-      KEYSEND (XK_F3,        Key::F3);
-      KEYSEND (XK_F4,        Key::F4);
-      KEYSEND (XK_F5,        Key::F5);
-      KEYSEND (XK_F6,        Key::F6);
-      KEYSEND (XK_F7,        Key::F7);
-      KEYSEND (XK_F8,        Key::F8);
-      KEYSEND (XK_F9,        Key::F9);
-      KEYSEND (XK_F10,       Key::F10);
-      KEYSEND (XK_F11,       Key::F11);
-      KEYSEND (XK_F12,       Key::F12);
-      KEYSEND (XK_F13,       Key::F13);
-      KEYSEND (XK_F14,       Key::F14);
-      KEYSEND (XK_F15,       Key::F15);
-      KEYSEND (XK_F16,       Key::F16);
-      KEYSEND (XK_F17,       Key::F17);
-      KEYSEND (XK_F18,       Key::F18);
-      KEYSEND (XK_F19,       Key::F19);
-      KEYSEND (XK_F20,       Key::F20);
-      KEYSEND (XK_KP_F1,     Key::KP_F1);
-      KEYSEND (XK_KP_F2,     Key::KP_F2);
-      KEYSEND (XK_KP_F3,     Key::KP_F3);
-      KEYSEND (XK_KP_F4,     Key::KP_F4);
-      KEYSEND (XK_KP_Add,    Key::KP_Plus);
-      KEYSEND (XK_KP_Subtract, Key::KP_Minus);
-      KEYSEND (XK_KP_Separator, Key::KP_Comma);
-      KEYSEND (XK_KP_Decimal, Key::KP_Dot);
-      KEYSEND (XK_KP_Enter,  Key::KP_Enter);
-      KEYSEND (XK_KP_0,      Key::KP_0);
-      KEYSEND (XK_KP_1,      Key::KP_1);
-      KEYSEND (XK_KP_2,      Key::KP_2);
-      KEYSEND (XK_KP_3,      Key::KP_3);
-      KEYSEND (XK_KP_4,      Key::KP_4);
-      KEYSEND (XK_KP_5,      Key::KP_5);
-      KEYSEND (XK_KP_6,      Key::KP_6);
-      KEYSEND (XK_KP_7,      Key::KP_7);
-      KEYSEND (XK_KP_8,      Key::KP_8);
-      KEYSEND (XK_KP_9,      Key::KP_9);
+      KEYSEND (XK_Return,           Key::Return);
+      KEYSEND (XK_BackSpace,        Key::Backspace);
+      KEYSEND (XK_Tab,              Key::Tab);
+      KEYSEND (XK_Insert,           Key::Insert);
+      KEYSEND (XK_Delete,           Key::Delete);
+      KEYSEND (XK_Home,             Key::Home);
+      KEYSEND (XK_End,              Key::End);
+      KEYSEND (XK_Up,               Key::Up);
+      KEYSEND (XK_Down,             Key::Down);
+      KEYSEND (XK_Left,             Key::Left);
+      KEYSEND (XK_Right,            Key::Right);
+      KEYSEND (XK_Page_Up,          Key::PageUp);
+      KEYSEND (XK_Page_Down,        Key::PageDown);
+      KEYSEND (XK_F1,               Key::F1);
+      KEYSEND (XK_F2,               Key::F2);
+      KEYSEND (XK_F3,               Key::F3);
+      KEYSEND (XK_F4,               Key::F4);
+      KEYSEND (XK_F5,               Key::F5);
+      KEYSEND (XK_F6,               Key::F6);
+      KEYSEND (XK_F7,               Key::F7);
+      KEYSEND (XK_F8,               Key::F8);
+      KEYSEND (XK_F9,               Key::F9);
+      KEYSEND (XK_F10,              Key::F10);
+      KEYSEND (XK_F11,              Key::F11);
+      KEYSEND (XK_F12,              Key::F12);
+      KEYSEND (XK_F13,              Key::F13);
+      KEYSEND (XK_F14,              Key::F14);
+      KEYSEND (XK_F15,              Key::F15);
+      KEYSEND (XK_F16,              Key::F16);
+      KEYSEND (XK_F17,              Key::F17);
+      KEYSEND (XK_F18,              Key::F18);
+      KEYSEND (XK_F19,              Key::F19);
+      KEYSEND (XK_F20,              Key::F20);
+      KEYSEND (XK_KP_0,             Key::KP_0);
+      KEYSEND (XK_KP_1,             Key::KP_1);
+      KEYSEND (XK_KP_2,             Key::KP_2);
+      KEYSEND (XK_KP_3,             Key::KP_3);
+      KEYSEND (XK_KP_4,             Key::KP_4);
+      KEYSEND (XK_KP_5,             Key::KP_5);
+      KEYSEND (XK_KP_6,             Key::KP_6);
+      KEYSEND (XK_KP_7,             Key::KP_7);
+      KEYSEND (XK_KP_8,             Key::KP_8);
+      KEYSEND (XK_KP_9,             Key::KP_9);
+      KEYSEND (XK_KP_F1,            Key::KP_F1);
+      KEYSEND (XK_KP_F2,            Key::KP_F2);
+      KEYSEND (XK_KP_F3,            Key::KP_F3);
+      KEYSEND (XK_KP_F4,            Key::KP_F4);
+      KEYSEND (XK_KP_Up,            Key::KP_Up);
+      KEYSEND (XK_KP_Down,          Key::KP_Down);
+      KEYSEND (XK_KP_Left,          Key::KP_Left);
+      KEYSEND (XK_KP_Right,         Key::KP_Right);
+      KEYSEND (XK_KP_Prior,         Key::KP_PageUp);
+      KEYSEND (XK_KP_Next,          Key::KP_PageDown);
+      KEYSEND (XK_KP_Add,           Key::KP_Plus);
+      KEYSEND (XK_KP_Insert,        Key::KP_Insert);
+      KEYSEND (XK_KP_Delete,        Key::KP_Delete);
+      KEYSEND (XK_KP_Begin,         Key::KP_Begin);
+      KEYSEND (XK_KP_Home,          Key::KP_Home);
+      KEYSEND (XK_KP_End,           Key::KP_End);
+      KEYSEND (XK_KP_Subtract,      Key::KP_Minus);
+      KEYSEND (XK_KP_Multiply,      Key::KP_Star);
+      KEYSEND (XK_KP_Divide,        Key::KP_Slash);
+      KEYSEND (XK_KP_Separator,     Key::KP_Comma);
+      KEYSEND (XK_KP_Decimal,       Key::KP_Dot);
+      KEYSEND (XK_KP_Equal,         Key::KP_Equal);
+      KEYSEND (XK_KP_Space,         Key::KP_Space);
+      KEYSEND (XK_KP_Tab,           Key::KP_Tab);
+      KEYSEND (XK_KP_Enter,         Key::KP_Enter);
 
-#define KEYCASE(Key)                                                 \
-         case Key:                                                   \
-            std::cout << "KeyPress  : " << #Key << std::endl;        \
-            break
+#undef KEYSEND
 
-      // Modifiers
-      KEYCASE (XK_Shift_L);
-      KEYCASE (XK_Shift_R);
-      KEYCASE (XK_Control_L);
-      KEYCASE (XK_Control_R);
-      KEYCASE (XK_Caps_Lock);
-      KEYCASE (XK_Shift_Lock);
-      KEYCASE (XK_Meta_L);
-      KEYCASE (XK_Meta_R);
-      KEYCASE (XK_Alt_L);
-      KEYCASE (XK_Alt_R);
-      KEYCASE (XK_Super_L);
-      KEYCASE (XK_Super_R);
-      KEYCASE (XK_Hyper_L);
-      KEYCASE (XK_Hyper_R);
+#define KEYIGN(XKey)                                              \
+      case XKey:                                                  \
+         break
+
+      // Ignore clauses for modifiers to avoid sending NUL bytes
+      KEYIGN (XK_Shift_L);
+      KEYIGN (XK_Shift_R);
+      KEYIGN (XK_Control_L);
+      KEYIGN (XK_Control_R);
+      KEYIGN (XK_Caps_Lock);
+      KEYIGN (XK_Shift_Lock);
+      KEYIGN (XK_Meta_L);
+      KEYIGN (XK_Meta_R);
+      KEYIGN (XK_Alt_L);
+      KEYIGN (XK_Alt_R);
+      KEYIGN (XK_Super_L);
+      KEYIGN (XK_Super_R);
+      KEYIGN (XK_Hyper_L);
+      KEYIGN (XK_Hyper_R);
+
+#undef KEYIGN
+
       default:
-         XLookupString (&event.xkey, buffer, sizeof (buffer),
-                        nullptr, nullptr);
-         //std::cout << "buffer[0] = '" << buffer[0] << "'" << std::endl;
-         if (vt->writePty (buffer[0]) != 1)
-             return true;
+         if (vt->writePty (buffer[0], mod) < 1)
+            return true;
          break;
       }
    }
    redraw = true;
    break;
    case KeyRelease:
-   {
-      int code;
-      code = XLookupKeysym (&event.xkey, 0);
-      //std::cout << "KR code = " << code << std::endl;
-      switch (code)
-      {
-#undef KEYCASE
-#define KEYCASE(Key)                                                 \
-         case Key:                                                   \
-            std::cout << "KeyRelease: " << #Key << std::endl;        \
-            break
-      // Modifiers
-      KEYCASE (XK_Shift_L);
-      KEYCASE (XK_Shift_R);
-      KEYCASE (XK_Control_L);
-      KEYCASE (XK_Control_R);
-      KEYCASE (XK_Caps_Lock);
-      KEYCASE (XK_Shift_Lock);
-      KEYCASE (XK_Meta_L);
-      KEYCASE (XK_Meta_R);
-      KEYCASE (XK_Alt_L);
-      KEYCASE (XK_Alt_R);
-      KEYCASE (XK_Super_L);
-      KEYCASE (XK_Super_R);
-      KEYCASE (XK_Hyper_L);
-      KEYCASE (XK_Hyper_R);
-      default:
-         break;
-      }
-   }
-   break;
+      break;
    default:
       std::cout << "X event.type = " << event.type << std::endl;
       break;

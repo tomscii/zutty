@@ -19,6 +19,47 @@
 
 namespace zutty {
 
+   enum class VtKey
+   {
+      NONE,
+
+      Return, Backspace, Tab,
+      Up, Down, Left, Right,
+      Insert, Delete, Home, End, PageUp, PageDown,
+      F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
+      F13, F14, F15, F16, F17, F18, F19, F20,
+
+      KP_F1, KP_F2, KP_F3, KP_F4,
+      KP_Insert, KP_Delete,
+      KP_Up, KP_Down, KP_Left, KP_Right,
+      KP_Home, KP_End, KP_PageUp, KP_PageDown, KP_Begin,
+      KP_Plus, KP_Minus, KP_Star, KP_Slash, KP_Comma, KP_Dot,
+      KP_Space, KP_Equal, KP_Tab, KP_Enter,
+      KP_0, KP_1, KP_2, KP_3, KP_4, KP_5, KP_6, KP_7, KP_8, KP_9
+   };
+
+   enum class VtModifier: uint8_t
+   {
+      none = 0,
+      shift = 1,
+      control = 2,
+      shift_control = 3,
+      alt = 4,
+      shift_alt = 5,
+      control_alt = 6,
+      shift_control_alt = 7
+   };
+   constexpr VtModifier operator| (VtModifier m1, VtModifier m2)
+   {
+      return static_cast <VtModifier> (
+         static_cast <uint8_t> (m1) | static_cast <uint8_t> (m2));
+   }
+   constexpr VtModifier operator& (VtModifier m1, VtModifier m2)
+   {
+      return static_cast <VtModifier> (
+         static_cast <uint8_t> (m1) & static_cast <uint8_t> (m2));
+   }
+
    class Vterm
    {
    public:
@@ -37,19 +78,6 @@ namespace zutty {
 
       void copyCells (CharVdev::Cell * const dest);
 
-      enum class VtKey
-      {
-         NONE,
-         Return, Backspace,
-         Insert, Delete, Home, End, Up, Down, Left, Right,
-         PageUp, PageDown,
-         F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
-         F13, F14, F15, F16, F17, F18, F19, F20,
-         KP_F1, KP_F2, KP_F3, KP_F4,
-         KP_Plus, KP_Minus, KP_Comma, KP_Dot, KP_Enter,
-         KP_0, KP_1, KP_2, KP_3, KP_4, KP_5, KP_6, KP_7, KP_8, KP_9
-      };
-
       // mapping of a certain VtKey to a sequence of input characters
       struct InputSpec
       {
@@ -57,9 +85,9 @@ namespace zutty {
          const char * input;
       };
 
-      int writePty (uint8_t ch);
+      int writePty (uint8_t ch, VtModifier modifiers = VtModifier::none);
       int writePty (const char* cstr);
-      int writePty (VtKey key);
+      int writePty (VtKey key, VtModifier modifiers = VtModifier::none);
 
       void readPty ();
 
@@ -228,6 +256,7 @@ namespace zutty {
       constexpr const static int defaultBgPalIx = 0;
       int fgPalIx = defaultFgPalIx;
       int bgPalIx = defaultBgPalIx;
+      bool reverseVideo = false;
 
       unsigned char inputBuf [4096];
       int readPos = 0;
@@ -244,6 +273,8 @@ namespace zutty {
       std::vector <unsigned char> argBuf;
       unsigned char scsDst;  // Select charset / destination designator
       unsigned char scsMod;  // Select charset / selector (intermediate)
+
+      VtModifier modifiers = VtModifier::none;
 
       // Terminal state - N.B.: keep resetTerminal () in sync with this!
 
@@ -265,9 +296,9 @@ namespace zutty {
       { ANSI, Application };
       CursorKeyMode cursorKeyMode = CursorKeyMode::ANSI;
 
-      enum class NumpadMode: uint8_t
-      { Numeric, Application };
-      NumpadMode numpadMode = NumpadMode::Numeric;
+      enum class KeypadMode: uint8_t
+      { Normal, Application };
+      KeypadMode keypadMode = KeypadMode::Normal;
 
       enum class OriginMode: uint8_t
       { Absolute, ScrollingRegion };
@@ -278,7 +309,7 @@ namespace zutty {
 
       struct CharsetState
       {
-         Charset g[4] =
+         Charset g [4] =
          { Charset::UTF8, Charset::UTF8, Charset::UTF8, Charset::UTF8 };
 
          // Locking shift states (index into g[]):

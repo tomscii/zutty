@@ -88,18 +88,26 @@ user-selectable charsets, some aspects of operation had to be changed
 when compared to specifications of the original DEC terminals.  In
 particular, the default state (after initialization and reset) is
 UTF-8 for both GL and GR, and not ASCII for GL and DEC Supplemental /
-Latin-1 for G2. Further, in case an application moves away from using
-UTF-8, it is necessary to re-activate a mapping of both GL and GR to
-UTF-8 in order to resume correct interpretation of multi-byte UTF-8
-characters.  There are two ways to do this: either map them to one of
-G0-G3 designated as ASCII (UTF-8 is an alias of this, and corresponds
-to the final character 'B' in the designator sequence), or by
-activating UTF-8 mode on the terminal (via =ESC % G=). A possible
-example of the former designator plus mapper sequence (in accordance
-with the DEC VT420 Programmer Reference Manual):
+Latin-1 for G2.
+
+Further, in case an application moves away from using UTF-8, it is
+necessary to re-activate a mapping of both GL and GR to UTF-8 in order
+to resume correct interpretation of multi-byte UTF-8 characters.
+There are two ways to do this: either map them to one of G0-G3
+designated as ASCII (UTF-8 is an alias of this, and corresponds to the
+final character 'B' in the designator sequence), or by activating
+UTF-8 mode on the terminal (via =ESC % G=).
+
+A possible example of the former designator plus mapper sequence (in
+accordance with the DEC VT420 Programmer Reference Manual):
 - =ESC ( B= (designate ASCII as G0) followed by =SI= [0x0f] (map G0 into GL).
 - =ESC * B= (designate ASCII as G2) followed by =ESC }= (map G2 into GR).
 Of course, GL and GR can also be both mapped to e.g., G0.
+
+A third option is to send the sequence for set/reset private mode 2
+(setting the terminal either to VT52 or VT100 compatibility mode) via
+=ESC [ ? 2 h= or =ESC [ ? 2 l=, which also reset the charset state to
+its initial (in the case of Zutty, UTF-8 enabled) state.
 
 Successful tests:
 - [X] 3.8 Test VT100 Character Sets
@@ -116,18 +124,11 @@ Adding support for this is not planned at this time.
 
 - [-] 5.1 LED Lights
 - [-] 5.2 Auto Repeat
-
-   - This seems not to be implemented by xterm either.
 - [X] 5.3 Keyboard Layout
 - [X] 5.4 Cursor Keys
 - [X] 5.5 Numeric Keypad
-- [-] 5.6 Editing Keypad
-
-   - If we had corresponding X keysymdefs, we could hook these up
-     to the appropriate Esc sequences as per the VT420 spec.
-- [?] 5.7 Function Keys
-
-   - Results not perfect, but seem to be on par with xterm.
+- [X] 5.6 Editing Keypad
+- [X] 5.7 Function Keys
 - [-] 5.8 AnswerBack
 - [X] 5.9 Control Keys
 
