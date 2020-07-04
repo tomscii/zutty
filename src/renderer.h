@@ -27,6 +27,7 @@ namespace zutty {
    public:
       explicit Renderer (const Font& priFont,
                          const Font& altFont,
+                         uint16_t borderPx,
                          const std::function <void ()>& initDisplay,
                          const std::function <void ()>& swapBuffers,
                          bool benchmark);
@@ -47,6 +48,7 @@ namespace zutty {
 
       void renderThread (const Font& priFont,
                          const Font& altFont,
+                         uint16_t borderPx,
                          const std::function <void ()>& initDisplay,
                          bool benchmark);
    };

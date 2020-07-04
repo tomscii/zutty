@@ -39,6 +39,7 @@ static std::string fontname = "9x18";
 static int win_width, win_height;
 static uint16_t geomCols = 80;
 static uint16_t geomRows = 25;
+static uint16_t borderPx = 2;
 
 static std::unique_ptr <zutty::Font> priFont = nullptr;
 static std::unique_ptr <zutty::Font> altFont = nullptr;
@@ -512,6 +513,8 @@ usage ()
              << fontname << ")\n"
              << "  -geometry <COLS>x<ROWS>  set display geometry (default: "
              << geomCols << "x" << geomRows << ")\n"
+             << "  -border <Pixels>         border width (default: "
+             << borderPx << ")\n"
              << "  -info                    display OpenGL renderer info\n"
              << "  -bench                   redraw continuously; report FPS"
              << std::endl;
@@ -596,6 +599,19 @@ main (int argc, char *argv[])
          geomRows = rows;
          ++i;
       }
+      else if (strcmp(argv[i], "-border") == 0) {
+         std::stringstream iss (argv[i+1]);
+         int bw;
+         iss >> bw;
+         if (iss.fail () || bw < 0 || bw > 32767)
+         {
+            std::cerr << "Error: -border: expected unsigned short"
+                      << std::endl;
+            return -1;
+         }
+         borderPx = bw;
+         ++i;
+      }
       else if (strcmp(argv[i], "-info") == 0) {
          printInfo = true;
       }
@@ -639,8 +655,8 @@ main (int argc, char *argv[])
    priFont = std::make_unique <zutty::Font> (fontpath + fontname + fontext);
    altFont = std::make_unique <zutty::Font> (fontpath + fontname + "B" + fontext,
                                              * priFont.get ());
-   win_width = geomCols * priFont->getPx ();
-   win_height = geomRows * priFont->getPy ();
+   win_width = 2 * borderPx + geomCols * priFont->getPx ();
+   win_height = 2 * borderPx + geomRows * priFont->getPy ();
 
    make_x_window (x_dpy, egl_dpy, "zutty", 0, 0, win_width, win_height,
                   &win, &egl_ctx, &egl_surf);
@@ -656,6 +672,7 @@ main (int argc, char *argv[])
    renderer = std::make_unique <Renderer> (
       * priFont.get (),
       * altFont.get (),
+      borderPx,
       [egl_dpy, egl_surf, egl_ctx, printInfo] ()
       {
          if (!eglMakeCurrent (egl_dpy, egl_surf, egl_surf, egl_ctx))
@@ -673,7 +690,7 @@ main (int argc, char *argv[])
    int pty_fd = startShell (geomCols, geomRows, sh_argv);
 
    vt = std::make_unique <Vterm> (priFont->getPx (), priFont->getPy (),
-                                  win_width, win_height, pty_fd);
+                                  win_width, win_height, borderPx, pty_fd);
    vt->setRefreshHandler ([] (const Vterm& v) { renderer->update (v); });
 
    /* Force initialization.

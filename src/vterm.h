@@ -26,7 +26,7 @@ namespace zutty {
 
       Vterm (uint16_t glyphPx, uint16_t glyphPy,
              uint16_t winPx, uint16_t winPy,
-             int ptyFd);
+             uint16_t borderPx, int ptyFd);
 
       ~Vterm () = default;
 
@@ -204,6 +204,7 @@ namespace zutty {
       void handle_OSC ();    // Operating System Command
       void csiq_DECSCL ();   // DEC Set Compatibility Level
 
+      uint16_t borderPx;
       uint16_t glyphPx;
       uint16_t glyphPy;
       int ptyFd;

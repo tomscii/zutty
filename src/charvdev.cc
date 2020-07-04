@@ -190,9 +190,11 @@ void main ()
 namespace zutty {
 
    CharVdev::CharVdev (const Font& priFont_,
-                       const Font& altFont_)
+                       const Font& altFont_,
+                       uint16_t borderPx_)
       : priFont (priFont_)
       , altFont (altFont_)
+      , borderPx (borderPx_)
    {
       createShaders ();
 
@@ -290,8 +292,8 @@ namespace zutty {
 
       pxWidth = pxWidth_;
       pxHeight = pxHeight_;
-      nCols = pxWidth / priFont.getPx ();
-      nRows = pxHeight / priFont.getPy ();
+      nCols = (pxWidth - (2 * borderPx)) / priFont.getPx ();
+      nRows = (pxHeight - (2 * borderPx)) / priFont.getPy ();
 
       std::cout << "resize to " << pxWidth << " x " << pxHeight
                 << " pixels, " << nCols << " x " << nRows << " chars"
@@ -299,7 +301,8 @@ namespace zutty {
 
       GLint viewWidth = nCols * priFont.getPx ();
       GLint viewHeight = nRows * priFont.getPy ();
-      glViewport (0, pxHeight - viewHeight, viewWidth, viewHeight);
+      glViewport (borderPx, pxHeight - viewHeight - borderPx,
+                  viewWidth, viewHeight);
 
       glUseProgram (P_draw);
 

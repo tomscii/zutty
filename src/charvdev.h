@@ -24,7 +24,8 @@ namespace zutty {
    {
    public:
       explicit CharVdev (const Font& priFont,
-                         const Font& altFont);
+                         const Font& altFont,
+                         uint16_t borderPx);
 
       ~CharVdev ();
 
@@ -81,6 +82,7 @@ namespace zutty {
 
       const Font& priFont;
       const Font& altFont;
+      uint16_t borderPx;
 
       Cell * cells = nullptr; // valid pointer if mapped, else nullptr
 

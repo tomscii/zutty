@@ -6,5 +6,4 @@
 - X-clipboard / primary selection / copy-paste
   (OSC sequences)
 - mouse support
-- padding pixels (xterm has 2 on all sides)
 - wider font support (test w/SourceCodePro)

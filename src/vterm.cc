@@ -336,11 +336,12 @@ namespace zutty {
 
    Vterm::Vterm (uint16_t glyphPx_, uint16_t glyphPy_,
                  uint16_t winPx_, uint16_t winPy_,
-                 int ptyFd_)
+                 uint16_t borderPx_, int ptyFd_)
       : winPx (winPx_)
       , winPy (winPy_)
-      , nCols (winPx / glyphPx_)
-      , nRows (winPy / glyphPy_)
+      , nCols ((winPx - 2 * borderPx_) / glyphPx_)
+      , nRows ((winPy - 2 * borderPx_) / glyphPy_)
+      , borderPx (borderPx_)
       , glyphPx (glyphPx_)
       , glyphPy (glyphPy_)
       , ptyFd (ptyFd_)
@@ -370,8 +371,8 @@ namespace zutty {
       winPx = winPx_;
       winPy = winPy_;
 
-      uint16_t nCols_ = winPx / glyphPx;
-      uint16_t nRows_ = winPy / glyphPy;
+      uint16_t nCols_ = (winPx - 2 * borderPx) / glyphPx;
+      uint16_t nRows_ = (winPy - 2 * borderPx) / glyphPy;
 
       if (nCols == nCols_ && nRows == nRows_)
          return;
