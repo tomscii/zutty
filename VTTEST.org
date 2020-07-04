@@ -64,14 +64,49 @@ Meta:
 - [ ] Graphic rendition test patterns on light background
 
    - Blinking is not supported; inverse video mode is not supported
-- [ ] Test of SAVE/RESTORE CURSOR feature.
-
-   - The lines are incorrectly drawn as 'q'-s;
-   - The diamonds are incorrectly drawn as backticks (`).
+- [X] Test of SAVE/RESTORE CURSOR feature.
 
 * 3. Test of character sets
 
-TODO At least partial support is needed.
+Zutty is first and foremost a Unicode terminal, with native support
+for UTF-8 encoded input. Hoewever, it implements support for the
+following "hard" character sets that have been introduced at various
+points of the DEC terminal product history:
+
+- US ASCII
+- DEC Special Graphics (Character and Line Drawing) Set
+- DEC Supplemental Graphics Set
+- DEC Technical Character Set
+- ISO Latin-1 (ISO-8859-1)
+- United Kingdom (UK)
+
+Adding support for more (e.g., NRCs other than the British one) is
+trivial, but should not be necessary in the age of Unicode.
+
+Note: Because of simultaneous support for both UTF-8 and the above
+user-selectable charsets, some aspects of operation had to be changed
+when compared to specifications of the original DEC terminals.  In
+particular, the default state (after initialization and reset) is
+UTF-8 for both GL and GR, and not ASCII for GL and DEC Supplemental /
+Latin-1 for G2. Further, in case an application moves away from using
+UTF-8, it is necessary to re-activate a mapping of both GL and GR to
+UTF-8 in order to resume correct interpretation of multi-byte UTF-8
+characters.  There are two ways to do this: either map them to one of
+G0-G3 designated as ASCII (UTF-8 is an alias of this, and corresponds
+to the final character 'B' in the designator sequence), or by
+activating UTF-8 mode on the terminal (via =ESC % G=). A possible
+example of the former designator plus mapper sequence (in accordance
+with the DEC VT420 Programmer Reference Manual):
+- =ESC ( B= (designate ASCII as G0) followed by =SI= [0x0f] (map G0 into GL).
+- =ESC * B= (designate ASCII as G2) followed by =ESC }= (map G2 into GR).
+Of course, GL and GR can also be both mapped to e.g., G0.
+
+Successful tests:
+- [X] 3.8 Test VT100 Character Sets
+- [X] 3.9 Test Shift In/Shift Out (SI/SO)
+- [X] 3.10 Test VT220 Locking Shifts
+- [X] 3.11 Test VT220 Single Shifts
+- [X] 3.13 Test Keyboard Layout with G0 Selection
 
 * 4. Test of double-sized characters
 
@@ -102,10 +137,8 @@ Adding support for this is not planned at this time.
 - [X] 6.2 Set/Reset Mode - LineFeed / Newline
 - [X] 6.3 Device Status Report 5 & 6
 - [X] 6.4 Primary Device Attributes
-
-   - TODO we should only send flags for what we actually support!
-- [ ] 6.5 Secondary Device Attributes
-- [ ] 6.6 Tertiary Device Attributes
+- [X] 6.5 Secondary Device Attributes
+- [-] 6.6 Tertiary Device Attributes
 - [-] 6.7 Request Terminal Parameters
 
    - This seems not to be implemented by xterm either.
@@ -143,6 +176,7 @@ that double-width lines are not supported.
 
 ** 11.1. Test of VT220 features
 
+- [X] 11.1.2.1 Test Send/Receive mode (SRM)
 - [X] 11.1.2.2 Test Visible/Invisible Cursor (DECTCEM)
 - [X] 11.1.2.3 Test Erase Char (ECH)
 
@@ -160,6 +194,12 @@ that double-width lines are not supported.
 - [X] 11.3.3.10 Test vertical scrolling (IND, RI)
 - [X] 11.3.3.11 Test insert/delete line (IL, DL)
 - [X] 11.3.3.12 Test insert/delete char (ICH, DCH)
+
+Note: The ICH test puts the letters on column 79 instead of 80.
+However, this is arguably the correct result in spite of the test
+screen saying "letters a-t are on column 80". It is also identical to
+what xterm produces, among other established terminal emulators.
+
 - [X] 11.3.3.13 Test ASCII formatting (BS, CR, TAB)
 - [X] 11.3.4.1 Test Backarrow key (DECBKM)
 
@@ -173,6 +213,7 @@ that double-width lines are not supported.
 - [X] 11.4.2.12 Test Line-Position-Absolute (VPA)
 - [X] 11.4.2.13 Test Next-Line (CNL)
 - [X] 11.4.2.14 Test Previous-Line (CPL)
+- [X] 11.4.2.15 Test Vertical-Position-Relative (VPR)
 
 ** 11.6. ISO 6429 colors
 

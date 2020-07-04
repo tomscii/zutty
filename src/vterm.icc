@@ -47,6 +47,8 @@ namespace {
 #ifdef LOG_TRACE
    #define logT      std::cout << "Trace | "
    #define logTcont  std::cout
+   #define logP      std::cout << "-<pty>- "
+   #define logPcont  std::cout
    #define TRACE_FUN                           \
       logT << __FUNCTION__ << " [";            \
       for (size_t k = 0; k < nInputOps; ++k) { \
@@ -64,6 +66,8 @@ namespace {
 #else
    #define logT      nullptr && std::cout
    #define logTcont  nullptr && std::cout
+   #define logP      nullptr && std::cout
+   #define logPcont  nullptr && std::cout
    #define TRACE_FUN
 #endif
 
@@ -173,11 +177,13 @@ namespace zutty {
       autoNewlineMode = false;
       insertMode = false;
       bkspSendsDel = true;
+      localEcho = false;
 
       compatLevel = CompatibilityLevel::VT400;
       cursorKeyMode = CursorKeyMode::ANSI;
       numpadMode = NumpadMode::Numeric;
       originMode = OriginMode::Absolute;
+      charsetState = CharsetState {};
 
       setState (InputState::Normal);
    }
@@ -254,18 +260,22 @@ namespace zutty {
    inline int
    Vterm::writePty (uint8_t ch)
    {
-      logT << "pty write: ";
+      logP << "write: ";
       auto uch = (unsigned char*)&ch;
-      debugPrintInput (logTcont, uch, uch + 1);
+      debugPrintInput (logPcont, uch, uch + 1);
+      if (localEcho)
+         processInput (uch, 1);
       return write (ptyFd, &ch, 1);
    }
 
    inline int
    Vterm::writePty (const char* cstr)
    {
-      logT << "pty write: ";
+      logP << "write: ";
       auto ucstr = (unsigned char*)cstr;
-      debugPrintInput (logTcont, ucstr, ucstr + strlen (cstr));
+      debugPrintInput (logPcont, ucstr, ucstr + strlen (cstr));
+      if (localEcho)
+         processInput (ucstr, strlen (cstr));
       return write (ptyFd, cstr, strlen (cstr));
    }
 
@@ -274,274 +284,9 @@ namespace zutty {
    {
       ssize_t n = read (ptyFd, inputBuf, sizeof (inputBuf));
 
-      logT << "pty read: ";
-      debugPrintInput (logTcont, inputBuf, inputBuf + n);
-
-      readPos = 0;
-      lastEscBegin = 0;
-      lastNormalBegin = 0;
-      lastStopPos = 0;
-      hideCursor ();
-      for (readPos = 0; readPos < n; ++readPos)
-      {
-         const char& ch = inputBuf [readPos];
-         switch (inputState)
-         {
-         case InputState::Normal:
-            switch (ch)
-            {
-            case '\x00': // ignore
-               break;
-            case '\e':
-               setState (InputState::Escape);
-               inputOps [0] = 0;
-               nInputOps = 1;
-               lastEscBegin = readPos;
-               break;
-            case '\r': traceNormalInput (); inp_CR (); break;
-            case '\f': // fall through, treat as LineFeed ('\n')
-            case '\v': // fall through, treat as LineFeed ('\n')
-            case '\n': traceNormalInput (); esc_IND (); break;
-            case '\t': traceNormalInput (); inp_HT (); break;
-            case '\b': traceNormalInput (); csi_CUB (); break;
-            case '\a':
-               traceNormalInput ();
-               logI << "* Bell *" << std::endl;
-               break;
-            case 0x0e:
-               traceNormalInput ();
-               //logU << "Locking Shift 1: map G1 to GL" << std::endl;
-               break;
-            case 0x0f:
-               traceNormalInput ();
-               //logU << "Locking Shift 0: map G0 to GL" << std::endl;
-               break;
-            case 0x05:
-               traceNormalInput ();
-               writePty ("This is Zutty.\r\n");
-               break;
-            default:
-               if ((ch & 0x80) == 0)
-               {
-                  unicode_cp = ch;
-                  placeGraphicChar ();
-               }
-               else if (((uint8_t)ch >> 6) == 0x2) // 10xx'xxxx
-               {
-                  logT << "utf-8 sequence cont" << std::endl;
-                  unicode_cp <<= 6;
-                  unicode_cp += (uint8_t)ch & 0x3f;
-                  if (! --utf8_rem)
-                     placeGraphicChar ();
-              }
-               else if (((uint8_t)ch >> 5) == 0x6) // 110x'xxxx
-               {
-                  logT << "utf-8 2-byte sequence" << std::endl;
-                  unicode_cp = ch & 0x1f;
-                  utf8_rem = 1;
-               }
-               else if (((uint8_t)ch >> 4) == 0xe) // 1110'xxxx
-               {
-                  logT << "utf-8 3-byte sequence" << std::endl;
-                  unicode_cp = ch & 0x0f;
-                  utf8_rem = 2;
-               }
-               else if (((uint8_t)ch >> 3) == 0x1e) // 1111'0xxx
-               {
-                  logT << "utf-8 4-byte sequence" << std::endl;
-                  unicode_cp = ch & 0x07;
-                  utf8_rem = 3;
-               }
-            }
-            break;
-         case InputState::Escape:
-            switch (ch)
-            {
-            case '\e': setState (InputState::Normal); break;
-            case '#': setState (InputState::EscapeHash); break;
-            case '[': setState (InputState::CSI); break;
-            case '(': setState (InputState::SelectCharset); break;
-            case ')': setState (InputState::SelectCharset); break;
-            case '*': setState (InputState::SelectCharset); break;
-            case '+': setState (InputState::SelectCharset); break;
-            case 'D': esc_IND (); break;
-            case 'M': esc_RI (); break;
-            case 'E': esc_NEL (); break;
-            case 'H': esc_HTS (); break;
-            case 'c': esc_RIS (); break;
-            case '6': esc_BI (); break;
-            case '7': esc_DECSC (); break;
-            case '8': esc_DECRC (); break;
-            case '9': esc_FI (); break;
-            case '=': numpadMode = NumpadMode::Application;
-               logU << "Application keypad mode" << std::endl;
-               setState (InputState::Normal);
-               DEBUGSTOP;
-               break;
-            case '>': numpadMode = NumpadMode::Numeric;
-               logU << "Numeric keypad mode" << std::endl;
-               setState (InputState::Normal);
-               break;
-            case 'P':
-               setState (InputState::DCS);
-               argBuf.clear ();
-               break;
-            default:
-               unhandledInput (ch);
-               break;
-            }
-            break;
-         case InputState::EscapeHash:
-            switch (ch)
-            {
-            case '8': esch_DECALN (); break;
-            default: unhandledInput (ch); break;
-            }
-            break;
-         case InputState::SelectCharset:
-            logT << "Designate Character Set: input '" << ch << "'"
-                 << std::endl;
-            if (ch >= 0x30) // Final
-               setState (InputState::Normal);
-            break;
-         case InputState::CSI:
-            switch (ch)
-            {
-            case '\e': setState (InputState::Normal); break;
-            case '0': case '1': case '2': case '3': case '4':
-            case '5': case '6': case '7': case '8': case '9':
-               inputOps [nInputOps - 1] *= 10;
-               inputOps [nInputOps - 1] += ch - '0';
-               break;
-            case ';':
-               if (nInputOps < maxEscOps)
-                  inputOps [nInputOps ++] = 0;
-               else
-               {
-                  logE << "inputOps full, increase maxEscOps (currently: "
-                       << maxEscOps << ")!" << std::endl;
-                  setState (InputState::Normal);
-               }
-               break;
-            case 'A': csi_CUU (); break;
-            case 'B': csi_CUD (); break;
-            case 'C': csi_CUF (); break;
-            case 'D': csi_CUB (); break;
-            case 'E': csi_CNL (); break;
-            case 'F': csi_CPL (); break;
-            case 'G': csi_CHA (); break;
-            case 'H': case 'f': csi_CUP (); break;
-            case 'I': csi_CHT (); break;
-            case 'J': csi_ED (); break;
-            case 'K': csi_EL (); break;
-            case 'L': csi_IL (); break;
-            case 'M': csi_DL (); break;
-            case 'P': csi_DCH (); break;
-            case 'S': csi_SU (); break;
-            case 'T': csi_SD (); break;
-            case 'X': csi_ECH (); break;
-            case 'Z': csi_CBT (); break;
-            case '@': csi_ICH (); break;
-            case '`': csi_HPA (); break;
-            case 'a': csi_HPR (); break;
-            case 'b': csi_REP (); break;
-            case 'c': csi_priDA (); break;
-            case 'd': csi_VPA (); break;
-            case 'g': csi_TBC (); break;
-            case 'h': csi_SM (); break;
-            case 'l': csi_RM (); break;
-            case 'm': csi_SGR (); break;
-            case 'n': csi_DSR (); break;
-            case 'r': csi_STBM (); break;
-            case 's': csi_SCOSC (); break;
-            case 'u': csi_SCORC (); break;
-            case '\"': setState (InputState::CSI_Quote); break;
-            case '!': setState (InputState::CSI_Bang); break;
-            case '?': setState (InputState::CSI_priv); break;
-            case ' ': setState (InputState::CSI_SPC); break;
-            case '\a': break; // ignore
-            case '\b': // undo last character in CSI sequence:
-               if (readPos && inputBuf [readPos - 1] == ';')
-                  --nInputOps;
-               else
-                  inputOps [nInputOps - 1] /= 10;
-               break;
-            case '\t': inp_HT (); setState (InputState::CSI); break;
-            case '\r': inp_CR (); setState (InputState::CSI); break;
-            case '\f': // fall through
-            case '\v': esc_IND (); setState (InputState::CSI); break;
-            default: unhandledInput (ch); break;
-            }
-            break;
-         case InputState::CSI_Bang:
-            switch (ch)
-            {
-            case 'p': esc_RIS (); break;
-            default: unhandledInput (ch); break;
-            }
-            break;
-         case InputState::CSI_Quote:
-            switch (ch)
-            {
-            case 'p': csiq_DECSCL (); break;
-            default: unhandledInput (ch); break;
-            }
-            break;
-         case InputState::CSI_SPC:
-            switch (ch)
-            {
-            case '@': csi_ecma48_SL (); break;
-            case 'A': csi_ecma48_SR (); break;
-            default: unhandledInput (ch); break;
-            }
-            break;
-         case InputState::CSI_priv:
-            switch (ch)
-            {
-            case '\e': setState (InputState::Normal); break;
-            case '0': case '1': case '2': case '3': case '4':
-            case '5': case '6': case '7': case '8': case '9':
-               inputOps [nInputOps - 1] *= 10;
-               inputOps [nInputOps - 1] += ch - '0';
-               break;
-            case ';':
-               if (nInputOps < maxEscOps)
-                  inputOps [nInputOps ++] = 0;
-               else
-               {
-                  logE << "inputOps full, increase maxEscOps (currently: "
-                       << maxEscOps << ")!" << std::endl;
-                  setState (InputState::Normal);
-               }
-               break;
-            case 'h': csi_privSM (); break;
-            case 'l': csi_privRM (); break;
-            default: unhandledInput (ch); break;
-            }
-            break;
-         case InputState::DCS:
-            switch (ch)
-            {
-            case '\e': setState (InputState::DCS_Escape); break;
-            default: argBuf.push_back (ch); break;
-            }
-            break;
-         case InputState::DCS_Escape:
-            switch (ch)
-            {
-            case '\\': handle_DCS (); break;
-            default:
-               argBuf.push_back ('\e');
-               argBuf.push_back (ch);
-               setState (InputState::DCS);
-               break;
-            }
-            break;
-         }
-      }
-      traceNormalInput ();
-      showCursor ();
-      refreshVideo (* this);
+      logP << "read: ";
+      debugPrintInput (logPcont, inputBuf, inputBuf + n);
+      processInput (inputBuf, n);
    }
 
    inline CharVdev::Cell &
@@ -662,6 +407,77 @@ namespace zutty {
    }
 
    inline void
+   Vterm::inputGraphicChar (unsigned char ch)
+   {
+      if ((ch & 0x80) == 0)
+      {
+         // GL range
+         Charset cs;
+         if (charsetState.ss)
+         {
+            cs = charsetState.g [charsetState.ss];
+            charsetState.ss = 0;
+         }
+         else
+            cs = charsetState.g [charsetState.gl];
+
+         if (cs == Charset::UTF8)
+            unicode_cp = ch < 127 ? ch : 0;
+         else if (ch >= 32 && (cs == Charset::IsoLatin1 || ch < 127))
+            unicode_cp = charCodes [(uint8_t)cs - 1] [ch - 32];
+         else
+            unicode_cp = 0;
+
+         if (unicode_cp)
+            placeGraphicChar ();
+      }
+      else
+      {
+         // GR range
+         Charset cs = charsetState.g [charsetState.gr];
+         if (cs == Charset::UTF8)
+         {
+            if ((ch >> 6) == 0x2) // 10xx'xxxx
+            {
+               logT << "utf-8 sequence cont" << std::endl;
+               unicode_cp <<= 6;
+               unicode_cp += ch & 0x3f;
+               if (! --utf8_rem)
+                  placeGraphicChar ();
+            }
+            else if ((ch >> 5) == 0x6) // 110x'xxxx
+            {
+               logT << "utf-8 2-byte sequence" << std::endl;
+               unicode_cp = ch & 0x1f;
+               utf8_rem = 1;
+            }
+            else if ((ch >> 4) == 0xe) // 1110'xxxx
+            {
+               logT << "utf-8 3-byte sequence" << std::endl;
+               unicode_cp = ch & 0x0f;
+               utf8_rem = 2;
+            }
+            else if ((ch >> 3) == 0x1e) // 1111'0xxx
+            {
+               logT << "utf-8 4-byte sequence" << std::endl;
+               unicode_cp = ch & 0x07;
+               utf8_rem = 3;
+            }
+         }
+         else
+         {
+            if (ch >= 160 && (cs == Charset::IsoLatin1 || ch < 255))
+               unicode_cp = charCodes [(uint8_t)cs - 1] [ch - 160];
+            else
+               unicode_cp = 0;
+
+            if (unicode_cp)
+               placeGraphicChar ();
+         }
+      }
+   }
+
+   inline void
    Vterm::placeGraphicChar ()
    {
       if (! autoWrapMode && posX == nCols)
@@ -758,6 +574,48 @@ namespace zutty {
    {
       TRACE_FUN;
       cell (cur).inverse = 0;
+   }
+
+   inline void
+   Vterm::esc_DCS (unsigned char fin)
+   {
+      TRACE_FUN;
+
+      logT << "Designate Character Set: destination '" << scsDst
+           <<"', charset '";
+      if (scsMod)
+         logTcont << scsMod;
+      logTcont << fin << "'" << std::endl;
+
+      uint8_t ix = 0;
+      bool cs96 = false;
+      switch (scsDst)
+      {
+      case '(': ix = 0; break;
+      case ')': ix = 1; break;
+      case '*': ix = 2; break;
+      case '+': ix = 3; break;
+      case '-': ix = 1; cs96 = true; break;
+      case '.': ix = 2; cs96 = true; break;
+      case '/': ix = 3; cs96 = true; break;
+      }
+
+      Charset cs = Charset::UTF8;
+      switch (fin)
+      {
+      case 'A': cs = cs96 ? Charset::IsoLatin1 : Charset::IsoUK; break;
+      case 'B': cs = Charset::UTF8; break;
+      case '0': cs = Charset::DecSpec; break;
+      case '5':
+         if (scsMod == '%')
+            cs = Charset::DecSuppl;
+         break;
+      case '<': cs = Charset::DecUserPref; break;
+      case '>': cs = Charset::DecTechn; break;
+      }
+
+      charsetState.g [ix] = cs;
+      setState (InputState::Normal);
    }
 
    inline void
@@ -910,6 +768,7 @@ namespace zutty {
       savedCursor_DEC.attrs = attrs;
       savedCursor_DEC.autoWrapMode = autoWrapMode;
       savedCursor_DEC.originMode = originMode;
+      savedCursor_DEC.charsetState = charsetState;
       savedCursor_DEC.isSet = true;
       setState (InputState::Normal);
    }
@@ -931,6 +790,7 @@ namespace zutty {
          attrs = savedCursor_DEC.attrs;
          autoWrapMode = savedCursor_DEC.autoWrapMode;
          originMode = savedCursor_DEC.originMode;
+         charsetState = savedCursor_DEC.charsetState;
       }
       setState (InputState::Normal);
    }
@@ -1039,6 +899,18 @@ namespace zutty {
    {
       TRACE_FUN;
       uint16_t row = inputOps [0] ? inputOps [0] : 1;
+      row = std::max ((uint16_t)1, std::min (row, nRows));
+      posY = row - 1;
+      setCur ();
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_VPR ()
+   {
+      TRACE_FUN;
+      uint16_t row = inputOps [0] ? inputOps [0] : 1;
+      row += posY;
       row = std::max ((uint16_t)1, std::min (row, nRows));
       posY = row - 1;
       setCur ();
@@ -1360,6 +1232,7 @@ namespace zutty {
          switch (arg)
          {
          case 4: insertMode = true; break;
+         case 12: localEcho = false; break;
          case 20: autoNewlineMode = true; break;
          default:
             logU << "set mode " << arg << std::endl;
@@ -1380,6 +1253,7 @@ namespace zutty {
          switch (arg)
          {
          case 4: insertMode = false; break;
+         case 12: localEcho = true; break;
          case 20: autoNewlineMode = false; break;
          default:
             logU << "reset mode " << arg << std::endl;
@@ -1482,6 +1356,21 @@ namespace zutty {
    }
 
    inline void
+   Vterm::setFgFromPalIx ()
+   {
+      if (attrs.bold && fgPalIx >= 0 && fgPalIx <= 7)
+         *fg = palette256 [fgPalIx + 8];
+      else
+         *fg = palette256 [fgPalIx];
+   }
+
+   inline void
+   Vterm::setBgFromPalIx ()
+   {
+      *bg = palette256 [bgPalIx];
+   }
+
+   inline void
    Vterm::csi_SGR ()
    {
       TRACE_FUN;
@@ -1496,13 +1385,15 @@ namespace zutty {
             attrs.bold = 0;
             attrs.underline = 0;
             attrs.inverse = 0;
-            attrs.fg = defaultFg;
-            attrs.bg = defaultBg;
             fg = &attrs.fg;
             bg = &attrs.bg;
+            fgPalIx = defaultFgPalIx;
+            setFgFromPalIx ();
+            bgPalIx = defaultBgPalIx;
+            setBgFromPalIx ();
             break;
-         case 1: attrs.bold = 1; break;
-         case 2: attrs.bold = 0; break;
+         case 1: attrs.bold = 1; setFgFromPalIx (); break;
+         case 2: attrs.bold = 0; setFgFromPalIx (); break;
          case 3: attrs.inverse = 1; break; // italic
          case 4: attrs.underline = 1; break;
          case 7:
@@ -1510,9 +1401,11 @@ namespace zutty {
             fg = &attrs.bg;
             bg = &attrs.fg;
             break;
-         case 10: attrs.bold = 0; break;
+         case 10: attrs.bold = 0;  setFgFromPalIx (); break;
          case 11: case 12: case 13: case 14: case 15:
-         case 16: case 17: case 18: case 19: attrs.bold = 1; break;
+         case 16: case 17: case 18: case 19:
+            attrs.bold = 1;  setFgFromPalIx ();
+            break;
          case 23: attrs.inverse = 0; break;
          case 24: attrs.underline = 0; break;
          case 27:
@@ -1522,14 +1415,10 @@ namespace zutty {
             break;
 
          // standard foregrounds (bright if bold)
-         case 30: *fg = attrs.bold ? palette256 [8] : palette256 [0]; break;
-         case 31: *fg = attrs.bold ? palette256 [9] : palette256 [1]; break;
-         case 32: *fg = attrs.bold ? palette256 [10] : palette256 [2]; break;
-         case 33: *fg = attrs.bold ? palette256 [11] : palette256 [3]; break;
-         case 34: *fg = attrs.bold ? palette256 [12] : palette256 [4]; break;
-         case 35: *fg = attrs.bold ? palette256 [13] : palette256 [5]; break;
-         case 36: *fg = attrs.bold ? palette256 [14] : palette256 [6]; break;
-         case 37: *fg = attrs.bold ? palette256 [15] : palette256 [7]; break;
+         case 30: case 31: case 32: case 33: case 34: case 35: case 36: case 37:
+            fgPalIx = attr - 30;
+            setFgFromPalIx ();
+            break;
 
          case 38:
             if (k >= nInputOps - 1) break;
@@ -1537,7 +1426,8 @@ namespace zutty {
             {
             case 5:
                if (k >= nInputOps - 1) break;
-               *fg = palette256 [inputOps [++k]];
+               fgPalIx = inputOps [++k];
+               setFgFromPalIx ();
                break;
             case 2:
                if (k >= nInputOps - 3) break;
@@ -1549,24 +1439,22 @@ namespace zutty {
                break;
             }
             break;
-         case 39: *fg = defaultFg; break;
+         case 39: fgPalIx = defaultFgPalIx; setFgFromPalIx (); break;
 
          // standard backgrounds
-         case 40: *bg = palette256 [0]; break;
-         case 41: *bg = palette256 [1]; break;
-         case 42: *bg = palette256 [2]; break;
-         case 43: *bg = palette256 [3]; break;
-         case 44: *bg = palette256 [4]; break;
-         case 45: *bg = palette256 [5]; break;
-         case 46: *bg = palette256 [6]; break;
-         case 47: *bg = palette256 [7]; break;
+         case 40: case 41: case 42: case 43: case 44: case 45: case 46: case 47:
+            bgPalIx = attr - 40;
+            setBgFromPalIx ();
+            break;
+
          case 48:
             if (k >= nInputOps - 1) break;
             switch (inputOps [++k])
             {
             case 5:
                if (k >= nInputOps - 1) break;
-               *bg = palette256 [inputOps [++k]];
+               bgPalIx = inputOps [++k];
+               setBgFromPalIx ();
                break;
             case 2:
                if (k >= nInputOps - 3) break;
@@ -1578,27 +1466,20 @@ namespace zutty {
                break;
             }
             break;
-         case 49: *bg = defaultBg; break;
+         case 49: bgPalIx = defaultBgPalIx; setBgFromPalIx (); break;
 
          // bright colored foregrounds
-         case 90: *fg = palette256 [8]; break;
-         case 91: *fg = palette256 [9]; break;
-         case 92: *fg = palette256 [10]; break;
-         case 93: *fg = palette256 [11]; break;
-         case 94: *fg = palette256 [12]; break;
-         case 95: *fg = palette256 [13]; break;
-         case 96: *fg = palette256 [14]; break;
-         case 97: *fg = palette256 [15]; break;
+         case 90: case 91: case 92: case 93: case 94: case 95: case 96: case 97:
+            fgPalIx = attr - 82;
+            setFgFromPalIx ();
+            break;
 
          // bright colored backgrounds
-         case 100: *bg = palette256 [8]; break;
-         case 101: *bg = palette256 [9]; break;
-         case 102: *bg = palette256 [10]; break;
-         case 103: *bg = palette256 [11]; break;
-         case 104: *bg = palette256 [12]; break;
-         case 105: *bg = palette256 [13]; break;
-         case 106: *bg = palette256 [14]; break;
-         case 107: *bg = palette256 [15]; break;
+         case 100: case 101: case 102: case 103: case 104: case 105: case 106:
+         case 107:
+            bgPalIx = attr - 92;
+            setBgFromPalIx ();
+            break;
 
          default:
             logU << "attribute: " << attr << std::endl;
@@ -1608,13 +1489,28 @@ namespace zutty {
       setState (InputState::Normal);
    }
 
+   /* 64 - VT420 family
+    *  1 - 132 columns
+    *  9 - National Replacement Character-sets
+    * 15 - DEC technical set
+    * 21 - horizontal scrolling
+    * 22 - color
+    */
+   #define DEVICE_ID "64;1;9;15;21;22c"
+
    inline void
    Vterm::csi_priDA ()
    {
       TRACE_FUN;
-      //writePty ("\e[?6c"); // vt102
-      //writePty ("\e[?62;1;2;6;9c"); // vt220
-      writePty ("\e[?" "64;1;2;6;9;15;18;19;21;22c"); // vt420
+      writePty ("\e[?" DEVICE_ID);
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_secDA ()
+   {
+      TRACE_FUN;
+      writePty ("\e[>64;0;0c"); // VT520
       setState (InputState::Normal);
    }
 
@@ -1680,7 +1576,7 @@ namespace zutty {
       if (arg == "$q\"p")
       {
          // DECSCL
-         writePty ("\eP1$r" "64;1;2;6;9;15;18;21;22c" "\e\\");
+         writePty ("\eP1$r" DEVICE_ID "\e\\");
       }
       else
       {
@@ -1691,6 +1587,15 @@ namespace zutty {
          oss << "\e\\";
          writePty (oss.str ().c_str ());
       }
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::handle_OSC ()
+   {
+      TRACE_FUN;
+      auto arg = std::string ((char*)argBuf.data (), argBuf.size ());
+      logU << "OSC: '" << arg << "'" << std::endl;
       setState (InputState::Normal);
    }
 
@@ -1724,6 +1629,7 @@ namespace zutty {
          }
       }
       setState (InputState::Normal);
+      resetTerminal ();
    }
 
 } // namespace zutty

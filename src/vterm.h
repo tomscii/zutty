@@ -57,11 +57,11 @@ namespace zutty {
          const char * input;
       };
 
-      inline int writePty (uint8_t ch);
-      inline int writePty (const char* cstr);
+      int writePty (uint8_t ch);
+      int writePty (const char* cstr);
       int writePty (VtKey key);
 
-      inline void readPty ();
+      void readPty ();
 
       uint64_t seqNo = 0; // update counter
       bool exit = false;
@@ -72,6 +72,8 @@ namespace zutty {
       uint16_t nRows;
 
    private:
+      void processInput (unsigned char* input, int size);
+
       // table entry for deciding which set of InputSpecs to use
       struct InputSpecTable
       {
@@ -97,19 +99,23 @@ namespace zutty {
       void fillScreen (uint16_t ch);
       void linearizeCellStorage ();
 
-      enum class InputState
+      enum class InputState: uint8_t
       {
          Normal,
          Escape,
-         EscapeHash,
+         Esc_Hash,
+         Esc_Pct,
          SelectCharset,
          CSI,
          CSI_priv,
          CSI_Quote,
          CSI_Bang,
          CSI_SPC,
+         CSI_GT,
          DCS,
-         DCS_Escape
+         DCS_Esc,
+         OSC,
+         OSC_Esc
       };
 
       void setState (InputState inputState);
@@ -128,14 +134,18 @@ namespace zutty {
       void advancePosition ();
       void showCursor ();
       void hideCursor ();
+      void inputGraphicChar (unsigned char ch);
       void placeGraphicChar ();
       void jumpToNextTabStop ();
+      void setFgFromPalIx ();
+      void setBgFromPalIx ();
 
       // DEC control sequence handlers, prefixed with input state
       void inp_LF ();        // Line Feed
       void inp_CR ();        // Carriage Return
       void inp_HT ();        // Horizontal Tab
 
+      void esc_DCS (unsigned char fin); // Designate Character Set
       void esc_IND ();       // Index
       void esc_RI ();        // Reverse Index
       void esc_NEL ();       // Next Line
@@ -158,6 +168,7 @@ namespace zutty {
       void csi_HPA ();       // Character Position Absolute
       void csi_HPR ();       // Character Position Relative
       void csi_VPA ();       // Line Position Absolute
+      void csi_VPR ();       // Line Position Relative
       void csi_CUP ();       // Cursor Position a.k.a. HVP
       void csi_SU ();        // Pan Down / Scroll Up
       void csi_SD ();        // Pan Up / Scroll Down
@@ -185,10 +196,12 @@ namespace zutty {
       void csi_ecma48_SL (); // Shift Left
       void csi_ecma48_SR (); // Shift Right
 
-      void csi_priDA ();
-      void csi_DSR ();
-      void esch_DECALN ();
+      void csi_priDA ();     // Device Attributes (Primary)
+      void csi_secDA ();     // Device Attributes (Secondary)
+      void csi_DSR ();       // Device State Report
+      void esch_DECALN ();   // DEC Alignment Pattern Generator
       void handle_DCS ();    // Device Control String
+      void handle_OSC ();    // Operating System Command
       void csiq_DECSCL ();   // DEC Set Compatibility Level
 
       uint16_t glyphPx;
@@ -209,9 +222,11 @@ namespace zutty {
       CharVdev::Cell attrs;   // prototype cell with current attributes
       CharVdev::Color* fg = &attrs.fg;
       CharVdev::Color* bg = &attrs.bg;
-      CharVdev::Color defaultFg = {255, 255, 255};
-      CharVdev::Color defaultBg = {0, 0, 0};
       CharVdev::Color palette256 [256];
+      constexpr const static int defaultFgPalIx = 15;
+      constexpr const static int defaultBgPalIx = 0;
+      int fgPalIx = defaultFgPalIx;
+      int bgPalIx = defaultBgPalIx;
 
       unsigned char inputBuf [4096];
       int readPos = 0;
@@ -226,6 +241,8 @@ namespace zutty {
       uint16_t unicode_cp = 0;
       uint8_t utf8_rem = 0;
       std::vector <unsigned char> argBuf;
+      unsigned char scsDst;  // Select charset / destination designator
+      unsigned char scsMod;  // Select charset / selector (intermediate)
 
       // Terminal state - N.B.: keep resetTerminal () in sync with this!
 
@@ -235,24 +252,46 @@ namespace zutty {
       bool autoNewlineMode = false;
       bool insertMode = false;
       bool bkspSendsDel = true;
+      bool localEcho = false;
 
       std::vector <uint16_t> tabStops;
 
-      enum class CompatibilityLevel
+      enum class CompatibilityLevel: uint8_t
       { VT52, VT100, VT400  };
       CompatibilityLevel compatLevel = CompatibilityLevel::VT400;
 
-      enum class CursorKeyMode
+      enum class CursorKeyMode: uint8_t
       { ANSI, Application };
       CursorKeyMode cursorKeyMode = CursorKeyMode::ANSI;
 
-      enum class NumpadMode
+      enum class NumpadMode: uint8_t
       { Numeric, Application };
       NumpadMode numpadMode = NumpadMode::Numeric;
 
-      enum class OriginMode
+      enum class OriginMode: uint8_t
       { Absolute, ScrollingRegion };
       OriginMode originMode = OriginMode::Absolute;
+
+      enum class Charset: uint8_t // sync w/charCodes definition!
+      { UTF8, DecSpec, DecSuppl, DecUserPref, DecTechn, IsoLatin1, IsoUK };
+
+      struct CharsetState
+      {
+         Charset g[4] =
+         { Charset::UTF8, Charset::UTF8, Charset::UTF8, Charset::UTF8 };
+
+         // Locking shift states (index into g[]):
+         uint8_t gl = 0; // G0 in GL
+         uint8_t gr = 2; // G2 in GR
+
+         // Single shift state (0 if none active):
+         // 0 - not active; 2: G2 in GL; 3: G3 in GL
+         uint8_t ss = 0;
+      };
+      CharsetState charsetState;
+
+      // address with Charset - 1; point to array of 96 unicode points:
+      static const uint16_t* charCodes [];
 
       struct SavedCursor_SCO
       {
@@ -265,7 +304,8 @@ namespace zutty {
          CharVdev::Cell attrs;
          bool autoWrapMode = true;
          OriginMode originMode = OriginMode::Absolute;
-         // NYI: charset shift state; selective erase mode
+         CharsetState charsetState = CharsetState {};
+         // NYI: selective erase mode
       };
       SavedCursor_SCO savedCursor_SCO;
       SavedCursor_DEC savedCursor_DEC;
