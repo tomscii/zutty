@@ -2,7 +2,7 @@
 #+OPTIONS: toc:3 num:nil val:nil html-style:nil H:1 ^:{}
 
 Version of test program:
-: VT100 test program, version 2.7 (20140305)
+: VT100 test program, version 2.7 (20200610)
 
 Section numbering reflects Vttest menu options.
 

@@ -10,6 +10,7 @@
  */
 
 #include <X11/Xlib.h>
+#include <X11/Xatom.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 
@@ -215,7 +216,30 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
                         0, visInfo->depth, InputOutput,
                         visInfo->visual, mask, &attr);
 
-   /* set hints and properties */
+   {
+      /* set NET_WM_PID to the the process ID to link the window to the pid */
+      Atom _NET_WM_PID = XInternAtom (x_dpy, "_NET_WM_PID", false);
+      pid_t pid = getpid ();
+      XChangeProperty (x_dpy, win, _NET_WM_PID, XA_CARDINAL,
+                       32, PropModeReplace, (unsigned char *)&pid, 1);
+   }
+
+   {
+      /* set WM_CLIENT_MACHINE to the hostname */
+      char name [256];
+      if (gethostname (name, sizeof (name)) < 0)
+      {
+         std::cerr << "Error: couldn't get hostname" << std::endl;
+         exit (1);
+      }
+      name [sizeof (name) - 1] = '\0';
+      char *hostname [] = { name };
+      XTextProperty text_prop;
+      XStringListToTextProperty (hostname, 1, &text_prop);
+      XSetWMClientMachine (x_dpy, win, &text_prop);
+      XFree (text_prop.value);
+   }
+
    {
       XSizeHints sizehints;
       sizehints.x = x;
