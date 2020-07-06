@@ -1,6 +1,5 @@
 * Vt support
 
-- alternate screen mode
 - set window title
 - X-clipboard / primary selection / copy-paste
   (OSC sequences)

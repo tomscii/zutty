@@ -7,4 +7,5 @@ fi
 
 CHECK_DEPS rxvt
 
-export UUT_EXE="rxvt -geometry 80x24 -fn x:9x15 -rv +sb"
+FONT=-misc-fixed-medium-r-normal--18-120-100-100-c-90-iso10646-1
+export UUT_EXE="rxvt -geometry 80x24 -fn $FONT -rv +sb"

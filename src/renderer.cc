@@ -61,20 +61,22 @@ namespace zutty {
 
    Renderer::~Renderer ()
    {
-      Vterm vt;
-      vt.exit = true;
-      update (vt);
+      std::unique_lock <std::mutex> lk (mx);
+      done = true;
+      nextFrame.seqNo = ++seqNo;
+      lk.unlock ();
+      cond.notify_one ();
       thr.join ();
    }
 
    void
-   Renderer::update (const Vterm& vt)
+   Renderer::update (const Frame& frame)
    {
-      std::unique_lock <std::mutex> lock (vtMutex);
-      nextVt = vt;
-      nextVt.seqNo = ++seqNo;
-      lock.unlock ();
-      vtCond.notify_one();
+      std::unique_lock <std::mutex> lk (mx);
+      nextFrame = frame;
+      nextFrame.seqNo = ++seqNo;
+      lk.unlock ();
+      cond.notify_one ();
    }
 
    void
@@ -88,7 +90,7 @@ namespace zutty {
 
       charVdev = std::make_unique <CharVdev> (priFont, altFont, borderPx);
 
-      Vterm lastVt;
+      Frame lastFrame;
 
       int n_redraws = 0;
       struct timeval tv;
@@ -102,29 +104,29 @@ namespace zutty {
 
       while (1)
       {
-         std::unique_lock <std::mutex> lock (vtMutex);
-         vtCond.wait (lock,
-                      [&] ()
-                      {
-                         return lastVt.seqNo != nextVt.seqNo;
-                      });
+         std::unique_lock <std::mutex> lk (mx);
+         cond.wait (lk,
+                    [&] ()
+                    {
+                       return lastFrame.seqNo != nextFrame.seqNo;
+                    });
 
-         if (nextVt.exit)
+         if (done)
             return;
 
-         if ((lastVt.winPx != nextVt.winPx) ||
-             (lastVt.winPy != nextVt.winPy))
-            charVdev->resize (nextVt.winPx, nextVt.winPy);
+         if ((lastFrame.winPx != nextFrame.winPx) ||
+             (lastFrame.winPy != nextFrame.winPy))
+            charVdev->resize (nextFrame.winPx, nextFrame.winPy);
 
-         lastVt = nextVt;
-         lock.unlock ();
+         lastFrame = nextFrame;
+         lk.unlock ();
 
          {
             CharVdev::Mapping m = charVdev->getMapping ();
-            assert (m.nCols == lastVt.nCols);
-            assert (m.nRows == lastVt.nRows);
+            assert (m.nCols == lastFrame.nCols);
+            assert (m.nRows == lastFrame.nRows);
 
-            lastVt.copyCells (m.cells);
+            lastFrame.copyCells (m.cells);
 
             if (benchmark)
                benchDraw (m);

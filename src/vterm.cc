@@ -445,23 +445,17 @@ namespace zutty {
       , glyphPx (glyphPx_)
       , glyphPy (glyphPy_)
       , ptyFd (ptyFd_)
-      , refreshVideo ([] (const Vterm&) {})
-      , cells (std::shared_ptr <CharVdev::Cell> (
-                  new CharVdev::Cell [nRows * nCols]))
-      , cur (0)
-      , scrollHead (0)
-      , marginTop (0)
-      , marginBottom (nRows)
+      , refreshVideo ([] (const Frame&) {})
+      , frame_pri (winPx, winPy, nCols, nRows)
+      , cf (&frame_pri)
    {
-      memset (cells.get (), 0, nRows * nCols * sizeof (CharVdev::Cell));
-
       makePalette256 (palette256);
       resetTerminal ();
    }
 
    void
    Vterm::setRefreshHandler (
-      const std::function <void (const Vterm&)>& refreshVideo_)
+      const std::function <void (const Frame&)>& refreshVideo_)
    {
       refreshVideo = refreshVideo_;
    }
@@ -481,9 +475,18 @@ namespace zutty {
       nCols = nCols_;
       nRows = nRows_;
 
-      cells = std::shared_ptr <CharVdev::Cell> (
-         new CharVdev::Cell [nRows * nCols]);
-      memset (cells.get (), 0, nRows * nCols * sizeof (CharVdev::Cell));
+      if (altScreenBufferMode)
+      {
+         frame_pri.freeCells ();
+         frame_alt = Frame (winPx, winPy, nCols, nRows);
+         cf = &frame_alt;
+      }
+      else
+      {
+         frame_pri = Frame (winPx, winPy, nCols, nRows);
+         cf = &frame_pri;
+         frame_alt.freeCells ();
+      }
 
       resetScreen ();
 
@@ -492,29 +495,6 @@ namespace zutty {
       size.ws_row = nRows;
       if (ioctl (ptyFd, TIOCSWINSZ, &size) < 0)
          throw std::runtime_error ("TIOCSWINSZ failed");
-   }
-
-   void
-   Vterm::copyCells (CharVdev::Cell * const dst)
-   {
-      constexpr const size_t cellSize = sizeof (CharVdev::Cell);
-
-      CharVdev::Cell* p = dst;
-      CharVdev::Cell* s = cells.get ();
-      uint32_t n = marginTop * nCols;
-      memcpy (p, s, n * cellSize);
-
-      p += n;
-      n = marginBottom * nCols - scrollHead;
-      memcpy (p, s + scrollHead, n * cellSize);
-
-      p += n;
-      n = scrollHead - marginTop * nCols;
-      memcpy (p, s + marginTop * nCols, n * cellSize);
-
-      p += n;
-      n = (nRows - marginBottom) * nCols;
-      memcpy (p, s + marginBottom * nCols, n * cellSize);
    }
 
    int
@@ -860,7 +840,7 @@ namespace zutty {
          case InputState::CSI_Bang:
             switch (ch)
             {
-            case 'p': esc_RIS (); break;
+            case 'p': csi_DECSTR (); break;
             default: unhandledInput (ch); break;
             }
             break;
@@ -938,7 +918,7 @@ namespace zutty {
       }
       traceNormalInput ();
       showCursor ();
-      refreshVideo (* this);
+      redraw ();
    }
 
    const uint16_t* Vterm::charCodes [] =

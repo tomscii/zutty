@@ -196,10 +196,9 @@ that double-width lines are not supported.
 - [X] 11.3.3.11 Test insert/delete line (IL, DL)
 - [X] 11.3.3.12 Test insert/delete char (ICH, DCH)
 
-Note: The ICH test puts the letters on column 79 instead of 80.
-However, this is arguably the correct result in spite of the test
-screen saying "letters a-t are on column 80". It is also identical to
-what xterm produces, among other established terminal emulators.
+Note: when Top/Bottom margins are set, ICH/DCH tests are incorrect
+when compared to the screen text, because the letters cover the whole
+range (a-t). This is bug-compatible with Xterm!
 
 - [X] 11.3.3.13 Test ASCII formatting (BS, CR, TAB)
 - [X] 11.3.4.1 Test Backarrow key (DECBKM)
@@ -245,5 +244,6 @@ what xterm produces, among other established terminal emulators.
 ** 11.8. XTERM special features
 
 - [ ] 3. Set window title
-- [ ] 7. Alternate-Screen features
+- [ ] 5. Mouse features
+- [X] 7. Alternate-Screen features
 

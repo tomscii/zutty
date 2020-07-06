@@ -17,6 +17,7 @@
 #include "font.h"
 #include "pty.h"
 #include "renderer.h"
+#include "vterm.h"
 
 #include <cassert>
 #include <iostream>
@@ -132,7 +133,7 @@ draw ()
    demo_draw (* vt.get ());
 #endif
 
-   renderer->update (* vt.get ());
+   vt->redraw ();
 }
 
 /* new window size or exposure */
@@ -724,7 +725,7 @@ main (int argc, char *argv[])
 
    vt = std::make_unique <Vterm> (priFont->getPx (), priFont->getPy (),
                                   win_width, win_height, borderPx, pty_fd);
-   vt->setRefreshHandler ([] (const Vterm& v) { renderer->update (v); });
+   vt->setRefreshHandler ([] (const Frame& f) { renderer->update (f); });
 
    /* Force initialization.
     * We might not get a ConfigureNotify event when the window first appears.

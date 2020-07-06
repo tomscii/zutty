@@ -50,8 +50,18 @@ namespace zutty {
          uint8_t _fill1;
          Color bg;
          uint8_t _fill2;
+
+         using Ptr = std::shared_ptr <Cell>;
       };
       static_assert (sizeof (Cell) == 12);
+
+      static Cell::Ptr make_cells (uint16_t nCols, uint16_t nRows)
+      {
+         auto ptr = std::shared_ptr <Cell> (new Cell [nRows * nCols],
+                                            std::default_delete <Cell []> ());
+         memset (ptr.get (), 0, nRows * nCols * sizeof (Cell));
+         return ptr;
+      }
 
       struct Mapping
       {

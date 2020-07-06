@@ -1,0 +1,63 @@
+/* -*- C++ -*-
+ * This file is part of Zutty.
+ * Copyright (C) 2020 Tom Szilagyi
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * See the file LICENSE for the full license.
+ */
+
+#include <sstream>
+
+namespace zutty {
+
+   inline uint32_t
+   Frame::getIdx (uint16_t pY, uint16_t pX)
+   {
+      if (pY < marginTop)
+         return nCols * pY + pX;
+      else if (pY < marginBottom)
+         return nCols * marginTop +
+            (scrollHead + (pY - 2 * marginTop) * nCols + pX) %
+            ((marginBottom - marginTop) * nCols);
+      else
+         return nCols * pY + pX;
+   }
+
+   inline CharVdev::Cell &
+   Frame::operator [] (uint32_t idx)
+   {
+#if 1 /* strict / debug */
+      if (cells == nullptr)
+         throw std::runtime_error ("cell accessor: no cell storage!");
+
+      if (idx >= nRows * nCols)
+      {
+         std::ostringstream oss;
+         oss << "Frame[" << idx << "] out of bounds, nCols="
+             << nCols << ", nRows=" << nRows << ", number of cells: "
+             << nCols * nRows;
+         throw std::runtime_error (oss.str ());
+      }
+#endif
+      return cells.get () [idx];
+   }
+
+   inline void
+   Frame::copyCells (uint32_t dstIx, uint32_t srcIx, uint32_t count)
+   {
+      memcpy (cells.get () + dstIx, cells.get () + srcIx,
+              count * sizeof (CharVdev::Cell));
+   }
+
+   inline void
+   Frame::moveCells (uint32_t dstIx, uint32_t srcIx, uint32_t count)
+   {
+      memmove (cells.get () + dstIx, cells.get () + srcIx,
+               count * sizeof (CharVdev::Cell));
+   }
+
+} // namespace zutty

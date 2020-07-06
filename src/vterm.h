@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "charvdev.h"
+#include "frame.h"
 
 #include <cstdint>
 #include <functional>
@@ -72,11 +72,11 @@ namespace zutty {
       ~Vterm () = default;
 
       void setRefreshHandler (
-         const std::function <void (const Vterm&)>& refreshHandler);
+         const std::function <void (const Frame&)>& refreshHandler);
 
       void resize (uint16_t winPx, uint16_t winPy);
 
-      void copyCells (CharVdev::Cell * const dest);
+      void redraw ();
 
       // mapping of a certain VtKey to a sequence of input characters
       struct InputSpec
@@ -90,14 +90,6 @@ namespace zutty {
       int writePty (VtKey key, VtModifier modifiers = VtModifier::none);
 
       void readPty ();
-
-      uint64_t seqNo = 0; // update counter
-      bool exit = false;
-
-      uint16_t winPx;
-      uint16_t winPy;
-      uint16_t nCols;
-      uint16_t nRows;
 
    private:
       void processInput (unsigned char* input, int size);
@@ -115,17 +107,14 @@ namespace zutty {
       const InputSpec * selectInputSpecs ();
       const InputSpec & getInputSpec (VtKey key);
 
-      CharVdev::Cell& cell (uint32_t idx);
-      CharVdev::Cell& cell (uint16_t row, uint16_t col);
-
       void debugStop ();
       void unhandledInput (char ch);
       void traceNormalInput ();
       void resetTerminal ();
       void resetAttrs ();
       void resetScreen ();
+      void clearScreen ();
       void fillScreen (uint16_t ch);
-      void linearizeCellStorage ();
 
       enum class InputState: uint8_t
       {
@@ -148,7 +137,6 @@ namespace zutty {
 
       void setState (InputState inputState);
 
-      uint32_t getIdx (uint16_t pY, uint16_t pX);
       uint32_t setCur ();
       uint32_t startOfThisLine ();
       uint32_t startOfNextLine ();
@@ -174,7 +162,7 @@ namespace zutty {
       void inp_HT ();        // Horizontal Tab
 
       void esc_DCS (unsigned char fin); // Designate Character Set
-      void esc_IND ();       // Index
+      bool esc_IND ();       // Index
       void esc_RI ();        // Reverse Index
       void esc_NEL ();       // Next Line
       void esc_BI ();        // Back Index
@@ -185,6 +173,7 @@ namespace zutty {
       void esc_DECSC ();     // Save Cursor and Attributes
       void esc_DECRC ();     // Restore Cursor and Attributes
       void esc_RIS ();       // Reset to Initial State
+      void csi_DECSTR ();    // DEC Soft Terminal Reset
 
       void csi_CUU ();       // Cursor Up
       void csi_CUD ();       // Cursor Down
@@ -232,22 +221,26 @@ namespace zutty {
       void handle_OSC ();    // Operating System Command
       void csiq_DECSCL ();   // DEC Set Compatibility Level
 
+      uint16_t winPx;
+      uint16_t winPy;
+      uint16_t nCols;
+      uint16_t nRows;
       uint16_t borderPx;
       uint16_t glyphPx;
       uint16_t glyphPy;
       int ptyFd;
 
-      std::function <void (const Vterm&)> refreshVideo;
+      std::function <void (const Frame&)> refreshVideo;
 
       // Cell storage, display and input state
 
-      std::shared_ptr <CharVdev::Cell> cells;
+      Frame frame_pri;
+      Frame frame_alt;
+      Frame* cf;              // current frame (primary or alternative)
       uint32_t cur;           // current screen position (abs. offset in cells)
-      uint32_t scrollHead;    // scrolling area start of top row (abs. offset)
-      uint16_t marginTop;     // current margin top (number of rows above)
-      uint16_t marginBottom;  // current margin bottom (number of rows above + 1)
-      uint16_t posX = 0;      // current cursor horizontal position (on-screen)
-      uint16_t posY = 0;      // current cursor vertical position (on-screen)
+      uint16_t posX;          // current cursor horizontal position (on-screen)
+      uint16_t posY;          // current cursor vertical position (on-screen)
+
       CharVdev::Cell attrs;   // prototype cell with current attributes
       CharVdev::Color* fg = &attrs.fg;
       CharVdev::Color* bg = &attrs.bg;
@@ -304,6 +297,10 @@ namespace zutty {
       { Absolute, ScrollingRegion };
       OriginMode originMode = OriginMode::Absolute;
 
+      enum class ColMode: uint8_t
+      { C80, C132 };
+      ColMode colMode = ColMode::C80;
+
       enum class Charset: uint8_t // sync w/charCodes definition!
       { UTF8, DecSpec, DecSuppl, DecUserPref, DecTechn, IsoLatin1, IsoUK };
 
@@ -340,7 +337,12 @@ namespace zutty {
          // NYI: selective erase mode
       };
       SavedCursor_SCO savedCursor_SCO;
-      SavedCursor_DEC savedCursor_DEC;
+      SavedCursor_DEC savedCursor_DEC_pri;
+      SavedCursor_DEC savedCursor_DEC_alt;
+      SavedCursor_DEC* savedCursor_DEC = &savedCursor_DEC_pri;
+
+      void switchColMode (ColMode colMode);
+      void switchScreenBufferMode (bool altScreenBufferMode);
    };
 
 } // namespace zutty
