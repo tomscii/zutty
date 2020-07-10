@@ -35,8 +35,8 @@ namespace zutty {
       struct Color
       {
          uint8_t red;
-         uint8_t blue;
          uint8_t green;
+         uint8_t blue;
       };
 
       struct Cell
@@ -75,6 +75,23 @@ namespace zutty {
 
       Mapping getMapping ();
 
+      struct Cursor
+      {
+         Color color = {255, 255, 255};
+         uint16_t posX = 0;
+         uint16_t posY = 0;
+
+         enum class Style: uint8_t
+         {
+            hidden = 0,
+            filled_block = 1,
+            hollow_block = 2
+         };
+         Style style = Style::hidden;
+      };
+
+      void setCursor (const Cursor& cursor_);
+
    private:
       uint16_t nCols;
       uint16_t nRows;
@@ -88,7 +105,8 @@ namespace zutty {
       GLuint T_atlasMap = 0;
       GLuint T_output = 0;
       GLint A_pos, A_vertexTexCoord;
-      GLint compU_glyphPixels, compU_sizeChars, drawU_viewPixels;
+      GLint compU_glyphPixels, compU_sizeChars, compU_cursorColor;
+      GLint compU_cursorPos, compU_cursorStyle, drawU_viewPixels;
 
       const Font& priFont;
       const Font& altFont;

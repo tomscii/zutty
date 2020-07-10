@@ -25,6 +25,9 @@ layout (binding = 1) uniform lowp sampler2DArray atlas;
 layout (binding = 2) uniform lowp sampler2D atlasMap;
 uniform lowp ivec2 glyphPixels;
 uniform lowp ivec2 sizeChars;
+uniform lowp ivec3 cursorColor;
+uniform lowp ivec2 cursorPos;
+uniform lowp int cursorStyle;
 
 struct Cell
 {
@@ -63,9 +66,18 @@ void main ()
                         float (bitfieldExtract (cell.bg, 8, 8)),
                         float (bitfieldExtract (cell.bg, 16, 8))) / 255.0;
 
+   vec3 crColor = vec3 (cursorColor) / 255.0;
+
    if (inverse == uint (1)) {
       fgColor = vec3 (1.0) - fgColor;
       bgColor = vec3 (1.0) - bgColor;
+   }
+   if (crColor == bgColor) {
+      crColor = vec3 (1.0) - crColor;
+   }
+   if (charPos == cursorPos && cursorStyle == 1) {
+      fgColor = bgColor;
+      bgColor = crColor;
    }
 
    for (int j = 0; j < glyphPixels.x; j++) {
@@ -83,6 +95,22 @@ void main ()
       for (int j = 0; j < glyphPixels.x; j++) {
          vec4 pixel = vec4 (fgColor, 1.0);
          ivec2 pxCoords = charPos * glyphPixels + ivec2 (j, glyphPixels.y - 1);
+         imageStore (imgOut, pxCoords, pixel);
+      }
+   }
+
+   if (charPos == cursorPos && cursorStyle == 2) {
+      vec4 pixel = vec4 (crColor, 1.0);
+      for (int j = 0; j < glyphPixels.x; j++) {
+         ivec2 pxCoords = charPos * glyphPixels + ivec2 (j, 0);
+         imageStore (imgOut, pxCoords, pixel);
+         pxCoords += ivec2 (0, glyphPixels.y - 1);
+         imageStore (imgOut, pxCoords, pixel);
+      }
+      for (int k = 1; k < glyphPixels.y - 1; k++) {
+         ivec2 pxCoords = charPos * glyphPixels + ivec2 (0, k);
+         imageStore (imgOut, pxCoords, pixel);
+         pxCoords += ivec2 (glyphPixels.x - 1, 0);
          imageStore (imgOut, pxCoords, pixel);
       }
    }
@@ -233,7 +261,6 @@ namespace zutty {
       glUseProgram (P_compute);
       glUniform2i (compU_glyphPixels, priFont.getPx (), priFont.getPy ());
       glUniform2i (compU_sizeChars, nCols, nRows);
-      glCheckError ();
 
       // Setup atlas texture
       setupTexture (GL_TEXTURE1, GL_TEXTURE_2D_ARRAY, T_atlas);
@@ -322,6 +349,16 @@ namespace zutty {
    }
 
    void
+   CharVdev::setCursor (const Cursor& cursor)
+   {
+      glUseProgram (P_compute);
+      glUniform3i (compU_cursorColor, cursor.color.red, cursor.color.green,
+                   cursor.color.blue);
+      glUniform2i (compU_cursorPos, cursor.posX, cursor.posY);
+      glUniform1i (compU_cursorStyle, static_cast <uint8_t> (cursor.style));
+   }
+
+   void
    CharVdev::draw ()
    {
       assert (cells == nullptr); // no mapping in place
@@ -398,10 +435,16 @@ namespace zutty {
 
       compU_glyphPixels = glGetUniformLocation (P_compute, "glyphPixels");
       compU_sizeChars = glGetUniformLocation (P_compute, "sizeChars");
+      compU_cursorColor = glGetUniformLocation (P_compute, "cursorColor");
+      compU_cursorPos = glGetUniformLocation (P_compute, "cursorPos");
+      compU_cursorStyle = glGetUniformLocation (P_compute, "cursorStyle");
 
       std::cout << "compute program:"
                 << "\n  uniform glyphPixels at " << compU_glyphPixels
                 << "\n  uniform sizeChars at " << compU_sizeChars
+                << "\n  uniform cursorColor at " << compU_cursorColor
+                << "\n  uniform cursorPos at " << compU_cursorPos
+                << "\n  uniform cursorStyle at " << compU_cursorStyle
                 << std::endl;
 
       P_draw = glCreateProgram ();

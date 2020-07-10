@@ -1,10 +1,5 @@
 * Vt support
 
-** Cursor support
-- proper cursor support (distinct from inverse flag)
-  GL uniform variable for cursor color, style and position
-  (alleviates the need for a per-cell bit containing cursor info)
-
 ** Misc features
 - set window title
 - X-clipboard / primary selection / copy-paste (OSC sequences)

@@ -91,6 +91,8 @@ namespace zutty {
 
       void readPty ();
 
+      void setHasFocus (bool);
+
    private:
       void processInput (unsigned char* input, int size);
 
@@ -250,6 +252,7 @@ namespace zutty {
       int fgPalIx = defaultFgPalIx;
       int bgPalIx = defaultBgPalIx;
       bool reverseVideo = false;
+      bool hasFocus = false;
 
       unsigned char inputBuf [4096];
       int readPos = 0;

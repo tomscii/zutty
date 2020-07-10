@@ -210,7 +210,8 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
    attr.background_pixel = 0;
    attr.border_pixel = 0;
    attr.colormap = XCreateColormap (x_dpy, root, visInfo->visual, AllocNone);
-   attr.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask;
+   attr.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask |
+      FocusChangeMask;
    mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
 
    win = XCreateWindow (x_dpy, root, 0, 0, width, height,
@@ -494,6 +495,12 @@ x11Event (XEvent& event, int pty_fd, bool& destroyed)
    redraw = true;
    break;
    case KeyRelease:
+      break;
+   case FocusIn:
+      vt->setHasFocus (true);
+      break;
+   case FocusOut:
+      vt->setHasFocus (false);
       break;
    default:
       std::cout << "X event.type = " << event.type << std::endl;

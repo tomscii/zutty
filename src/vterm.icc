@@ -171,6 +171,14 @@ namespace zutty {
    }
 
    inline void
+   Vterm::setHasFocus (bool hasFocus_)
+   {
+      hasFocus = hasFocus_;
+      showCursor ();
+      redraw ();
+   }
+
+   inline void
    Vterm::resetTerminal ()
    {
       resetScreen ();
@@ -182,6 +190,7 @@ namespace zutty {
       cf->scrollHead = 0;
       cf->marginTop = 0;
       cf->marginBottom = nRows;
+      cf->cursor.color = palette256 [defaultFgPalIx];
       posX = 0;
       posY = 0;
       setCur ();
@@ -608,20 +617,21 @@ namespace zutty {
    Vterm::showCursor ()
    {
       TRACE_FUN;
-      // N.B.: might be in hidden "off-by-one" column in last row
-      // if cursor movement ops are cut by input buffer boundary
-      if (showCursorMode && cur < nRows * nCols)
-         (* cf) [cur].inverse = 1;
+      if (showCursorMode)
+      {
+         cf->cursor.posX = posX;
+         cf->cursor.posY = posY;
+         using CS = CharVdev::Cursor::Style;
+         cf->cursor.style = hasFocus ? CS::filled_block : CS::hollow_block;
+      }
    }
 
    inline void
    Vterm::hideCursor ()
    {
       TRACE_FUN;
-      // N.B.: might be in hidden "off-by-one" column in last row
-      // if cursor movement ops are cut by input buffer boundary
-      if (cur < nRows * nCols)
-         (* cf) [cur].inverse = 0;
+      using CS = CharVdev::Cursor::Style;
+      cf->cursor.style = CS::hidden;
    }
 
    inline void

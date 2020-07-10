@@ -132,6 +132,7 @@ namespace zutty {
                benchDraw (m);
          }
 
+         charVdev->setCursor (lastFrame.cursor);
          charVdev->draw ();
          swapBuffers ();
 
