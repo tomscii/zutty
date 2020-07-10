@@ -138,6 +138,7 @@ namespace zutty {
       void setState (InputState inputState);
 
       uint32_t setCur ();
+      void normalizeCursorPos ();
       uint32_t startOfThisLine ();
       uint32_t startOfNextLine ();
       void eraseRange (uint32_t start, uint32_t end);
@@ -146,7 +147,6 @@ namespace zutty {
       void insertLines (uint16_t count);
       void deleteLines (uint16_t count);
 
-      void normalizePosition ();
       void advancePosition ();
       void showCursor ();
       void hideCursor ();
@@ -237,9 +237,9 @@ namespace zutty {
       Frame frame_pri;
       Frame frame_alt;
       Frame* cf;              // current frame (primary or alternative)
-      uint32_t cur;           // current screen position (abs. offset in cells)
-      uint16_t posX;          // current cursor horizontal position (on-screen)
-      uint16_t posY;          // current cursor vertical position (on-screen)
+      uint32_t cur = 0;       // current screen position (abs. offset in cells)
+      uint16_t posX = 0;      // current cursor horizontal position (on-screen)
+      uint16_t posY = 0;      // current cursor vertical position (on-screen)
 
       CharVdev::Cell attrs;   // prototype cell with current attributes
       CharVdev::Color* fg = &attrs.fg;

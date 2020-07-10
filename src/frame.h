@@ -22,6 +22,9 @@ namespace zutty {
       Frame (uint16_t winPx_, uint16_t winPy_,
              uint16_t nCols_, uint16_t nRows_);
 
+      void resize (uint16_t winPx_, uint16_t winPy_,
+                   uint16_t nCols_, uint16_t nRows_);
+
       void linearizeCellStorage ();
       void copyCells (CharVdev::Cell * const dest);
 

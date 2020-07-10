@@ -470,25 +470,28 @@ namespace zutty {
       uint16_t nRows_ = (winPy - 2 * borderPx) / glyphPy;
 
       if (nCols == nCols_ && nRows == nRows_)
+      {
+         cf->winPx = winPx;
+         cf->winPy = winPy;
          return;
+      }
 
-      nCols = nCols_;
-      nRows = nRows_;
+      hideCursor ();
 
       if (altScreenBufferMode)
       {
-         frame_pri.freeCells ();
-         frame_alt = Frame (winPx, winPy, nCols, nRows);
-         cf = &frame_alt;
+         frame_alt = Frame (winPx, winPy, nCols_, nRows_);
       }
       else
       {
-         frame_pri = Frame (winPx, winPy, nCols, nRows);
-         cf = &frame_pri;
+         frame_pri.resize (winPx, winPy, nCols_, nRows_);
          frame_alt.freeCells ();
       }
 
-      resetScreen ();
+      nCols = nCols_;
+      nRows = nRows_;
+      normalizeCursorPos ();
+      showCursor ();
 
       struct winsize size;
       size.ws_col = nCols;

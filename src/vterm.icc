@@ -283,8 +283,7 @@ namespace zutty {
       }
       else
       {
-         if (!frame_pri)
-            frame_pri = Frame (winPx, winPy, nCols, nRows);
+         frame_pri.resize (winPx, winPy, nCols, nRows);
          cf = &frame_pri;
          frame_alt.freeCells ();
 
@@ -377,6 +376,18 @@ namespace zutty {
    {
       cur = cf->getIdx (posY, posX);
       return cur;
+   }
+
+   inline void
+   Vterm::normalizeCursorPos ()
+   {
+      if (nCols < posX + 1)
+         posX = nCols - 1;
+
+      if (nRows < posY + 1)
+         posY = nRows - 1;
+
+      setCur ();
    }
 
    inline uint32_t
@@ -521,7 +532,11 @@ namespace zutty {
       if (! autoWrapMode && posX == nCols)
          return;
 
-      normalizePosition ();
+      if (posX == nCols)
+      {
+         inp_CR ();
+         inp_LF ();
+      }
 
       if (insertMode)
       {
@@ -580,16 +595,6 @@ namespace zutty {
       }
       else
          jumpToNextTabStop ();
-   }
-
-   inline void
-   Vterm::normalizePosition ()
-   {
-      if (posX == nCols)
-      {
-         inp_CR ();
-         inp_LF ();
-      }
    }
 
    inline void
@@ -798,7 +803,7 @@ namespace zutty {
       {
          posX = savedCursor_SCO.posX;
          posY = savedCursor_SCO.posY;
-         setCur ();
+         normalizeCursorPos ();
          savedCursor_SCO.isSet = false;
       }
       setState (InputState::Normal);
@@ -831,7 +836,7 @@ namespace zutty {
       {
          posX = savedCursor_DEC->posX;
          posY = savedCursor_DEC->posY;
-         setCur ();
+         normalizeCursorPos ();
          attrs = savedCursor_DEC->attrs;
          autoWrapMode = savedCursor_DEC->autoWrapMode;
          originMode = savedCursor_DEC->originMode;

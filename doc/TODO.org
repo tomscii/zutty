@@ -1,7 +1,29 @@
 * Vt support
 
+** Cursor support
+- proper cursor support (distinct from inverse flag)
+  GL uniform variable for cursor color, style and position
+  (alleviates the need for a per-cell bit containing cursor info)
+
+** Misc features
 - set window title
-- X-clipboard / primary selection / copy-paste
-  (OSC sequences)
+- X-clipboard / primary selection / copy-paste (OSC sequences)
 - mouse support
 - more general font support (test w/SourceCodePro)
+
+** Cleanup & polish
+- UTF-8 decoder correctness (consult UTF-8-test.txt)
+- logging
+- configuration (defaults -> config file -> command line opt)
+- support more options (command to run, etc)
+- environment setup
+  - which shell to launch
+  - set envvars (a'la rxvt)
+    - TERM, COLORTERM, COLORFGBG
+    - WINDOWID
+    - DISPLAY
+- benchmark and perf optimization
+
+** Documentation
+- design
+- benchmarks and comparisons
