@@ -20,6 +20,11 @@
 
 namespace zutty {
 
+   // The glyph to display instead of valid codes with no available glyph
+   constexpr const uint16_t Missing_Glyph_Marker = 0x0000;
+   // The "question mark" to display in place of invalid/unsupported unicode
+   constexpr const uint16_t Unicode_Replacement_Character = 0xfffd;
+
    class CharVdev
    {
    public:

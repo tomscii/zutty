@@ -465,10 +465,23 @@ namespace zutty {
    }
 
    inline void
+   Vterm::utf8_check_premature_EOS ()
+   {
+      if (utf8_rem > 0)
+      {
+         utf8_rem = 0;
+         utf8_valid = false;
+         placeGraphicChar ();
+      }
+   }
+
+   inline void
    Vterm::inputGraphicChar (unsigned char ch)
    {
       if ((ch & 0x80) == 0)
       {
+         utf8_check_premature_EOS ();
+
          // GL range
          Charset cs;
          if (charsetState.ss)
@@ -487,7 +500,10 @@ namespace zutty {
             unicode_cp = 0;
 
          if (unicode_cp)
+         {
+            utf8_valid = true;
             placeGraphicChar ();
+         }
       }
       else
       {
@@ -497,29 +513,67 @@ namespace zutty {
          {
             if ((ch >> 6) == 0x2) // 10xx'xxxx
             {
-               logT << "utf-8 sequence cont" << std::endl;
-               unicode_cp <<= 6;
-               unicode_cp += ch & 0x3f;
-               if (! --utf8_rem)
+               logT << "utf-8 sequence cont, utf8_rem=" << (int)utf8_rem
+                    << " utf8_valid=" << utf8_valid << std::endl;
+               if (utf8_rem > 0)
+               {
+                  if (utf8_rem > 1 && (!ch || (unicode_cp == 0 && ch < 0xa0)))
+                     utf8_valid = false; // reject overlong encodings
+                  unicode_cp <<= 6;
+                  unicode_cp += ch & 0x3f;
+                  --utf8_rem;
+               }
+               else
+                  utf8_valid = false; // unexpected UTF-8 continuation byte
+
+               if (utf8_rem == 0)
                   placeGraphicChar ();
             }
             else if ((ch >> 5) == 0x6) // 110x'xxxx
             {
+               utf8_check_premature_EOS ();
                logT << "utf-8 2-byte sequence" << std::endl;
                unicode_cp = ch & 0x1f;
                utf8_rem = 1;
+               utf8_valid = unicode_cp > 1; // reject overlong encodings
             }
             else if ((ch >> 4) == 0xe) // 1110'xxxx
             {
+               utf8_check_premature_EOS ();
                logT << "utf-8 3-byte sequence" << std::endl;
                unicode_cp = ch & 0x0f;
                utf8_rem = 2;
+               utf8_valid = true;
             }
             else if ((ch >> 3) == 0x1e) // 1111'0xxx
             {
+               utf8_check_premature_EOS ();
                logT << "utf-8 4-byte sequence" << std::endl;
                unicode_cp = ch & 0x07;
                utf8_rem = 3;
+               utf8_valid = false; // not supported
+            }
+            else if ((ch >> 2) == 0x3e) // 1111'10xx
+            {
+               utf8_check_premature_EOS ();
+               logT << "utf-8 5-byte sequence" << std::endl;
+               unicode_cp = ch & 0x03;
+               utf8_rem = 4;
+               utf8_valid = false; // not supported
+            }
+            else if ((ch >> 1) == 0x7e) // 1111'110x
+            {
+               utf8_check_premature_EOS ();
+               logT << "utf-8 6-byte sequence" << std::endl;
+               unicode_cp = ch & 0x01;
+               utf8_rem = 5;
+               utf8_valid = false; // not supported
+            }
+            else if (ch == 0xfe || ch == 0xff)
+            {
+               // illegal UTF-8 characters
+               utf8_valid = false;
+               placeGraphicChar ();
             }
          }
          else
@@ -530,7 +584,10 @@ namespace zutty {
                unicode_cp = 0;
 
             if (unicode_cp)
+            {
+               utf8_valid = true;
                placeGraphicChar ();
+            }
          }
       }
    }
@@ -556,7 +613,7 @@ namespace zutty {
 
       auto& c = (* cf) [cur];
       c = attrs;
-      c.uc_pt = unicode_cp;
+      c.uc_pt = utf8_valid ? unicode_cp : Unicode_Replacement_Character;
       advancePosition ();
     }
 

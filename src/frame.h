@@ -17,10 +17,10 @@ namespace zutty {
 
    class Frame {
    public:
-      Frame ();
+      explicit Frame ();
 
-      Frame (uint16_t winPx_, uint16_t winPy_,
-             uint16_t nCols_, uint16_t nRows_);
+      explicit Frame (uint16_t winPx_, uint16_t winPy_,
+                      uint16_t nCols_, uint16_t nRows_);
 
       void resize (uint16_t winPx_, uint16_t winPy_,
                    uint16_t nCols_, uint16_t nRows_);

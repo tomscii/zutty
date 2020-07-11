@@ -63,11 +63,11 @@ namespace zutty {
    class Vterm
    {
    public:
-      Vterm () = default;
+      explicit Vterm () = default;
 
-      Vterm (uint16_t glyphPx, uint16_t glyphPy,
-             uint16_t winPx, uint16_t winPy,
-             uint16_t borderPx, int ptyFd);
+      explicit Vterm (uint16_t glyphPx, uint16_t glyphPy,
+                      uint16_t winPx, uint16_t winPy,
+                      uint16_t borderPx, int ptyFd);
 
       ~Vterm () = default;
 
@@ -265,6 +265,7 @@ namespace zutty {
       uint32_t inputOps [maxEscOps];
       size_t nInputOps = 0;
       uint16_t unicode_cp = 0;
+      bool utf8_valid = false;
       uint8_t utf8_rem = 0;
       std::vector <unsigned char> argBuf;
       unsigned char scsDst;  // Select charset / destination designator
@@ -346,6 +347,8 @@ namespace zutty {
 
       void switchColMode (ColMode colMode);
       void switchScreenBufferMode (bool altScreenBufferMode);
+
+      void utf8_check_premature_EOS ();
    };
 
 } // namespace zutty

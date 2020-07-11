@@ -293,8 +293,30 @@ namespace zutty {
       // Setup atlas mapping texture
       auto atlasMap = std::vector <uint8_t> ();
       atlasMap.resize (2 * 256 * 256, 0);
+
+      // Pre-fill the mapping texture with references to "missing glyph"
+      // and "replacement character" glyphs, if available in the font atlas.
+      const auto itEnd = priFont.getAtlasMap ().end ();
+      auto rcIt = priFont.getAtlasMap ().find (Unicode_Replacement_Character);
+      if (rcIt == itEnd)
+         rcIt = priFont.getAtlasMap ().find (' ');
+      assert (rcIt != itEnd);
+      auto mgIt = priFont.getAtlasMap ().find (Missing_Glyph_Marker);
+      if (mgIt == itEnd)
+         mgIt = priFont.getAtlasMap ().find (' ');
+      assert (mgIt != itEnd);
+      for (int k = 0; k < 256 * 256; ++k)
+      {
+         const auto& apos =
+            ((k >= 0xd800 && k < 0xe000) || k >= 0xfffe)
+            ? rcIt->second
+            : mgIt->second;
+         atlasMap [2 * k] = apos.x;
+         atlasMap [2 * k + 1] = apos.y;
+      }
+
+      // Fill the mapping texture with supported characters
       auto it = priFont.getAtlasMap ().begin ();
-      auto itEnd = priFont.getAtlasMap ().end ();
       for (; it != itEnd; ++it)
       {
          atlasMap [2 * it->first] = it->second.x;

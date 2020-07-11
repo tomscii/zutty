@@ -701,6 +701,7 @@ namespace zutty {
             case ']': argBuf.clear (); setState (InputState::OSC); break;
             case '(': case ')': case '*': case '+':
             case '-': case '.': case '/':
+            case ',': case '$': // from ISO/IEC 2022 (absorbed, treat as no-op)
                scsDst = ch;
                scsMod = '\0';
                setState (InputState::SelectCharset);
