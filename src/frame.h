@@ -46,7 +46,7 @@ namespace zutty {
 
       CharVdev::Cursor cursor;
 
-      uint32_t scrollHead;   // scrolling area start of top row (abs. offset)
+      uint16_t scrollHead;   // scrolling area row offset of logical top row
       uint16_t marginTop;    // current margin top (number of rows above)
       uint16_t marginBottom; // current margin bottom (number of rows above + 1)
 

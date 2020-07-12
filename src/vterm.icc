@@ -1068,16 +1068,10 @@ namespace zutty {
       uint16_t arg = inputOps [0] ? inputOps [0] : 1;
       for (uint16_t k = 0; k < arg; ++k)
       {
-         cf->scrollHead += nCols;
-         if (cf->scrollHead == cf->marginBottom * nCols)
-         {
-            cf->scrollHead = cf->marginTop * nCols;
-            eraseRange ((cf->marginBottom - 1) * nCols, cf->marginBottom * nCols);
-         }
-         else
-         {
-            eraseRange (cf->scrollHead - nCols, cf->scrollHead);
-         }
+         ++cf->scrollHead;
+         if (cf->scrollHead == cf->marginBottom)
+            cf->scrollHead = cf->marginTop;
+         eraseRow (cf->marginBottom - 1);
       }
       setCur ();
       setState (InputState::Normal);
@@ -1090,11 +1084,11 @@ namespace zutty {
       uint16_t arg = inputOps [0] ? inputOps [0] : 1;
       for (uint16_t k = 0; k < arg; ++k)
       {
-         if (cf->scrollHead >= (cf->marginTop + 1u) * nCols)
-            cf->scrollHead -= nCols;
+         if (cf->scrollHead >= cf->marginTop + 1)
+            --cf->scrollHead;
          else
-            cf->scrollHead = (cf->marginBottom - 1u) * nCols;
-         eraseRange (cf->scrollHead, cf->scrollHead + nCols);
+            cf->scrollHead = cf->marginBottom - 1;
+         eraseRow (cf->marginTop);
       }
       setCur ();
       setState (InputState::Normal);
@@ -1305,7 +1299,7 @@ namespace zutty {
             cf->linearizeCellStorage ();
             cf->marginTop = newMarginTop;
             cf->marginBottom = newMarginBottom;
-            cf->scrollHead = cf->marginTop * nCols;
+            cf->scrollHead = cf->marginTop;
          }
       }
 

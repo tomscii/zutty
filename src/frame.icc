@@ -17,14 +17,14 @@ namespace zutty {
    inline uint32_t
    Frame::getIdx (uint16_t pY, uint16_t pX)
    {
-      if (pY < marginTop)
+      if (pY < marginTop || pY >= marginBottom)
          return nCols * pY + pX;
-      else if (pY < marginBottom)
-         return nCols * marginTop +
-            (scrollHead + (pY - 2 * marginTop) * nCols + pX) %
-            ((marginBottom - marginTop) * nCols);
-      else
-         return nCols * pY + pX;
+
+      pY += scrollHead - marginTop;
+      if (pY >= marginBottom)
+          pY -= marginBottom - marginTop;
+
+      return nCols * pY + pX;
    }
 
    inline CharVdev::Cell &

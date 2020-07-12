@@ -70,11 +70,11 @@ namespace zutty {
       memcpy (p, s, n * cellSize);
 
       p += n;
-      n = marginBottom * nCols - scrollHead;
-      memcpy (p, s + scrollHead, n * cellSize);
+      n = (marginBottom - scrollHead) * nCols;
+      memcpy (p, s + scrollHead * nCols, n * cellSize);
 
       p += n;
-      n = scrollHead - marginTop * nCols;
+      n = (scrollHead - marginTop) * nCols;
       memcpy (p, s + marginTop * nCols, n * cellSize);
 
       p += n;
@@ -88,7 +88,7 @@ namespace zutty {
       auto newCells = CharVdev::make_cells (nCols, nRows);
       copyCells (newCells.get ());
       cells = std::move (newCells);
-      scrollHead = marginTop * nCols;
+      scrollHead = marginTop;
    }
 
 } // namespace zutty
