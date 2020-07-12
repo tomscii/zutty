@@ -65,6 +65,8 @@ namespace zutty {
          auto ptr = std::shared_ptr <Cell> (new Cell [nRows * nCols],
                                             std::default_delete <Cell []> ());
          memset (ptr.get (), 0, nRows * nCols * sizeof (Cell));
+         for (int k = 0; k < nRows * nCols; ++k)
+            (ptr.get ()) [k].uc_pt = ' ';
          return ptr;
       }
 

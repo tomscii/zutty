@@ -42,6 +42,7 @@ static int win_width, win_height;
 static uint16_t geomCols = 80;
 static uint16_t geomRows = 25;
 static uint16_t borderPx = 2;
+static const char* title = "zutty";
 
 static std::unique_ptr <zutty::Font> priFont = nullptr;
 static std::unique_ptr <zutty::Font> altFont = nullptr;
@@ -153,8 +154,7 @@ resize (int width, int height)
  */
 static void
 make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
-               const char * name,
-               int x, int y, int width, int height,
+               const char * name, int width, int height,
                Window *winRet, EGLContext * ctxRet,
                EGLSurface * surfRet)
 {
@@ -244,11 +244,9 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
 
    {
       XSizeHints sizehints;
-      sizehints.x = x;
-      sizehints.y = y;
       sizehints.width  = width;
       sizehints.height = height;
-      sizehints.flags = USSize | USPosition;
+      sizehints.flags = USSize;
       XSetNormalHints (x_dpy, win, &sizehints);
       XSetStandardProperties (x_dpy, win, name, name,
                               None, nullptr, 0, &sizehints);
@@ -556,6 +554,8 @@ usage ()
              << geomCols << "x" << geomRows << ")\n"
              << "  -border <Pixels>         border width (default: "
              << borderPx << ")\n"
+             << "  -title <TITLE>           set window title (default: "
+             << title << ")\n"
              << "  -info                    display OpenGL renderer info\n"
              << "  -bench                   redraw continuously; report FPS"
              << std::endl;
@@ -653,6 +653,10 @@ main (int argc, char *argv[])
          borderPx = bw;
          ++i;
       }
+      else if (strcmp(argv[i], "-title") == 0) {
+         title = argv[i+1];
+         i++;
+      }
       else if (strcmp(argv[i], "-info") == 0) {
          printInfo = true;
       }
@@ -699,7 +703,7 @@ main (int argc, char *argv[])
    win_width = 2 * borderPx + geomCols * priFont->getPx ();
    win_height = 2 * borderPx + geomRows * priFont->getPy ();
 
-   make_x_window (x_dpy, egl_dpy, "zutty", 0, 0, win_width, win_height,
+   make_x_window (x_dpy, egl_dpy, title, win_width, win_height,
                   &win, &egl_ctx, &egl_surf);
 
    XMapWindow (x_dpy, win);
@@ -733,6 +737,8 @@ main (int argc, char *argv[])
    vt = std::make_unique <Vterm> (priFont->getPx (), priFont->getPy (),
                                   win_width, win_height, borderPx, pty_fd);
    vt->setRefreshHandler ([] (const Frame& f) { renderer->update (f); });
+   vt->setTitleHandler ([&] (const std::string& title)
+                        { XStoreName (x_dpy, win, title.c_str ()); });
 
    /* Force initialization.
     * We might not get a ConfigureNotify event when the window first appears.

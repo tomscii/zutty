@@ -246,7 +246,7 @@ namespace zutty {
    inline void
    Vterm::fillScreen (uint16_t ch)
    {
-      for (uint32_t k = 0; k < nRows * nCols; ++k)
+      for (int k = 0; k < nRows * nCols; ++k)
       {
          (* cf) [k] = attrs;
          (* cf) [k].uc_pt = ch;
@@ -1737,8 +1737,27 @@ namespace zutty {
    Vterm::handle_OSC ()
    {
       TRACE_FUN;
-      auto arg = std::string ((char*)argBuf.data (), argBuf.size ());
-      logU << "OSC: '" << arg << "'" << std::endl;
+      auto osc = std::string ((char*)argBuf.data (), argBuf.size ());
+      std::stringstream iss (osc);
+      int cmd;
+      char sep;
+      iss >> cmd >> sep;
+      if (iss.fail () || sep != ';')
+      {
+         logT << "OSC: malformed command string'" << osc << "'" << std::endl;
+      }
+      else
+      {
+         std::string arg = osc.substr (iss.tellg ());
+         switch (cmd)
+         {
+         case 0: case 2: setTitle (arg); break;
+         default:
+            logT << "OSC: unhandled command " << cmd << " in command string '"
+                 << osc << "'" <<std::endl;
+            break;
+         }
+      }
       setState (InputState::Normal);
    }
 

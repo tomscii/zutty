@@ -446,6 +446,7 @@ namespace zutty {
       , glyphPy (glyphPy_)
       , ptyFd (ptyFd_)
       , refreshVideo ([] (const Frame&) {})
+      , setTitle ([] (const std::string&) {})
       , frame_pri (winPx, winPy, nCols, nRows)
       , cf (&frame_pri)
    {
@@ -458,6 +459,13 @@ namespace zutty {
       const std::function <void (const Frame&)>& refreshVideo_)
    {
       refreshVideo = refreshVideo_;
+   }
+
+   void
+   Vterm::setTitleHandler (
+      const std::function <void (const std::string&)>& setTitle_)
+   {
+      setTitle = setTitle_;
    }
 
    void
@@ -735,6 +743,7 @@ namespace zutty {
             case '}': charsetState.gr = 2; setState (InputState::Normal); break;
             case 'o': charsetState.gl = 3; setState (InputState::Normal); break;
             case '|': charsetState.gr = 3; setState (InputState::Normal); break;
+            case '\\': setState (InputState::Normal); break; // ignore lone ST
             default: unhandledInput (ch); break;
             }
             break;

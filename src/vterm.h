@@ -74,6 +74,9 @@ namespace zutty {
       void setRefreshHandler (
          const std::function <void (const Frame&)>& refreshHandler);
 
+      void setTitleHandler (
+         const std::function <void (const std::string&)>& titleHandler);
+
       void resize (uint16_t winPx, uint16_t winPy);
 
       void redraw ();
@@ -233,6 +236,7 @@ namespace zutty {
       int ptyFd;
 
       std::function <void (const Frame&)> refreshVideo;
+      std::function <void (const std::string&)> setTitle;
 
       // Cell storage, display and input state
 

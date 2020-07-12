@@ -243,7 +243,7 @@ range (a-t). This is bug-compatible with Xterm!
 
 ** 11.8. XTERM special features
 
-- [ ] 3. Set window title
+- [X] 3. Set window title
 - [ ] 5. Mouse features
 - [X] 7. Alternate-Screen features
 
