@@ -5,18 +5,18 @@ source testbase.sh
 
 export VERIFY_SNAPS=no # Override profile setting
 
-CHECK_DEPS dc
-DICT=/usr/share/dict/british-english-huge
-CHECK_FILES ${DICT}
-TIMES=100
-BYTES=$(stat -c%s ${DICT})
+CHECK_DEPS dc zcat
+SCRIPT=vtscript.gz
+CHECK_FILES ${SCRIPT}
+TIMES=400
+BYTES=$(zcat ${SCRIPT} | wc -c)
 
-echo "Sending ${DICT} to the terminal." > ${TEST_LOG}
+echo "Sending ${SCRIPT} (uncompressed) to the terminal." > ${TEST_LOG}
 echo "Filesize: ${BYTES} bytes" >> ${TEST_LOG}
 echo "Repeated: ${TIMES} times" >> ${TEST_LOG}
 echo "Timings in seconds:" >> ${TEST_LOG}
 
-IN "{ time -p for i in \$(seq 1 ${TIMES}); do cat ${DICT}; done } 2>>${TEST_LOG} && touch .complete\r"
+IN "{ time -p for i in \$(seq 1 ${TIMES}); do zcat ${SCRIPT}; done } 2>>${TEST_LOG} && touch .complete\r"
 
 WAIT_FOR_DOT_COMPLETE
 

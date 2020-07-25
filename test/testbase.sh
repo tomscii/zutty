@@ -98,8 +98,9 @@ if [ ! -f "profiles/${PROFILE}.sh" ] ; then
     exit 1
 fi
 source "profiles/${PROFILE}.sh"
-echo "Running test ${TEST_NAME} with profile: ${PROFILE}"
+echo "Running test: ${TEST_NAME} with profile: ${PROFILE}"
 
+export TEST_LOG="$(pwd)/output/${PROFILE}/${TEST_NAME}.log"
 export UUT_LOG="$(pwd)/output/${PROFILE}/${TEST_NAME}.uut.log"
 export UUT_SNAP="$(pwd)/output/${PROFILE}"
 
@@ -133,6 +134,10 @@ fi
 # wait until window opens and grab its X window id
 WID=''
 while true ; do
+    if [[ -z "$(ps --no-header -o pid ${PID})" ]] ; then
+        echo "UUT process ${PID} gone, aborting."
+        exit 1
+    fi
     WID=$(wmctrl -lp | grep ${PID} | awk '{print $1}')
     [[ -z "${WID}" ]] || break
 done
@@ -140,12 +145,14 @@ echo "UUT X window id: ${WID}"
 
 # focus the window
 wmctrl -ia "${WID}"
-# set it to float (this is i3 specific)
-i3-msg floating enable > /dev/null;
+# set it to float (this is i3 specific):
+which i3-msg >/dev/null && i3-msg floating enable >/dev/null;
 
 function FINISH_TEST {
     # display process statistics
-    ps -o pid,vsz,rss,trs,sz,time,maj_flt,min_flt,cmd ${PID}
+    ps -o pid,vsz,rss,trs,sz,time,maj_flt,min_flt,cmd ${PID} | tee -a ${TEST_LOG}
+    pmap -x ${PID} >> ${TEST_LOG}
+    echo "Process memory map appended to ${TEST_LOG}"
     kill "${PID}"
     exit ${EXIT_CODE}
 }
