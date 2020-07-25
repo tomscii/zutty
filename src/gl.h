@@ -17,7 +17,11 @@
 
 #include <stdexcept>
 
+#ifdef DEBUG
 #define glCheckError() gl::CheckError_(__FILE__, __LINE__)
+#else
+#define glCheckError()
+#endif
 
 namespace gl {
 

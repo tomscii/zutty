@@ -27,8 +27,11 @@ namespace {
    using namespace zutty;
 
 #define LOG
-//#define LOG_TRACE
+
+#ifdef DEBUG
+#define LOG_TRACE
 //#define STEP_DEBUGGER
+#endif
 
 #ifdef LOG
    #define logE      std::cout << "Error: "
@@ -416,8 +419,10 @@ namespace zutty {
    inline void
    Vterm::eraseRange (uint32_t start, uint32_t end)
    {
-      for (uint32_t k = start; k < end; ++k)
-         (* cf) [k] = attrs;
+      CharVdev::Cell* ca = &((* cf) [start]);
+      CharVdev::Cell*const cz = ca - start + end;
+      while (ca < cz)
+         *ca++ = attrs;
    }
 
    inline void
@@ -495,7 +500,7 @@ namespace zutty {
          if (cs == Charset::UTF8)
             unicode_cp = ch < 127 ? ch : 0;
          else if (ch >= 32 && (cs == Charset::IsoLatin1 || ch < 127))
-            unicode_cp = charCodes [(uint8_t)cs - 1] [ch - 32];
+            unicode_cp = charCodes [(uint8_t)cs] [ch - 32];
          else
             unicode_cp = 0;
 
@@ -579,7 +584,7 @@ namespace zutty {
          else
          {
             if (ch >= 160 && (cs == Charset::IsoLatin1 || ch < 255))
-               unicode_cp = charCodes [(uint8_t)cs - 1] [ch - 160];
+               unicode_cp = charCodes [(uint8_t)cs] [ch - 160];
             else
                unicode_cp = 0;
 

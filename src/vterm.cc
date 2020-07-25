@@ -653,7 +653,6 @@ namespace zutty {
    void
    Vterm::processInput (unsigned char* input, int inputSize)
    {
-      readPos = 0;
       lastEscBegin = 0;
       lastNormalBegin = 0;
       lastStopPos = 0;
@@ -937,7 +936,7 @@ namespace zutty {
    const uint16_t* Vterm::charCodes [] =
    {
       // Sync this with enumerators of Charset!
-      // N.B.: skip UTF8 as that is handled differently.
+      nullptr, // Dummy slot for UTF-8 (handled differently)
       uc_DecSpec,
       uc_DecSuppl,
       uc_DecSuppl, // Slot for 'User-preferred supplemental'

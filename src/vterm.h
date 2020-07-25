@@ -258,7 +258,7 @@ namespace zutty {
       bool reverseVideo = false;
       bool hasFocus = false;
 
-      unsigned char inputBuf [4096];
+      unsigned char inputBuf [32 * 1024];
       int readPos = 0;
       int lastEscBegin = 0;
       int lastNormalBegin = 0;
@@ -327,7 +327,7 @@ namespace zutty {
       };
       CharsetState charsetState;
 
-      // address with Charset - 1; point to array of 96 unicode points:
+      // address with Charset; point to array of 96 unicode points:
       static const uint16_t* charCodes [];
 
       struct SavedCursor_SCO

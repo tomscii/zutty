@@ -6,6 +6,13 @@ out = 'build'
 
 def options(opt):
     opt.add_option(
+        '--debug',
+        action='store_true',
+        default=False,
+        dest='debug',
+        help='Compile-in debug facilities')
+
+    opt.add_option(
         '--no-werror',
         action='store_false',
         default=True,
@@ -23,7 +30,13 @@ def configure(cfg):
         '-std=c++14',
         '-g', '-ggdb',
         '-O2', '-march=native',
+        '-fno-omit-frame-pointer',
         '-fPIC', '-fsigned-char'])
+
+    if cfg.options.debug:
+        cfg.options.werror = False
+        cfg.env.append_value('CFLAGS', ['-DDEBUG'])
+        cfg.env.append_value('CXXFLAGS', ['-DDEBUG'])
 
     if cfg.options.werror:
         cfg.env.append_value('CFLAGS', ['-Werror'])

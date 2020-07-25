@@ -30,7 +30,7 @@ namespace zutty {
    inline CharVdev::Cell &
    Frame::operator [] (uint32_t idx)
    {
-#if 1 /* strict / debug */
+#ifdef DEBUG
       if (cells == nullptr)
          throw std::runtime_error ("cell accessor: no cell storage!");
 
