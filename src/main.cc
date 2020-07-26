@@ -347,7 +347,7 @@ convertKeyState (KeySym ks, unsigned int state)
 }
 
 static bool
-x11Event (XEvent& event, int pty_fd, bool& destroyed)
+x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed)
 {
    using Key = VtKey;
 
@@ -380,9 +380,30 @@ x11Event (XEvent& event, int pty_fd, bool& destroyed)
       return true;
    case KeyPress:
    {
-      char buffer[8];
+      XKeyEvent* e = (XKeyEvent *) (&event);
       KeySym ks;
-      XLookupString (&event.xkey, buffer, sizeof (buffer), &ks, nullptr);
+      char buffer [16];
+      const int avail = sizeof (buffer) - 1;
+      int nbytes = 0;
+
+      if (xic)
+      {
+         Status status;
+         nbytes = XmbLookupString (xic, e, buffer, avail, &ks, &status);
+         if (status == XBufferOverflow) {
+            std::cerr << "KeyPress event: buffer size " << sizeof (buffer)
+                      << " is too small for XmbLookupString, would have needed "
+                      << " a buffer with " << nbytes + 1 << " bytes."
+                      << std::endl;
+            break;
+         }
+      }
+      else
+      {
+         nbytes = XLookupString (&event.xkey, buffer, avail, &ks, nullptr);
+      }
+      buffer [nbytes] = '\0';
+
       VtModifier mod = convertKeyState (ks, event.xkey.state);
       switch (ks)
       {
@@ -485,8 +506,19 @@ x11Event (XEvent& event, int pty_fd, bool& destroyed)
 #undef KEYIGN
 
       default:
-         if (vt->writePty (buffer[0], mod) < 1)
-            return true;
+         if (! XFilterEvent (&event, e->window))
+         {
+            if (nbytes > 1)
+            {
+               if (vt->writePty (buffer) < nbytes)
+                  return true;
+            }
+            else
+            {
+               if (vt->writePty (buffer [0], mod) < 1)
+                  return true;
+            }
+         }
          break;
       }
    }
@@ -513,7 +545,7 @@ x11Event (XEvent& event, int pty_fd, bool& destroyed)
 }
 
 static bool
-eventLoop (Display *dpy, Window win, int pty_fd)
+eventLoop (Display *dpy, Window win, XIC& xic, int pty_fd)
 {
    int x11_fd = XConnectionNumber (dpy);
    std::cout << "x11_fd = " << x11_fd << std::endl;
@@ -538,7 +570,7 @@ eventLoop (Display *dpy, Window win, int pty_fd)
       bool destroyed = false;
       if (pollset[1].revents & POLLIN)
          if (XCheckWindowEvent (dpy, win, 0xffffffff, &event))
-            if (x11Event (event, pty_fd, destroyed))
+            if (x11Event (event, xic, pty_fd, destroyed))
                return destroyed;
    }
 }
@@ -604,17 +636,32 @@ printGLInfo (EGLDisplay egl_dpy)
 }
 
 int
-main (int argc, char *argv[])
+main (int argc, char* argv[])
 {
-   Display * x_dpy;
+   Display* x_dpy;
    Window win;
    EGLSurface egl_surf;
    EGLContext egl_ctx;
    EGLDisplay egl_dpy;
-   char * dpyName = nullptr;
+   char* dpyName = nullptr;
    bool printInfo = false;
    EGLint egl_major, egl_minor;
+   XIC xic = nullptr;
+   XIM xim;
+   XIMStyles* xim_styles;
+   XIMStyle xim_style = 0;
+   char* modifiers;
+   char* imvalret;
    int i;
+
+   {
+      const char* loc;
+      loc = setlocale (LC_ALL, "");
+      if (loc)
+         std::cout << "Locale: " << loc << std::endl;
+      else
+         std::cerr << "Warning: could not set locale" << std::endl;
+   }
 
    for (i = 1; i < argc; i++) {
       if (strcmp (argv[i], "-display") == 0) {
@@ -692,9 +739,51 @@ main (int argc, char *argv[])
       return -1;
    }
 
-   if (!eglInitialize (egl_dpy, &egl_major, &egl_minor)) {
+   if (!eglInitialize (egl_dpy, &egl_major, &egl_minor))
+   {
       std::cerr << "Error: eglInitialize() failed" << std::endl;
       return -1;
+   }
+
+   modifiers = XSetLocaleModifiers ("@im=none");
+   if (modifiers == nullptr)
+   {
+      std::cerr << "Error: XSetLocaleModifiers() failed" << std::endl;
+      return -1;
+   }
+
+   xim = XOpenIM (x_dpy, nullptr, nullptr, nullptr);
+   if (xim == nullptr)
+   {
+      std::cerr << "Warning: XOpenIM failed" << std::endl;
+   }
+
+   if (xim)
+   {
+      imvalret = XGetIMValues (xim, XNQueryInputStyle, &xim_styles, nullptr);
+      if (imvalret != nullptr || xim_styles == nullptr)
+      {
+         std::cerr << "No styles supported by input method" << std::endl;
+      }
+
+      if (xim_styles) {
+         xim_style = 0;
+         for (i = 0;  i < xim_styles->count_styles;  i++)
+         {
+            if (xim_styles->supported_styles [i] ==
+                (XIMPreeditNothing | XIMStatusNothing))
+            {
+               xim_style = xim_styles->supported_styles [i];
+               break;
+            }
+         }
+
+         if (xim_style == 0)
+         {
+            std::cerr << "Insufficient input method support" << std::endl;
+         }
+         XFree (xim_styles);
+      }
    }
 
    priFont = std::make_unique <zutty::Font> (fontpath + fontname + fontext);
@@ -707,6 +796,16 @@ main (int argc, char *argv[])
                   &win, &egl_ctx, &egl_surf);
 
    XMapWindow (x_dpy, win);
+
+   if (xim && xim_style) {
+      xic = XCreateIC (xim, XNInputStyle, xim_style,
+                       XNClientWindow, win, XNFocusWindow, win,
+                       nullptr);
+
+      if (xic == nullptr) {
+         std::cerr << "XCreateIC failed, compose key won't work" << std::endl;
+      }
+   }
 
    if (!eglMakeCurrent(egl_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT))
    {
@@ -745,7 +844,7 @@ main (int argc, char *argv[])
     */
    resize (win_width, win_height);
 
-   bool destroyed = eventLoop (x_dpy, win, pty_fd);
+   bool destroyed = eventLoop (x_dpy, win, xic, pty_fd);
 
    renderer = nullptr; // ~Renderer () shuts down renderer thread
 

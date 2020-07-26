@@ -3,6 +3,8 @@
 cd $(dirname $0)
 source testbase.sh
 
+CHECK_DEPS setxkbmap
+
 function INS_DEL_PGUPDN {
     IN "printf \"\\\\e[H\\\\e[J\" && cat -vT\r"
 
@@ -173,8 +175,106 @@ function ALT_SENDS_ESC {
     IN "printf \"\\\\e[12h\" && stty echo\r"
 }
 
+function COMPOSE_CHARS {
+
+    setxkbmap us -option compose
+
+    IN "printf \"\\\\e[H\\\\e[J\" && cat -vT\r"
+
+    IN "Testing composed characters:\D1"
+    IN " a"
+    IN " \[Multi_key]\'a"
+    IN " \[Multi_key]\"a"
+    IN " \[Multi_key]\`a"
+    IN " \[Multi_key]^a"
+    IN " \[Multi_key]~a"
+    IN " \[Multi_key]oa"
+    IN " A"
+    IN " \[Multi_key]\'A"
+    IN " \[Multi_key]\"A"
+    IN " \[Multi_key]\`A"
+    IN " \[Multi_key]^A"
+    IN " \[Multi_key]~A"
+    IN " \[Multi_key]oA"
+    IN " c"
+    IN " \[Multi_key],c"
+    IN " \[Multi_key]^c"
+    IN " \[Multi_key]oc"
+    IN " C"
+    IN " \[Multi_key],C"
+    IN " \[Multi_key]^C"
+    IN " e"
+    IN " \[Multi_key]\'e"
+    IN " \[Multi_key]\"e"
+    IN " \[Multi_key]\`e"
+    IN " \[Multi_key]^e"
+    IN " \[Multi_key]~e"
+    IN " \[Multi_key]oe"
+    IN " \[Multi_key]=e"
+    IN " E"
+    IN " \[Multi_key]\'E"
+    IN " \[Multi_key]\"E"
+    IN " \[Multi_key]\`E"
+    IN " \[Multi_key]^E"
+    IN " i"
+    IN " \[Multi_key]\'i"
+    IN " \[Multi_key]\"i"
+    IN " \[Multi_key]\`i"
+    IN " \[Multi_key].i"
+    IN " \[Multi_key]~i"
+    IN " \[Multi_key]^i"
+    IN " I"
+    IN " \[Multi_key]\'I"
+    IN " \[Multi_key]\"I"
+    IN " \[Multi_key]\`I"
+    IN " \[Multi_key].I"
+    IN " \[Multi_key]~I"
+    IN " \[Multi_key]^I"
+    IN " o"
+    IN " \[Multi_key]\'o"
+    IN " \[Multi_key]\"o"
+    IN " \[Multi_key]\`o"
+    IN " \[Multi_key]^o"
+    IN " \[Multi_key]~o"
+    IN " \[Multi_key]=o"
+    IN " O"
+    IN " \[Multi_key]\'O"
+    IN " \[Multi_key]\"O"
+    IN " \[Multi_key]\`O"
+    IN " \[Multi_key]^O"
+    IN " \[Multi_key]~O"
+    IN " \[Multi_key]=O"
+    IN " u"
+    IN " \[Multi_key]\'u"
+    IN " \[Multi_key]\"u"
+    IN " \[Multi_key]\`u"
+    IN " \[Multi_key]^u"
+    IN " \[Multi_key]~u"
+    IN " \[Multi_key]=u"
+    IN " U"
+    IN " \[Multi_key]\'U"
+    IN " \[Multi_key]\"U"
+    IN " \[Multi_key]\`U"
+    IN " \[Multi_key]^U"
+    IN " \[Multi_key]~U"
+    IN " \[Multi_key]=U"
+    IN " y"
+    IN " \[Multi_key]\"y"
+    IN " \[Multi_key].y"
+    IN " Y"
+    IN " \[Multi_key]\"Y"
+    IN " \[Multi_key].Y"
+    IN " \[Multi_key]=Y"
+    IN " \[Multi_key]or"
+    IN " \[Multi_key]!!"
+    IN " \[Multi_key]??"
+
+    SNAP keys_08 60554ad0c7ff32768f1536016cafde4d
+}
+
 INS_DEL_PGUPDN
 FUNCTION_KEYS
 CURSOR_KEYS
 KEYPAD_KEYS
 ALT_SENDS_ESC
+COMPOSE_CHARS
