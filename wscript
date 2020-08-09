@@ -45,6 +45,9 @@ def configure(cfg):
     cfg.check_cfg(package='freetype2', args=['--cflags', '--libs'],
                   uselib_store='FT')
 
+    cfg.check_cfg(package='xmu', args=['--cflags', '--libs'],
+                  uselib_store='XMU')
+
     cfg.recurse('src')
 
 def build(bld):

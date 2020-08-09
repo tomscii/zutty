@@ -14,9 +14,11 @@
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 
+#include "base64.h"
 #include "font.h"
 #include "pty.h"
 #include "renderer.h"
+#include "selmgr.h"
 #include "vterm.h"
 
 #include <cassert>
@@ -48,6 +50,7 @@ static std::unique_ptr <zutty::Font> priFont = nullptr;
 static std::unique_ptr <zutty::Font> altFont = nullptr;
 static std::unique_ptr <Renderer> renderer = nullptr;
 static std::unique_ptr <Vterm> vt = nullptr;
+static std::unique_ptr <SelectionManager> selMgr = nullptr;
 
 //#define DEMO
 #ifdef DEMO
@@ -210,8 +213,9 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
    attr.background_pixel = 0;
    attr.border_pixel = 0;
    attr.colormap = XCreateColormap (x_dpy, root, visInfo->visual, AllocNone);
-   attr.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask |
-      FocusChangeMask;
+   attr.event_mask = StructureNotifyMask | ExposureMask | FocusChangeMask |
+      PropertyChangeMask | KeyPressMask | ButtonPressMask | ButtonReleaseMask |
+      Button1MotionMask | Button3MotionMask;
    mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
 
    win = XCreateWindow (x_dpy, root, 0, 0, width, height,
@@ -347,13 +351,18 @@ convertKeyState (KeySym ks, unsigned int state)
 }
 
 static bool
-x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed)
+x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed, bool& holdPtyIn)
 {
    using Key = VtKey;
 
    static bool exposed = false;
    bool redraw = false;
    destroyed = false;
+
+   // cycle selection SnapTo behaviour based on double/triple clicks
+   constexpr const static int Multi_Click_Threshold_Ms = 250;
+   static Time lastButtonReleasedAt = 0;
+   static unsigned int lastButtonReleased = 0;
 
    switch (event.type) {
    case Expose:
@@ -380,7 +389,6 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed)
       return true;
    case KeyPress:
    {
-      XKeyEvent* e = (XKeyEvent *) (&event);
       KeySym ks;
       char buffer [16];
       const int avail = sizeof (buffer) - 1;
@@ -389,7 +397,7 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed)
       if (xic)
       {
          Status status;
-         nbytes = XmbLookupString (xic, e, buffer, avail, &ks, &status);
+         nbytes = XmbLookupString (xic, &event.xkey, buffer, avail, &ks, &status);
          if (status == XBufferOverflow) {
             std::cerr << "KeyPress event: buffer size " << sizeof (buffer)
                       << " is too small for XmbLookupString, would have needed "
@@ -403,6 +411,22 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed)
          nbytes = XLookupString (&event.xkey, buffer, avail, &ks, nullptr);
       }
       buffer [nbytes] = '\0';
+
+      // Special key combinations that are handled by Zutty itself:
+      if ((ks == XK_Insert || ks == XK_KP_Insert) &&
+          event.xkey.state == ShiftMask)
+      {
+         selMgr->getSelection (event.xkey.time,
+                               [] (const std::string& s)
+                               { vt->pasteSelection (s); });
+         break;
+      }
+      if ((ks == XK_space || ks == XK_KP_Space) &&
+          (event.xkey.state & (Button1Mask | Button3Mask)))
+      {
+         vt->selectRectangularModeToggle ();
+         break;
+      }
 
       VtModifier mod = convertKeyState (ks, event.xkey.state);
       switch (ks)
@@ -506,7 +530,7 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed)
 #undef KEYIGN
 
       default:
-         if (! XFilterEvent (&event, e->window))
+         if (! XFilterEvent (&event, event.xkey.window))
          {
             if (nbytes > 1)
             {
@@ -526,11 +550,72 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed)
    break;
    case KeyRelease:
       break;
+   case ButtonPress:
+   {
+      bool cycleSnapTo =
+         event.xbutton.button == lastButtonReleased &&
+         event.xbutton.time - lastButtonReleasedAt < Multi_Click_Threshold_Ms;
+      switch (event.xbutton.button)
+      {
+      case 1:
+         vt->selectStart (event.xbutton.x, event.xbutton.y, cycleSnapTo);
+         holdPtyIn = true;
+         break;
+      case 3:
+         vt->selectExtend (event.xbutton.x, event.xbutton.y, cycleSnapTo);
+         holdPtyIn = true;
+         break;
+      default:
+         break;
+      }
+   }
+      break;
+   case ButtonRelease:
+   {
+      lastButtonReleased = event.xbutton.button;
+      lastButtonReleasedAt = event.xbutton.time;
+      switch (event.xbutton.button)
+      {
+      case 1: case 3:
+      {
+         std::string utf8_sel;
+         holdPtyIn = false;
+         if (vt->selectFinish (utf8_sel))
+            selMgr->setSelection (event.xbutton.time, utf8_sel);
+      }
+      break;
+      case 2:
+         selMgr->getSelection (event.xbutton.time,
+                               [] (const std::string& s)
+                               { vt->pasteSelection (s); });
+         break;
+      case 4: std::cout << "Mouse wheel up" << std::endl; break;
+      case 5: std::cout << "Mouse wheel down" << std::endl; break;
+         break;
+      }
+   }
+      break;
+   case MotionNotify:
+      vt->selectUpdate (event.xmotion.x, event.xmotion.y);
+      break;
    case FocusIn:
       vt->setHasFocus (true);
       break;
    case FocusOut:
       vt->setHasFocus (false);
+      break;
+   case PropertyNotify:
+      selMgr->onPropertyNotify (event.xproperty);
+      break;
+   case SelectionClear:
+      vt->selectClear ();
+      selMgr->onSelectionClear (event.xselectionclear);
+      break;
+   case SelectionNotify:
+      selMgr->onSelectionNotify (event.xselection);
+      break;
+   case SelectionRequest:
+      selMgr->onSelectionRequest (event.xselectionrequest);
       break;
    default:
       std::cout << "X event.type = " << event.type << std::endl;
@@ -545,7 +630,7 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed)
 }
 
 static bool
-eventLoop (Display *dpy, Window win, XIC& xic, int pty_fd)
+eventLoop (Display* dpy, Window win, XIC& xic, int pty_fd)
 {
    int x11_fd = XConnectionNumber (dpy);
    std::cout << "x11_fd = " << x11_fd << std::endl;
@@ -556,7 +641,9 @@ eventLoop (Display *dpy, Window win, XIC& xic, int pty_fd)
       {x11_fd, POLLIN, 0},
    };
 
+   bool holdPtyIn = false;
    while (1) {
+      pollset [0].fd = holdPtyIn ? -pty_fd : pty_fd;
       if (poll (pollset, 2, -1) < 0)
          return false;
 
@@ -566,12 +653,62 @@ eventLoop (Display *dpy, Window win, XIC& xic, int pty_fd)
       if (pollset[0].revents & POLLIN)
          vt->readPty ();
 
-      XEvent event;
-      bool destroyed = false;
       if (pollset[1].revents & POLLIN)
-         if (XCheckWindowEvent (dpy, win, 0xffffffff, &event))
-            if (x11Event (event, xic, pty_fd, destroyed))
+         while (XPending (dpy))
+         {
+            XEvent event;
+            bool destroyed = false;
+
+            XNextEvent (dpy, &event);
+            if (x11Event (event, xic, pty_fd, destroyed, holdPtyIn))
                return destroyed;
+         }
+   }
+}
+
+static void
+handleOsc (Display* dpy, Window win, int cmd, const std::string& arg)
+{
+   switch (cmd)
+   {
+   case 0: // Change Icon Name & Window Title
+   case 2: // Change Window Title
+      XStoreName (dpy, win, arg.c_str ());
+      break;
+   case 52: // Manipulate Selection Data
+   {
+      std::size_t p = arg.find_first_of(";");
+      if (p == std::string::npos)
+      {
+         logT << "Malformed argument to OSC 52 (missing ';'): '"
+              << arg << "'" << std::endl;
+         break;
+      }
+      std::string pc = arg.substr (0, p); // Currently not used
+      std::string pd = arg.substr (p + 1);
+      logT << "OSC 52: pc='" << pc << "', pd='" << pd << "'" << std::endl;
+
+      if (pd == "?")
+      {
+         selMgr->getSelection (
+            CurrentTime,
+            [] (const std::string& s)
+            {
+               std::ostringstream oss;
+               oss << "\e]52;;" << zutty::base64::encode (s) << "\e\\";
+               vt->writePty (oss.str ().c_str ());
+            });
+      }
+      else
+      {
+         std::string sel = zutty::base64::decode (pd);
+         selMgr->setSelection (CurrentTime, sel);
+      }
+   }
+      break;
+   default:
+      std::cout << "unhandled OSC: '" << cmd << ";" << arg << "'" << std::endl;
+      break;
    }
 }
 
@@ -661,6 +798,11 @@ main (int argc, char* argv[])
          std::cout << "Locale: " << loc << std::endl;
       else
          std::cerr << "Warning: could not set locale" << std::endl;
+
+      if (!loc || !strstr (loc, "UTF-8"))
+         std::cout << "Warning: missing or non-UTF-8 locale, expect broken "
+                   << "international characters (or fix your locale)!"
+                   << std::endl;
    }
 
    for (i = 1; i < argc; i++) {
@@ -813,6 +955,8 @@ main (int argc, char* argv[])
       return -1;
    }
 
+   selMgr = std::make_unique <SelectionManager> (x_dpy, win);
+
    renderer = std::make_unique <Renderer> (
       * priFont.get (),
       * altFont.get (),
@@ -836,8 +980,8 @@ main (int argc, char* argv[])
    vt = std::make_unique <Vterm> (priFont->getPx (), priFont->getPy (),
                                   win_width, win_height, borderPx, pty_fd);
    vt->setRefreshHandler ([] (const Frame& f) { renderer->update (f); });
-   vt->setTitleHandler ([&] (const std::string& title)
-                        { XStoreName (x_dpy, win, title.c_str ()); });
+   vt->setOscHandler ([&] (int cmd, const std::string& arg)
+                      { handleOsc (x_dpy, win, cmd, arg); });
 
    /* Force initialization.
     * We might not get a ConfigureNotify event when the window first appears.

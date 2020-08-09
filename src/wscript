@@ -9,9 +9,9 @@ def options(opt):
 def configure(cfg):
     cfg.load('compiler_cxx')
     cfg.env.append_value('LINKFLAGS',
-                         ['-lGLESv2', '-lEGL', '-lX11', '-lm', '-lpthread'])
+                         ['-lGLESv2', '-lEGL', '-lm', '-lpthread'])
 
 def build(bld):
     src = bld.path.ant_glob('*.cc')
     bld.program(features='cxx', source=src, target='zutty',
-                use=['FT'])
+                use=['FT', 'XMU'])

@@ -12,6 +12,7 @@
 #pragma once
 
 #include "font.h"
+#include "geometry.h"
 #include "gl.h"
 
 #include <cstdint>
@@ -46,15 +47,18 @@ namespace zutty {
 
       struct Cell
       {
-         uint16_t uc_pt;
+         uint16_t uc_pt = ' ';
          uint8_t bold: 1;
          uint8_t underline: 1;
          uint8_t inverse: 1;
          uint16_t _fill0: 13;
-         Color fg;
+         Color fg = {255, 255, 255};
          uint8_t _fill1;
-         Color bg;
+         Color bg = {0, 0, 0};
          uint8_t _fill2;
+
+         // For the lack of bitfield initializers:
+         Cell (): bold (0), underline (0), inverse (0) {}
 
          using Ptr = std::shared_ptr <Cell>;
       };
@@ -62,12 +66,8 @@ namespace zutty {
 
       static Cell::Ptr make_cells (uint16_t nCols, uint16_t nRows)
       {
-         auto ptr = std::shared_ptr <Cell> (new Cell [nRows * nCols],
-                                            std::default_delete <Cell []> ());
-         memset (ptr.get (), 0, nRows * nCols * sizeof (Cell));
-         for (int k = 0; k < nRows * nCols; ++k)
-            (ptr.get ()) [k].uc_pt = ' ';
-         return ptr;
+         return std::shared_ptr <Cell> (new Cell [nRows * nCols],
+                                        std::default_delete <Cell []> ());
       }
 
       struct Mapping
@@ -97,7 +97,8 @@ namespace zutty {
          Style style = Style::hidden;
       };
 
-      void setCursor (const Cursor& cursor_);
+      void setCursor (const Cursor& cursor);
+      void setSelection (const Rect& selection);
 
    private:
       uint16_t nCols;
@@ -113,7 +114,9 @@ namespace zutty {
       GLuint T_output = 0;
       GLint A_pos, A_vertexTexCoord;
       GLint compU_glyphPixels, compU_sizeChars, compU_cursorColor;
-      GLint compU_cursorPos, compU_cursorStyle, drawU_viewPixels;
+      GLint compU_cursorPos, compU_cursorStyle;
+      GLint compU_selectRect, compU_selectRectMode;
+      GLint drawU_viewPixels;
 
       const Font& priFont;
       const Font& altFont;

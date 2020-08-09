@@ -434,6 +434,18 @@ namespace {
 
 namespace zutty {
 
+   const uint16_t* Vterm::charCodes [] =
+   {
+      // Sync this with enumerators of Charset!
+      nullptr, // Dummy slot for UTF-8 (handled differently)
+      uc_DecSpec,
+      uc_DecSuppl,
+      uc_DecSuppl, // Slot for 'User-preferred supplemental'
+      uc_DecTechn,
+      uc_IsoLatin1,
+      uc_IsoUK
+   };
+
    Vterm::Vterm (uint16_t glyphPx_, uint16_t glyphPy_,
                  uint16_t winPx_, uint16_t winPy_,
                  uint16_t borderPx_, int ptyFd_)
@@ -445,8 +457,9 @@ namespace zutty {
       , glyphPx (glyphPx_)
       , glyphPy (glyphPy_)
       , ptyFd (ptyFd_)
-      , refreshVideo ([] (const Frame&) {})
-      , setTitle ([] (const std::string&) {})
+      , onRefresh ([] (const Frame&) {})
+      , onOsc ([] (int cmd, const std::string& arg)
+               { logU << "OSC: '" << cmd << ";" << arg << "'" << std::endl; })
       , frame_pri (winPx, winPy, nCols, nRows)
       , cf (&frame_pri)
    {
@@ -455,17 +468,15 @@ namespace zutty {
    }
 
    void
-   Vterm::setRefreshHandler (
-      const std::function <void (const Frame&)>& refreshVideo_)
+   Vterm::setRefreshHandler (const RefreshHandlerFn& onRefresh_)
    {
-      refreshVideo = refreshVideo_;
+      onRefresh = onRefresh_;
    }
 
    void
-   Vterm::setTitleHandler (
-      const std::function <void (const std::string&)>& setTitle_)
+   Vterm::setOscHandler (const OscHandlerFn& onOsc_)
    {
-      setTitle = setTitle_;
+      onOsc = onOsc_;
    }
 
    void
@@ -933,16 +944,262 @@ namespace zutty {
       redraw ();
    }
 
-   const uint16_t* Vterm::charCodes [] =
+   void
+   Vterm::selectStart (int pX, int pY, bool cycleSnapTo)
    {
-      // Sync this with enumerators of Charset!
-      nullptr, // Dummy slot for UTF-8 (handled differently)
-      uc_DecSpec,
-      uc_DecSuppl,
-      uc_DecSuppl, // Slot for 'User-preferred supplemental'
-      uc_DecTechn,
-      uc_IsoLatin1,
-      uc_IsoUK
-   };
+      logT << "selectStart (" << pX << "," << pY
+           << "), cycleSnapTo=" << cycleSnapTo << std::endl;
+
+      if (cycleSnapTo)
+      {
+         selectExtend (pX, pY, true);
+         return;
+      }
+
+      pX = std::min (std::max (0, pX), (int)winPx);
+      pY = std::min (std::max (0, pY), (int)winPy);
+      Point pt (pX / glyphPx, pY / glyphPy);
+
+      selection.tl = pt;
+      selection.br = selection.tl;
+      selectSnapTo = SelectSnapTo::Char;
+      selectUpdatesTop = false;
+      selectUpdatesLeft = false;
+
+      hideCursor ();
+      redraw ();
+   }
+
+   void
+   Vterm::selectExtend (int pX, int pY, bool cycleSnapTo)
+   {
+      logT << "selectExtend (" << pX << "," << pY
+           << "), cycleSnapTo=" << cycleSnapTo << std::endl;
+
+      pX = std::min (std::max (0, pX), (int)winPx);
+      pY = std::min (std::max (0, pY), (int)winPy);
+      Point pt (pX / glyphPx, pY / glyphPy);
+
+      if (cycleSnapTo)
+         cycleSelectSnapTo (selectSnapTo);
+
+      if (selection.rectangular)
+      {
+         selectUpdatesLeft = pt.x < selection.mid ().x;
+         selectUpdatesTop = pt.y < selection.mid ().y;
+      }
+      else
+         selectUpdatesLeft = selectUpdatesTop = pt < selection.mid ();
+
+      if (selectUpdatesTop && selectUpdatesLeft)
+         selection.tl = pt;
+      else if (selectUpdatesTop)
+      {
+         selection.br.x = pt.x;
+         selection.tl.y = pt.y;
+      }
+      else if (selectUpdatesLeft)
+      {
+         selection.tl.x = pt.x;
+         selection.br.y = pt.y;
+      }
+      else
+         selection.br = pt;
+
+      hideCursor ();
+      redraw ();
+   }
+
+   void
+   Vterm::selectUpdate (int pX, int pY)
+   {
+      logT << "selectUpdate (" << pX << "," << pY << ")" << std::endl;
+
+      pX = std::min (std::max (0, pX), (int)winPx);
+      pY = std::min (std::max (0, pY), (int)winPy);
+      Point pt (pX / glyphPx, pY / glyphPy);
+
+      if (selection.rectangular)
+      {
+         if (selectUpdatesLeft && pt.x > selection.br.x)
+         {
+            std::swap (selection.tl.x, selection.br.x);
+            selectUpdatesLeft = false;
+         }
+         else if (!selectUpdatesLeft && pt.x < selection.tl.x)
+         {
+            std::swap (selection.tl.x, selection.br.x);
+            selectUpdatesLeft = true;
+         }
+
+         if (selectUpdatesTop && pt.y > selection.br.y)
+         {
+            std::swap (selection.tl.y, selection.br.y);
+            selectUpdatesTop = false;
+         }
+         else if (!selectUpdatesTop && pt.y < selection.tl.y)
+         {
+            std::swap (selection.tl.y, selection.br.y);
+            selectUpdatesTop = true;
+         }
+
+         if (selectUpdatesTop && selectUpdatesLeft)
+            selection.tl = pt;
+         else if (selectUpdatesTop)
+         {
+            selection.br.x = pt.x;
+            selection.tl.y = pt.y;
+         }
+         else if (selectUpdatesLeft)
+         {
+            selection.tl.x = pt.x;
+            selection.br.y = pt.y;
+         }
+         else
+            selection.br = pt;
+      }
+      else if (selectUpdatesTop)
+      {
+         if (selection.br < pt)
+         {
+            selection.tl = selection.br;
+            selection.br = pt;
+            selectUpdatesTop = selectUpdatesLeft = false;
+         }
+         else
+         {
+            selection.tl = pt;
+         }
+      }
+      else
+      {
+         if (pt < selection.tl)
+         {
+            selection.br = selection.tl;
+            selection.tl = pt;
+            selectUpdatesTop = selectUpdatesLeft = true;
+         }
+         else
+         {
+            selection.br = pt;
+         }
+      }
+      redraw ();
+   }
+
+   bool
+   Vterm::selectFinish (std::string& utf8_selection)
+   {
+      logT << "selectFinish ()" << std::endl;
+
+      showCursor ();
+      redraw ();
+
+      Rect& sel = cf->selection;
+      if (sel.empty ())
+         return false;
+
+      using utf16str = std::vector <uint16_t>;
+      std::vector <utf16str> lines;
+
+      // save lines from the selected range of the frame cell buffer
+      auto addLine =
+         [&] (uint16_t y, uint16_t x1, uint16_t x2)
+         {
+            utf16str line;
+            for (uint16_t x = x1; x < x2; ++x)
+               line.push_back (cf->getCell (y, x).uc_pt);
+            while (line.size () && line.back () == ' ')
+               line.pop_back (); // discard trailing whitespace
+            lines.push_back (line);
+         };
+
+      if (sel.br.y == nRows)
+      {
+         sel.br.y -= 1;
+         sel.br.x = nCols;
+      }
+
+      if (sel.tl.y == sel.br.y)
+      {
+         addLine (sel.tl.y, sel.tl.x, sel.br.x);
+      }
+      else if (sel.rectangular)
+      {
+         for (uint16_t y = sel.tl.y; y <= sel.br.y; ++y)
+            addLine (y, sel.tl.x, sel.br.x);
+      }
+      else
+      {
+         addLine (sel.tl.y, sel.tl.x, nCols);
+         for (uint16_t y = sel.tl.y + 1; y < sel.br.y; ++y)
+            addLine (y, 0, nCols);
+         addLine (sel.br.y, 0, sel.br.x);
+      }
+
+      // convert to UTF-8
+      std::vector <char> utf8_out;
+      for (const auto& u16s: lines)
+      {
+         for (uint16_t cp: u16s)
+         {
+            if (cp < 0x80)
+            {
+               utf8_out.push_back (cp);
+            }
+            else if (cp < 0x0800)
+            {
+               utf8_out.push_back ((cp >> 6) | 0xc0);
+               utf8_out.push_back ((cp & 0x3f) | 0x80);
+            }
+            else
+            {
+               utf8_out.push_back ((cp >> 12) | 0xe0);
+               utf8_out.push_back (((cp >> 6) & 0x3f) | 0x80);
+               utf8_out.push_back ((cp & 0x3f) | 0x80);
+            }
+         }
+         utf8_out.push_back ('\n');
+      }
+      while (utf8_out.size () && utf8_out.back () == '\n')
+         utf8_out.pop_back (); // discard trailing empty lines
+
+      utf8_selection = std::string (utf8_out.data (), utf8_out.size ());
+      return true;
+   }
+
+   void
+   Vterm::selectClear ()
+   {
+      logT << "selectClear ()" << std::endl;
+      selection.clear ();
+      redraw ();
+   }
+
+   void
+   Vterm::selectRectangularModeToggle ()
+   {
+      logT << "selectRectangularModeToggle ()" << std::endl;
+      selection.toggleRectangular ();
+      redraw ();
+   }
+
+   void
+   Vterm::pasteSelection (const std::string& utf8_selection)
+   {
+      std::ostringstream oss;
+
+      if (bracketedPasteMode)
+         oss << "\e[200~";
+
+      for (const auto ch: utf8_selection)
+         oss << (ch == '\n' ? '\r' : ch);
+
+      if (bracketedPasteMode)
+         oss << "\e[201~";
+
+      if (oss.str ().size ())
+         writePty (oss.str ().c_str ());
+   }
 
 } // namespace zutty

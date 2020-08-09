@@ -28,6 +28,12 @@ namespace zutty {
    }
 
    inline CharVdev::Cell &
+   Frame::getCell (uint16_t pY, uint16_t pX)
+   {
+      return operator [] (getIdx (pY, pX));
+   }
+
+   inline CharVdev::Cell &
    Frame::operator [] (uint32_t idx)
    {
 #ifdef DEBUG

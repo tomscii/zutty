@@ -28,6 +28,8 @@ uniform lowp ivec2 sizeChars;
 uniform lowp ivec3 cursorColor;
 uniform lowp ivec2 cursorPos;
 uniform lowp int cursorStyle;
+uniform lowp ivec4 selectRect;
+uniform lowp int selectRectMode;
 
 struct Cell
 {
@@ -68,9 +70,23 @@ void main ()
 
    vec3 crColor = vec3 (cursorColor) / 255.0;
 
+   if (selectRectMode == 1)
+   {
+      if (charPos.y >= selectRect.y && charPos.y <= selectRect.w &&
+          charPos.x >= selectRect.x && charPos.x < selectRect.z)
+         inverse ^= 1u;
+   }
+   else if ((charPos.y > selectRect.y && charPos.y < selectRect.w) ||
+       (charPos.y == selectRect.y && charPos.x >= selectRect.x &&
+        (charPos.y < selectRect.w || charPos.x < selectRect.z)) ||
+       (charPos.y == selectRect.w && charPos.x < selectRect.z &&
+        (charPos.y > selectRect.y || charPos.x > selectRect.x)))
+      inverse ^= 1u;
+
    if (inverse == uint (1)) {
-      fgColor = vec3 (1.0) - fgColor;
-      bgColor = vec3 (1.0) - bgColor;
+      vec3 tmp = fgColor;
+      fgColor = bgColor;
+      bgColor = tmp;
    }
    if (crColor == bgColor) {
       crColor = vec3 (1.0) - crColor;
@@ -374,10 +390,18 @@ namespace zutty {
    CharVdev::setCursor (const Cursor& cursor)
    {
       glUseProgram (P_compute);
-      glUniform3i (compU_cursorColor, cursor.color.red, cursor.color.green,
-                   cursor.color.blue);
+      glUniform3i (compU_cursorColor,
+                   cursor.color.red, cursor.color.green, cursor.color.blue);
       glUniform2i (compU_cursorPos, cursor.posX, cursor.posY);
       glUniform1i (compU_cursorStyle, static_cast <uint8_t> (cursor.style));
+   }
+
+   void
+   CharVdev::setSelection (const Rect& sel)
+   {
+      glUseProgram (P_compute);
+      glUniform4i (compU_selectRect, sel.tl.x, sel.tl.y, sel.br.x, sel.br.y);
+      glUniform1i (compU_selectRectMode, static_cast <int> (sel.rectangular));
    }
 
    void
@@ -460,6 +484,8 @@ namespace zutty {
       compU_cursorColor = glGetUniformLocation (P_compute, "cursorColor");
       compU_cursorPos = glGetUniformLocation (P_compute, "cursorPos");
       compU_cursorStyle = glGetUniformLocation (P_compute, "cursorStyle");
+      compU_selectRect = glGetUniformLocation (P_compute, "selectRect");
+      compU_selectRectMode = glGetUniformLocation (P_compute, "selectRectMode");
 
       std::cout << "compute program:"
                 << "\n  uniform glyphPixels at " << compU_glyphPixels
@@ -467,6 +493,8 @@ namespace zutty {
                 << "\n  uniform cursorColor at " << compU_cursorColor
                 << "\n  uniform cursorPos at " << compU_cursorPos
                 << "\n  uniform cursorStyle at " << compU_cursorStyle
+                << "\n  uniform selectRect at " << compU_selectRect
+                << "\n  uniform selectRectMode at " << compU_selectRectMode
                 << std::endl;
 
       P_draw = glCreateProgram ();

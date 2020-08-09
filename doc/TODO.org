@@ -1,7 +1,6 @@
 * Vt support
 
 ** Misc features
-- X-clipboard / primary selection / copy-paste (OSC sequences)
 - mouse support
 - more general font support (test: SourceCodePro, GNU Unifont, etc.)
 

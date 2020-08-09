@@ -133,6 +133,7 @@ namespace zutty {
          }
 
          charVdev->setCursor (lastFrame.cursor);
+         charVdev->setSelection (lastFrame.selection);
          charVdev->draw ();
          swapBuffers ();
 

@@ -71,11 +71,11 @@ namespace zutty {
 
       ~Vterm () = default;
 
-      void setRefreshHandler (
-         const std::function <void (const Frame&)>& refreshHandler);
+      using RefreshHandlerFn = std::function <void (const Frame&)>;
+      void setRefreshHandler (const RefreshHandlerFn&);
 
-      void setTitleHandler (
-         const std::function <void (const std::string&)>& titleHandler);
+      using OscHandlerFn = std::function <void (int, const std::string&)>;
+      void setOscHandler (const OscHandlerFn&);
 
       void resize (uint16_t winPx, uint16_t winPy);
 
@@ -95,6 +95,15 @@ namespace zutty {
       void readPty ();
 
       void setHasFocus (bool);
+
+      void selectStart (int pX, int pY, bool cycleSnapTo);
+      void selectExtend (int pX, int pY, bool cycleSnapTo);
+      void selectUpdate (int pX, int pY);
+      bool selectFinish (std::string& utf8_selection);
+      void selectClear ();
+      void selectRectangularModeToggle ();
+
+      void pasteSelection (const std::string& utf8_selection);
 
    private:
       void processInput (unsigned char* input, int size);
@@ -235,8 +244,8 @@ namespace zutty {
       uint16_t glyphPy;
       int ptyFd;
 
-      std::function <void (const Frame&)> refreshVideo;
-      std::function <void (const std::string&)> setTitle;
+      RefreshHandlerFn onRefresh;
+      OscHandlerFn onOsc;
 
       // Cell storage, display and input state
 
@@ -277,6 +286,8 @@ namespace zutty {
 
       VtModifier modifiers = VtModifier::none;
 
+      void utf8_check_premature_EOS ();
+
       // Terminal state - N.B.: keep resetTerminal () in sync with this!
 
       bool showCursorMode = true;
@@ -286,6 +297,7 @@ namespace zutty {
       bool insertMode = false;
       bool bkspSendsDel = true;
       bool localEcho = false;
+      bool bracketedPasteMode = false;
 
       std::vector <uint16_t> tabStops;
 
@@ -308,6 +320,9 @@ namespace zutty {
       enum class ColMode: uint8_t
       { C80, C132 };
       ColMode colMode = ColMode::C80;
+
+      void switchColMode (ColMode colMode);
+      void switchScreenBufferMode (bool altScreenBufferMode);
 
       enum class Charset: uint8_t // sync w/charCodes definition!
       { UTF8, DecSpec, DecSuppl, DecUserPref, DecTechn, IsoLatin1, IsoUK };
@@ -349,10 +364,25 @@ namespace zutty {
       SavedCursor_DEC savedCursor_DEC_alt;
       SavedCursor_DEC* savedCursor_DEC = &savedCursor_DEC_pri;
 
-      void switchColMode (ColMode colMode);
-      void switchScreenBufferMode (bool altScreenBufferMode);
+      // selection state
+      enum class SelectSnapTo: uint8_t
+      {
+         Char = 0, Word = 1, Line = 2
+      };
+      static void cycleSelectSnapTo (SelectSnapTo& snapTo)
+      {
+         snapTo = static_cast <SelectSnapTo> (
+            (static_cast <uint8_t> (snapTo) + 1) % 3);
+      }
 
-      void utf8_check_premature_EOS ();
+      Rect selection;
+      SelectSnapTo selectSnapTo = SelectSnapTo::Char;
+      bool selectUpdatesTop = false;
+      bool selectUpdatesLeft = false;
+
+      Rect snapSelection (Rect selection, SelectSnapTo snapTo);
+      void invalidateSelection (const Rect&& damage);
+      void vscrollSelection (int vertOffset);
    };
 
 } // namespace zutty

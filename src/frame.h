@@ -32,6 +32,7 @@ namespace zutty {
       void freeCells () { cells = nullptr; }
 
       uint32_t getIdx (uint16_t pY, uint16_t pX);
+      CharVdev::Cell & getCell (uint16_t pY, uint16_t pX);
       CharVdev::Cell & operator [] (uint32_t idx);
 
       void copyCells (uint32_t dstIx, uint32_t srcIx, uint32_t count);
@@ -45,7 +46,9 @@ namespace zutty {
       uint16_t nRows = 0;
 
       CharVdev::Cursor cursor;
+      Rect selection;
 
+      // Ideally, these should be private, but they are closely coupled to Vterm
       uint16_t scrollHead;   // scrolling area row offset of logical top row
       uint16_t marginTop;    // current margin top (number of rows above)
       uint16_t marginBottom; // current margin bottom (number of rows above + 1)

@@ -58,6 +58,62 @@ alternate).
 This might be useful for HiDPI displays and as an escape hatch for
 those presenting their screen to an audience.
 
+*** X-clipboard / primary selection / copy-paste support
+
+This is closely modeled after Xterm's functionality in this area.
+Zutty adds the ability to select rectangular areas (useful if the
+terminal is vertically split in e.g., emacs or tmux). Toggle with
+space key while a selection adjustment is in progress (left or right
+mouse button is held down).
+
+- btn_left down: clear selection and set start of new one here
+
+- movement while btn_left down: maintain selection between orig and
+  point
+
+- btn_left up: end selection here (if same as start pos, no
+  selection); set mark to current pos; set selection text from
+  highlighted area
+
+- btn_right down: if there is a current selection, choose the start or
+  end depending on which is nearer; make that end of the selection
+  jump to point. If there is no selection, create a new selection
+   between mark and point.
+
+- movement while btn_right down: maintain selection
+
+- btn_right up: stop following point with chosen selection endpoint,
+  set selection text from highlighted area
+
+- selectSnapTo is inherited from earlier if started with right click
+
+- double-click: select word; triple-click: select line.
+  multi-click is determined by time from mouse-up to mouse-down, the
+  button might be held down for an extended period, and the pointer
+  might move in between!
+
+- switch to rectangular selection on Space while a selection area
+  adjustment is in progress. In rectangular mode, effective snapTo
+  mode is always Char, but the original snapTo setting is preserved in
+  case the selection is toggled back to regular line-oriented mode.
+  Rectangular selection mode toggle is preserved even across different
+  selections.
+
+- on scroll or output changing the highlighted area: remove
+  highlighting (but continue to serve primary selection)
+
+- scroll with highlighted area intact: move highlight w/scroll area
+
+- terminal updates are held while mouse button left or right is down
+  (without spinning the cpu!)
+
+- Selection interface via OSC command sequences
+
+- btn_middle up, shift+Ins: request (if not the owner) and paste
+  selection content
+
+- support bracketed paste mode
+
 ** Textures
 
 *** Output image texture

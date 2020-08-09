@@ -58,7 +58,8 @@ namespace zutty {
 
       if (FT_Init_FreeType (&ft))
          throw std::runtime_error ("Could not initialize FreeType library");
-      std::cout << "Loading " << filename << " as overlay" << std::endl;
+      std::cout << "Loading " << filename << " as "
+                << (overlay ? "overlay" : "primary") << std::endl;
       if (FT_New_Face (ft, filename.c_str (), 0, &face))
          throw std::runtime_error (std::string ("Failed to load font ") + filename);
 

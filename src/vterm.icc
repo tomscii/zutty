@@ -170,7 +170,8 @@ namespace zutty {
    inline void
    Vterm::redraw ()
    {
-      refreshVideo (* cf);
+      cf->selection = snapSelection (selection, selectSnapTo);
+      onRefresh (* cf);
    }
 
    inline void
@@ -212,6 +213,7 @@ namespace zutty {
       insertMode = false;
       bkspSendsDel = true;
       localEcho = false;
+      bracketedPasteMode = false;
 
       compatLevel = CompatibilityLevel::VT400;
       cursorKeyMode = CursorKeyMode::ANSI;
@@ -223,6 +225,7 @@ namespace zutty {
       savedCursor_DEC->isSet = false;
 
       tabStops.clear ();
+      selection.clear ();
    }
 
    inline void
@@ -254,6 +257,78 @@ namespace zutty {
          (* cf) [k] = attrs;
          (* cf) [k].uc_pt = ch;
       }
+   }
+
+   inline void
+   Vterm::invalidateSelection (const Rect&& damage)
+   {
+      if (selection.empty ())
+         return;
+
+      const Rect& sel = cf->selection;
+      if (sel.br <= damage.tl || damage.br <= sel.tl)
+         return;
+
+      selection.clear ();
+   }
+
+   inline void
+   Vterm::vscrollSelection (int vertOffset)
+   {
+      if (selection.empty ())
+         return;
+
+      int y1 = selection.tl.y + vertOffset;
+      int y2 = selection.br.y + vertOffset;
+
+      if (y1 < cf->marginTop ||
+          y2 > cf->marginBottom ||
+          (y2 == cf->marginBottom && selection.br.x > 0))
+      {
+         selection.clear ();
+         return;
+      }
+
+      // N.B.: y-coord is snap-invariant; need to keep these in sync here
+      cf->selection.tl.y = selection.tl.y = y1;
+      cf->selection.br.y = selection.br.y = y2;
+   }
+
+   inline Rect
+   Vterm::snapSelection (Rect sel, SelectSnapTo snapTo)
+   {
+      if (sel.empty ())
+         return sel;
+
+      if (sel.rectangular)
+         return sel;
+
+      switch (snapTo)
+      {
+      case SelectSnapTo::Char:
+         break;
+      case SelectSnapTo::Word:
+         while (sel.tl.x < nCols &&
+                cf->getCell (sel.tl.y, sel.tl.x).uc_pt == ' ')
+            ++sel.tl.x;
+         while (sel.tl.x > 0 &&
+                cf->getCell (sel.tl.y, sel.tl.x - 1).uc_pt != ' ')
+            --sel.tl.x;
+
+         while (sel.br.x > 0 &&
+                cf->getCell (sel.br.y, sel.br.x).uc_pt == ' ')
+            --sel.br.x;
+         while (sel.br.x < nCols &&
+                cf->getCell (sel.br.y, sel.br.x).uc_pt != ' ')
+            ++sel.br.x;
+         break;
+      case SelectSnapTo::Line:
+         sel.tl.x = 0;
+         sel.br.x = nCols;
+         break;
+      default: break;
+      }
+      return sel;
    }
 
    inline void
@@ -302,6 +377,7 @@ namespace zutty {
          savedCursor_DEC_alt.isSet = false;
          savedCursor_DEC = &savedCursor_DEC_pri;
          altScreenBufferMode = false;
+         selection.clear ();
       }
    }
 
@@ -430,6 +506,7 @@ namespace zutty {
    {
       uint32_t idx = cf->getIdx (pY, 0);
       eraseRange (idx, idx + nCols);
+      invalidateSelection (Rect (0, pY, nCols, pY));
    }
 
    inline void
@@ -438,6 +515,7 @@ namespace zutty {
       uint32_t dstIdx = cf->getIdx (dstY, 0);
       uint32_t srcIdx = cf->getIdx (srcY, 0);
       cf->copyCells (dstIdx, srcIdx, nCols);
+      invalidateSelection (Rect (0, dstY, nCols, dstY));
    }
 
    // insert lines at and below posY, within the scrolling area
@@ -619,6 +697,7 @@ namespace zutty {
       auto& c = (* cf) [cur];
       c = attrs;
       c.uc_pt = utf8_valid ? unicode_cp : Unicode_Replacement_Character;
+      invalidateSelection (Rect (posX, posY));
       advancePosition ();
     }
 
@@ -789,6 +868,7 @@ namespace zutty {
          cf->moveCells (nCols * r, nCols * r + arg, nCols - arg);
          eraseRange (nCols * (r + 1) - arg, nCols * (r + 1));
       }
+      invalidateSelection (Rect (0, cf->marginTop, 0, cf->marginBottom));
       setState (InputState::Normal);
    }
 
@@ -804,6 +884,7 @@ namespace zutty {
          cf->moveCells (nCols * r + arg, nCols * r, nCols - arg);
          eraseRange (nCols * r, nCols * r + arg);
       }
+      invalidateSelection (Rect (0, cf->marginTop, 0, cf->marginBottom));
       setState (InputState::Normal);
    }
 
@@ -1071,6 +1152,7 @@ namespace zutty {
    {
       TRACE_FUN;
       uint16_t arg = inputOps [0] ? inputOps [0] : 1;
+      vscrollSelection (-arg);
       for (uint16_t k = 0; k < arg; ++k)
       {
          ++cf->scrollHead;
@@ -1087,6 +1169,7 @@ namespace zutty {
    {
       TRACE_FUN;
       uint16_t arg = inputOps [0] ? inputOps [0] : 1;
+      vscrollSelection (arg);
       for (uint16_t k = 0; k < arg; ++k)
       {
          if (cf->scrollHead >= cf->marginTop + 1)
@@ -1159,6 +1242,7 @@ namespace zutty {
       {
       case 0: // clear from cursor to end of screen
          eraseRange (cur, startOfNextLine ());
+         invalidateSelection (Rect (posX, posY, nCols, nRows));
          for (uint16_t pY = posY + 1; pY < nRows; ++pY)
             eraseRow (pY);
          break;
@@ -1166,10 +1250,12 @@ namespace zutty {
          for (uint16_t pY = 0; pY < posY; ++pY)
             eraseRow (pY);
          eraseRange (startOfThisLine (), cur + 1);
+         invalidateSelection (Rect (0, 0, posX + 1, posY));
          break;
       case 2: // clear entire screen
          for (uint16_t pY = 0; pY < nRows; ++pY)
             eraseRow (pY);
+         invalidateSelection (Rect (0, 0, nCols, nRows));
          break;
       default:
          logI << "Erase in Display with illegal param: "
@@ -1189,13 +1275,16 @@ namespace zutty {
       {
       case 0: // clear from cursor to end of line
          end = startOfNextLine ();
+         invalidateSelection (Rect (posX, posY, nCols, posY));
          break;
       case 1: // clear from cursor to beginning of line
          begin = startOfThisLine ();
+         invalidateSelection (Rect (0, posY, posX + 1, posY));
          break;
       case 2: // clear entire line
          begin = startOfThisLine ();
          end = startOfNextLine ();
+         invalidateSelection (Rect (0, posY, nCols, posY));
          break;
       default:
          logI << "Erase in Line with illegal param: "
@@ -1417,6 +1506,7 @@ namespace zutty {
          case 1047: switchScreenBufferMode (true); break;
          case 1048: esc_DECSC (); break;
          case 1049: esc_DECSC (); switchScreenBufferMode (true); break;
+         case 2004: bracketedPasteMode = true; break;
          default:
             logU << "set priv mode " << arg << std::endl;
             break;
@@ -1464,6 +1554,7 @@ namespace zutty {
          case 1047: switchScreenBufferMode (false); break;
          case 1048: esc_DECRC (); break;
          case 1049: switchScreenBufferMode (false); esc_DECRC (); break;
+         case 2004: bracketedPasteMode = false; break;
          default:
             logU << "reset priv mode " << arg << std::endl;
             break;
@@ -1750,11 +1841,10 @@ namespace zutty {
          std::string arg = osc.substr (iss.tellg ());
          switch (cmd)
          {
-         case 0: case 2: setTitle (arg); break;
-         default:
-            logT << "OSC: unhandled command " << cmd << " in command string '"
-                 << osc << "'" <<std::endl;
-            break;
+         // Add cases here for OSC commands internally handled by vterm
+
+         // Other cases handed over to external OSC handler:
+         default: onOsc (cmd, arg); break;
          }
       }
       setState (InputState::Normal);
