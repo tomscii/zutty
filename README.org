@@ -114,6 +114,26 @@ mouse button is held down).
 
 - support bracketed paste mode
 
+*** Shell resolution algorithm
+
+The algorithm to determine the shell program to run closely resembles
+Xterm behaviour and follows these steps:
+
+0. Start with the [shell] argument (the last argument given after all
+   valid options, if present).
+1. Try to construct an absolute path taking $PATH into account;
+   this includes resolving relative paths and trying elements of the
+   list of $PATH entries until it resolves to an existing file.
+2. Fall back on $SHELL, then the user's /etc/passwd shell entry
+3. Use /bin/sh as a last resort
+4. Validate the outcome of the above steps against the permitted shell
+   entries found in /etc/shells; clear $SHELL if the program is not
+   listed as a valid shell.
+
+Note that in case a [shell] argument is *not* given, the "zutty.shell"
+resource is consulted; if that is not set, the built-in default of
+/bin/bash is used.
+
 ** Textures
 
 *** Output image texture

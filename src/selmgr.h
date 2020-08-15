@@ -24,7 +24,7 @@ namespace zutty {
    class SelectionManager
    {
    public:
-      SelectionManager (Display*, Window);
+      SelectionManager (Display*, Window, Atom);
 
       using PasteCallbackFn = std::function <void (const std::string&)>;
       void getSelection (Time, PasteCallbackFn&&);

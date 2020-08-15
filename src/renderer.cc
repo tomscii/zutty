@@ -12,38 +12,6 @@
 #include "renderer.h"
 
 #include <cassert>
-#include <iostream>
-#include <stdexcept>
-#include <sys/time.h>
-
-namespace {
-
-   using namespace zutty;
-
-   uint64_t draw_count = 0;
-
-   void
-   benchDraw (CharVdev::Mapping& m)
-   {
-      CharVdev::Cell* cells = m.cells;
-      uint16_t nCols = m.nCols;
-      uint16_t nRows = m.nRows;
-
-      uint16_t cRow = nRows - 1;
-      uint16_t cCol = nCols - 1;
-      uint64_t cnt = ++draw_count;
-
-      while (cnt)
-      {
-         uint16_t digit = (cnt % 10) + '0';
-         cells [cRow * nCols + cCol].uc_pt = digit;
-         cells [cRow * nCols + cCol].fg = {255, 255, 255};
-         cells [cRow * nCols + cCol].bg = {0, 0, 0};
-         cnt /= 10;
-         --cCol;
-      }
-   }
-}
 
 namespace zutty {
 
@@ -51,11 +19,10 @@ namespace zutty {
                        const Font& altFont,
                        uint16_t borderPx,
                        const std::function <void ()>& initDisplay,
-                       const std::function <void ()>& swapBuffers_,
-                       bool benchmark)
+                       const std::function <void ()>& swapBuffers_)
       : swapBuffers {swapBuffers_}
       , thr {&Renderer::renderThread, this,
-             priFont, altFont, borderPx, initDisplay, benchmark}
+             priFont, altFont, borderPx, initDisplay}
    {
    }
 
@@ -83,24 +50,13 @@ namespace zutty {
    Renderer::renderThread (const Font& priFont,
                            const Font& altFont,
                            uint16_t borderPx,
-                           const std::function <void ()>& initDisplay,
-                           bool benchmark)
+                           const std::function <void ()>& initDisplay)
    {
       initDisplay ();
 
       charVdev = std::make_unique <CharVdev> (priFont, altFont, borderPx);
 
       Frame lastFrame;
-
-      int n_redraws = 0;
-      struct timeval tv;
-      struct timeval tv_next;
-      if (benchmark)
-      {
-         gettimeofday (&tv, nullptr);
-         tv_next = tv;
-         tv_next.tv_sec += 10;
-      }
 
       while (1)
       {
@@ -127,28 +83,12 @@ namespace zutty {
             assert (m.nRows == lastFrame.nRows);
 
             lastFrame.copyCells (m.cells);
-
-            if (benchmark)
-               benchDraw (m);
          }
 
          charVdev->setCursor (lastFrame.cursor);
          charVdev->setSelection (lastFrame.selection);
          charVdev->draw ();
          swapBuffers ();
-
-         if (benchmark)
-         {
-            ++n_redraws;
-            gettimeofday (&tv, nullptr);
-            if (tv.tv_sec >= tv_next.tv_sec)
-            {
-               tv = tv_next;
-               tv_next.tv_sec += 10;
-               std::cout << n_redraws << " redraws in 10 seconds" << std::endl;
-               n_redraws = 0;
-            }
-         }
       }
    }
 

@@ -16,6 +16,7 @@
 
 #include "base64.h"
 #include "font.h"
+#include "options.h"
 #include "pty.h"
 #include "renderer.h"
 #include "selmgr.h"
@@ -23,133 +24,35 @@
 
 #include <cassert>
 #include <iostream>
+#include <langinfo.h>
 #include <memory>
 #include <poll.h>
+#include <pwd.h>
 #include <sstream>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 using zutty::CharVdev;
 using zutty::Vterm;
 using zutty::Renderer;
 
-static bool benchMode = false;
-
 static const std::string fontpath = "/usr/share/fonts/X11/misc/";
 static const std::string fontext = ".pcf.gz";
-static std::string fontname = "9x18";
+static std::string fontname;
 
 static int win_width, win_height;
-static uint16_t geomCols = 80;
-static uint16_t geomRows = 25;
-static uint16_t borderPx = 2;
-static const char* title = "zutty";
+static uint16_t geomCols;
+static uint16_t geomRows;
+static uint16_t borderPx;
+static const char* title = nullptr;
 
 static std::unique_ptr <zutty::Font> priFont = nullptr;
 static std::unique_ptr <zutty::Font> altFont = nullptr;
 static std::unique_ptr <Renderer> renderer = nullptr;
 static std::unique_ptr <Vterm> vt = nullptr;
 static std::unique_ptr <SelectionManager> selMgr = nullptr;
-
-//#define DEMO
-#ifdef DEMO
-static void
-demo_draw (Vterm& vt)
-{
-   static uint32_t draw_count = 0;
-
-   CharVdev::Cell * cells = vt.cells.get ();
-   uint16_t nCols = vt.nCols;
-   uint16_t nRows = vt.nRows;
-
-   uint32_t nGlyphs = priFont->getSupportedCodes ().size ();
-   if (nGlyphs > nRows * nCols)
-      nGlyphs = nRows * nCols;
-   for (uint32_t k = 0; k < nGlyphs; ++k)
-   {
-      cells [k].bold = (draw_count >> 3) & 1;
-      cells [k].underline = (draw_count >> 4) & 1;
-      cells [k].inverse = ((draw_count >> 5) & 3) == 3;
-   }
-
-#if 0
-   for (int i = 0; i < 10; ++i)
-   {
-      uint16_t c1 = rand () % nCols;
-      uint16_t r1 = rand () % nRows;
-      uint16_t c2 = rand () % nCols;
-      uint16_t r2 = rand () % nRows;
-
-      std::swap (cells [r1 * nCols + c1], cells [r2 * nCols + c2]);
-   }
-#endif
-
-   ++draw_count;
-}
-
-static void
-demo_resize (Vterm& vt)
-{
-   CharVdev::Cell * cells = vt.cells.get ();
-   uint16_t nCols = vt.nCols;
-   uint16_t nRows = vt.nRows;
-
-   const CharVdev::Cell * cellsEnd = & cells [nRows * nCols];
-
-   CharVdev::Color fg = {255, 255, 255};
-   CharVdev::Color bg = {0, 0, 0};
-   uint16_t prev_uc = 0;
-   const auto & allCodes = priFont->getSupportedCodes ();
-   auto it = allCodes.begin ();
-   const auto itEnd = allCodes.end ();
-   for ( ; it != itEnd && cells < cellsEnd; ++it, ++cells)
-   {
-      if (prev_uc + 1 != *it)
-      {
-         bg.red = rand () % 128;
-         bg.blue = rand () % 128;
-         bg.green = rand () % 128;
-      }
-      prev_uc = *it;
-
-      (* cells).uc_pt = *it;
-      (* cells).bold = 1;
-      (* cells).fg = fg;
-      (* cells).bg = bg;
-   }
-   for ( ; cells < cellsEnd; ++cells)
-   {
-      (* cells).uc_pt = ' ';
-      (* cells).bold = 0;
-      (* cells).inverse = 0;
-      (* cells).underline = 0;
-      (* cells).fg = {0, 0, 0};
-      (* cells).bg = {72, 48, 96};
-   }
-}
-#endif
-
-static void
-draw ()
-{
-#ifdef DEMO
-   demo_draw (* vt.get ());
-#endif
-
-   vt->redraw ();
-}
-
-/* new window size or exposure */
-static void
-resize (int width, int height)
-{
-   vt->resize (width, height);
-
-#ifdef DEMO
-   demo_resize (* vt.get ());
-#endif
-}
 
 /*
  * Create an RGB, double-buffered X window.
@@ -295,6 +198,82 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
    *ctxRet = ctx;
 }
 
+void
+resolveShell (char* progPath)
+{
+   char resolvedPath [PATH_MAX];
+   if (progPath [0] == '/')
+      return; // absolute path; we are done
+   else if (progPath [0] == '.' &&
+            realpath (progPath, resolvedPath) != nullptr)
+   {
+      strncpy (progPath, resolvedPath, PATH_MAX);
+      return;
+   }
+
+   // go through PATH and try to resolve our program
+   char* PATH = strdup (getenv ("PATH"));
+   if (PATH)
+   {
+      char testPath [PATH_MAX+1];
+      char* p = strtok (PATH, ":");
+      while (p)
+      {
+         snprintf (testPath, PATH_MAX+1, "%s/%s", p, progPath);
+         if (realpath (testPath, resolvedPath) != nullptr)
+         {
+            strncpy (progPath, resolvedPath, PATH_MAX);
+            free (PATH);
+            return;
+         }
+         p = strtok (nullptr, ":");
+      }
+      free (PATH);
+   }
+
+   // look at $SHELL
+   char* SHELL = getenv ("SHELL");
+   struct stat statbuf;
+   if (SHELL && stat (SHELL, &statbuf) == 0 && (statbuf.st_mode & S_IXOTH))
+   {
+      strncpy (progPath, SHELL, PATH_MAX-1);
+      return;
+   }
+
+   // obtain user's shell from /etc/passwd
+   auto pwent = getpwuid (getuid ());
+   SHELL = pwent->pw_shell;
+   if (SHELL && stat (SHELL, &statbuf) == 0 && (statbuf.st_mode & S_IXOTH))
+   {
+      strncpy (progPath, SHELL, PATH_MAX-1);
+      return;
+   }
+
+   // last resort
+   strcpy (progPath, "/bin/sh");
+}
+
+void
+validateShell (char* progPath)
+{
+   resolveShell (progPath);
+
+   // validate against etries in /etc/shells
+   char* permShell = getusershell ();
+   while (permShell)
+   {
+      if (strcmp (progPath, permShell) == 0)
+      {
+         endusershell ();
+         return;
+      }
+      permShell = getusershell ();
+   }
+   endusershell ();
+
+   // progPath is *not* one of the permitted user shells
+   unsetenv ("SHELL");
+}
 
 int
 startShell (uint16_t nCols, uint16_t nRows, const char* const argv[])
@@ -370,7 +349,7 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed, bool& holdPtyIn)
       redraw = true;
       break;
    case ConfigureNotify:
-      resize (event.xconfigure.width, event.xconfigure.height);
+      vt->resize (event.xconfigure.width, event.xconfigure.height);
       redraw = true;
       break;
    case ReparentNotify:
@@ -623,7 +602,7 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed, bool& holdPtyIn)
    }
 
    if (exposed && redraw) {
-      draw ();
+      vt->redraw ();
    }
 
    return false;
@@ -713,24 +692,6 @@ handleOsc (Display* dpy, Window win, int cmd, const std::string& arg)
 }
 
 static void
-usage ()
-{
-   std::cout << "Usage:\n"
-             << "  -display <dpy_name>      set the display to run on\n"
-             << "  -font <fontname>         font name to load (default: "
-             << fontname << ")\n"
-             << "  -geometry <COLS>x<ROWS>  set display geometry (default: "
-             << geomCols << "x" << geomRows << ")\n"
-             << "  -border <Pixels>         border width (default: "
-             << borderPx << ")\n"
-             << "  -title <TITLE>           set window title (default: "
-             << title << ")\n"
-             << "  -info                    display OpenGL renderer info\n"
-             << "  -bench                   redraw continuously; report FPS"
-             << std::endl;
-}
-
-static void
 printGLInfo (EGLDisplay egl_dpy)
 {
    std::cout << "\nEGL_VERSION     = " << eglQueryString (egl_dpy, EGL_VERSION)
@@ -775,12 +736,12 @@ printGLInfo (EGLDisplay egl_dpy)
 int
 main (int argc, char* argv[])
 {
-   Display* x_dpy;
+   Display* x_dpy = nullptr;
    Window win;
    EGLSurface egl_surf;
    EGLContext egl_ctx;
    EGLDisplay egl_dpy;
-   char* dpyName = nullptr;
+   const char* dpyName;
    bool printInfo = false;
    EGLint egl_major, egl_minor;
    XIC xic = nullptr;
@@ -793,69 +754,22 @@ main (int argc, char* argv[])
 
    {
       const char* loc;
+      bool warn = false;
       loc = setlocale (LC_ALL, "");
-      if (loc)
-         std::cout << "Locale: " << loc << std::endl;
-      else
-         std::cerr << "Warning: could not set locale" << std::endl;
-
-      if (!loc || !strstr (loc, "UTF-8"))
-         std::cout << "Warning: missing or non-UTF-8 locale, expect broken "
-                   << "international characters (or fix your locale)!"
+      if (!loc)
+      {
+         std::cout << "Warning: could not set locale!" << std::endl;
+         warn = true;
+      }
+      else if (strcmp (nl_langinfo (CODESET), "UTF-8") != 0)
+      {
+         std::cout << "Warning: non-UTF-8 locale: " << loc << std::endl;
+         warn = true;
+      }
+      if (warn)
+         std::cout << "Expect broken international characters "
+                   << "(or fix your locale)!"
                    << std::endl;
-   }
-
-   for (i = 1; i < argc; i++) {
-      if (strcmp (argv[i], "-display") == 0) {
-         dpyName = argv[i+1];
-         i++;
-      }
-      else if (strcmp(argv[i], "-font") == 0) {
-         fontname = argv[i+1];
-         i++;
-      }
-      else if (strcmp(argv[i], "-geometry") == 0) {
-         std::stringstream iss (argv[i+1]);
-         int cols, rows;
-         char fill;
-         iss >> cols >> fill >> rows;
-         if (iss.fail () || fill != 'x' || cols < 1 || rows < 1)
-         {
-            std::cerr << "Error: -geometry: expected format <COLS>x<ROWS>"
-                      << std::endl;
-            return -1;
-         }
-         geomCols = cols;
-         geomRows = rows;
-         ++i;
-      }
-      else if (strcmp(argv[i], "-border") == 0) {
-         std::stringstream iss (argv[i+1]);
-         int bw;
-         iss >> bw;
-         if (iss.fail () || bw < 0 || bw > 32767)
-         {
-            std::cerr << "Error: -border: expected unsigned short"
-                      << std::endl;
-            return -1;
-         }
-         borderPx = bw;
-         ++i;
-      }
-      else if (strcmp(argv[i], "-title") == 0) {
-         title = argv[i+1];
-         i++;
-      }
-      else if (strcmp(argv[i], "-info") == 0) {
-         printInfo = true;
-      }
-      else if (strcmp(argv[i], "-bench") == 0) {
-         benchMode = true;
-      }
-      else {
-         usage ();
-         return -1;
-      }
    }
 
    if (! XInitThreads ())
@@ -865,14 +779,59 @@ main (int argc, char* argv[])
       return -1;
    }
 
+   zutty::options::initialize (&argc, argv);
+
+   dpyName = zutty::options::get ("display", getenv ("DISPLAY"));
    x_dpy = XOpenDisplay (dpyName);
    if (!x_dpy)
    {
-      std::cerr << "Error: couldn't open display "
-                << (dpyName ? dpyName : getenv ("DISPLAY"))
-                << std::endl;
+      std::cerr << "Error: couldn't open display " << dpyName << std::endl;
       return -1;
    }
+   zutty::options::setDisplay (x_dpy);
+
+   if (zutty::options::getBool ("help"))
+   {
+      zutty::options::printUsage ();
+      return 0;
+   }
+
+   fontname = zutty::options::get ("font");
+   printInfo = zutty::options::getBool ("glinfo");
+
+   Atom selectionTarget;
+   try
+   {
+      zutty::options::convBorder (borderPx);
+      zutty::options::convGeometry (geomCols, geomRows);
+      zutty::options::convSelectionTarget (selectionTarget);
+   }
+   catch (const std::exception& e)
+   {
+      std::cout << "Error: " << e.what () << "!\n"
+                << "Try -help for usage options." << std::endl;
+      return -1;
+   }
+
+   char progPath [PATH_MAX] = "/bin/bash";
+   const char* ppConf = zutty::options::get ("shell");
+   if (ppConf)
+      strncpy (progPath, ppConf, PATH_MAX-1);
+   char* defaultShArgv [] = { progPath, nullptr };
+   char** shArgv = defaultShArgv;
+   if (argc > 1 && strcmp (argv [1], "-e") == 0)
+   {
+      shArgv = argv + 2;
+      title = argv [2];
+   }
+   else if (argc == 2)
+   {
+      strncpy (progPath, argv [1], PATH_MAX-1);
+      validateShell (progPath);
+   }
+
+   if (!title)
+      title = zutty::options::get ("title");
 
    egl_dpy = eglGetDisplay ((EGLNativeDisplayType)x_dpy);
    if (!egl_dpy)
@@ -955,7 +914,7 @@ main (int argc, char* argv[])
       return -1;
    }
 
-   selMgr = std::make_unique <SelectionManager> (x_dpy, win);
+   selMgr = std::make_unique <SelectionManager> (x_dpy, win, selectionTarget);
 
    renderer = std::make_unique <Renderer> (
       * priFont.get (),
@@ -971,11 +930,9 @@ main (int argc, char* argv[])
       [egl_dpy, egl_surf] ()
       {
          eglSwapBuffers (egl_dpy, egl_surf);
-      },
-      benchMode);
+      });
 
-   const char * const sh_argv[] = { "bash", nullptr };
-   int pty_fd = startShell (geomCols, geomRows, sh_argv);
+   int pty_fd = startShell (geomCols, geomRows, shArgv);
 
    vt = std::make_unique <Vterm> (priFont->getPx (), priFont->getPy (),
                                   win_width, win_height, borderPx, pty_fd);
@@ -983,10 +940,8 @@ main (int argc, char* argv[])
    vt->setOscHandler ([&] (int cmd, const std::string& arg)
                       { handleOsc (x_dpy, win, cmd, arg); });
 
-   /* Force initialization.
-    * We might not get a ConfigureNotify event when the window first appears.
-    */
-   resize (win_width, win_height);
+   // We might not get a ConfigureNotify event when the window first appears:
+   vt->resize (win_width, win_height);
 
    bool destroyed = eventLoop (x_dpy, win, xic, pty_fd);
 

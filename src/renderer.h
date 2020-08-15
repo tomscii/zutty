@@ -29,8 +29,7 @@ namespace zutty {
                          const Font& altFont,
                          uint16_t borderPx,
                          const std::function <void ()>& initDisplay,
-                         const std::function <void ()>& swapBuffers,
-                         bool benchmark);
+                         const std::function <void ()>& swapBuffers);
 
       ~Renderer ();
 
@@ -50,8 +49,7 @@ namespace zutty {
       void renderThread (const Font& priFont,
                          const Font& altFont,
                          uint16_t borderPx,
-                         const std::function <void ()>& initDisplay,
-                         bool benchmark);
+                         const std::function <void ()>& initDisplay);
    };
 
 } // namespace zutty

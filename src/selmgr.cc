@@ -17,7 +17,8 @@
 
 namespace zutty {
 
-   SelectionManager::SelectionManager (Display* dpy_, Window win_)
+   SelectionManager::SelectionManager (Display* dpy_, Window win_,
+                                       Atom selectionTarget_)
       : dpy (dpy_)
       , win (win_)
       , incr (XInternAtom (dpy, "INCR", False))
@@ -26,7 +27,7 @@ namespace zutty {
       , chunkSize (XExtendedMaxRequestSize (dpy)
                    ? XExtendedMaxRequestSize (dpy) >> 2
                    : XMaxRequestSize (dpy) >> 2)
-      , selection (XA_PRIMARY)
+      , selection (selectionTarget_)
       , target (XA_UTF8_STRING (dpy))
    {
       std::cout << "SelectionManager: chunkSize=" << chunkSize << std::endl;
