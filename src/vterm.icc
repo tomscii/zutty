@@ -194,7 +194,9 @@ namespace zutty {
       cf->scrollHead = 0;
       cf->marginTop = 0;
       cf->marginBottom = nRows;
-      cf->cursor.color = palette256 [defaultFgPalIx];
+      cf->cursor.color = defaultFgPalIx < 0
+                       ? opts.fg
+                       : palette256 [defaultFgPalIx];
       posX = 0;
       posY = 0;
       setCur ();
@@ -1566,7 +1568,9 @@ namespace zutty {
    inline void
    Vterm::setFgFromPalIx ()
    {
-      if (attrs.bold && fgPalIx >= 0 && fgPalIx <= 7)
+      if (fgPalIx < 0)
+         *fg = opts.fg;
+      else if (attrs.bold && fgPalIx >= 0 && fgPalIx <= 7)
          *fg = palette256 [fgPalIx + 8];
       else
          *fg = palette256 [fgPalIx];
@@ -1575,7 +1579,10 @@ namespace zutty {
    inline void
    Vterm::setBgFromPalIx ()
    {
-      *bg = palette256 [bgPalIx];
+      if (bgPalIx < 0)
+         *bg = opts.bg;
+      else
+         *bg = palette256 [bgPalIx];
    }
 
    inline void
@@ -1770,8 +1777,8 @@ namespace zutty {
 
       // Save current attrs
       CharVdev::Cell origAttrs = attrs;
-      CharVdev::Color* origFg = &attrs.fg;
-      CharVdev::Color* origBg = &attrs.bg;
+      Color* origFg = &attrs.fg;
+      Color* origBg = &attrs.bg;
 
       resetAttrs ();
       fillScreen ('E');

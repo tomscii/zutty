@@ -15,6 +15,8 @@
 #include <X11/Xatom.h>
 #include <X11/Xmu/Atoms.h>
 
+#include <stdlib.h>
+
 #include <cstring>
 #include <iomanip>
 #include <iostream>
@@ -23,6 +25,8 @@
 
 namespace {
 
+   using namespace zutty;
+
    Display* dpy = nullptr;
 
    XrmDatabase xrmOptionsDb = nullptr;
@@ -30,7 +34,6 @@ namespace {
    // Used as storage for strings that will be freed on exit
    std::vector <std::string> strRefs;
 
-   using zutty::options::optionsTable;
    std::vector <XrmOptionDescRec> xrmOptionsTable =
       [] {
          // prevent realloc that would invalidate ptrs
@@ -54,25 +57,6 @@ namespace {
          }
          return rv;
       } ();
-
-} // namespace
-
-namespace zutty::options {
-
-   void
-   initialize (int* argc, char** argv)
-   {
-      XrmInitialize ();
-      XrmParseCommand (&xrmOptionsDb,
-                       xrmOptionsTable.data (), xrmOptionsTable.size (),
-                       "zutty", argc, argv);
-   }
-
-   void
-   setDisplay (Display* dpy_)
-   {
-      dpy = dpy_;
-   }
 
    void
    printUsage ()
@@ -99,7 +83,7 @@ namespace zutty::options {
    }
 
    const char*
-   get (const char* name, const char* fallback)
+   get (const char* name, const char* fallback = nullptr)
    {
       XrmValue xrmValue;
       char* xrmType;
@@ -113,7 +97,7 @@ namespace zutty::options {
          return xDefault;
       else
          for (const auto& e: optionsTable)
-            if (strcmp (e.option, name) == 0)
+            if (strcmp (e.option, name) == 0 && e.hardDefault)
                return e.hardDefault;
       return fallback;
    }
@@ -160,7 +144,7 @@ namespace zutty::options {
    }
 
    void
-   convSelectionTarget (Atom& outSelectionTarget)
+   convSelection (Atom& outSelection)
    {
       const char* opt = get ("selection");
       if (!opt)
@@ -168,13 +152,104 @@ namespace zutty::options {
 
       switch (opt [0])
       {
-      case 'p': outSelectionTarget = XA_PRIMARY; return;
-      case 's': outSelectionTarget = XA_SECONDARY; return;
-      case 'c': outSelectionTarget = XA_CLIPBOARD (dpy); return;
+      case 'p': outSelection = XA_PRIMARY; return;
+      case 's': outSelection = XA_SECONDARY; return;
+      case 'c': outSelection = XA_CLIPBOARD (dpy); return;
       default:
          throw std::runtime_error ("-selection: expected one of: "
                                    "primary, secondary, clipboard");
       }
    }
 
-} // namespace zutty::options
+   uint8_t
+   convHexDigit (const char* name, const char ch)
+   {
+      if (ch >= '0' && ch <= '9')
+         return ch - '0';
+
+      if (ch >= 'a' && ch <= 'f')
+         return ch - 'a' + 10;
+
+      if (ch >= 'A' && ch <= 'F')
+         return ch - 'A' + 10;
+
+      throw std::runtime_error (std::string ("-") + name +
+                                ": illegal hex digit '" + ch +
+                                "'; expected six-digit hex RGB color");
+   }
+
+   void
+   convColor (const char* name, zutty::Color& outColor)
+   {
+      const char* opt = get (name);
+      if (!opt)
+         throw std::runtime_error (std::string ("-") + name +
+                                   ": missing value");
+
+      if (strlen (opt) != 6)
+         throw std::runtime_error (std::string ("-") + name +
+                                   ": expected six-digit hex RGB color");
+
+      outColor.red =
+         (convHexDigit (name, opt [0]) << 4) + convHexDigit (name, opt [1]);
+      outColor.green =
+         (convHexDigit (name, opt [2]) << 4) + convHexDigit (name, opt [3]);
+      outColor.blue =
+         (convHexDigit (name, opt [4]) << 4) + convHexDigit (name, opt [5]);
+   }
+
+} // namespace
+
+namespace zutty {
+
+   Options opts;
+
+   void
+   Options::initialize (int* argc, char** argv)
+   {
+      XrmInitialize ();
+      XrmParseCommand (&xrmOptionsDb,
+                       xrmOptionsTable.data (), xrmOptionsTable.size (),
+                       "zutty", argc, argv);
+      display = get ("display", getenv ("DISPLAY"));
+   }
+
+   void
+   Options::setDisplay (Display* dpy_)
+   {
+      dpy = dpy_;
+   }
+
+   void
+   Options::parse ()
+   {
+      if (getBool ("help"))
+      {
+         printUsage ();
+         exit (0);
+      }
+
+      try
+      {
+         convBorder (border);
+         fontname = get ("font");
+         convGeometry (nCols, nRows);
+         glinfo = getBool ("glinfo");
+         shell = get ("shell");
+         title = get ("title");
+         convSelection (selection);
+         convColor ("fg", fg);
+         convColor ("bg", bg);
+         rv = getBool ("rv");
+         if (rv)
+            std::swap (fg, bg);
+      }
+      catch (const std::exception& e)
+      {
+         std::cout << "Error: " << e.what () << "!\n"
+                   << "Try -help for usage options." << std::endl;
+         exit (-1);
+      }
+   }
+
+} // namespace zutty

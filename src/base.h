@@ -15,6 +15,18 @@
 
 namespace zutty {
 
+   struct Color
+   {
+      uint8_t red;
+      uint8_t green;
+      uint8_t blue;
+
+      bool operator == (const Color& rhs) const
+      {
+         return red == rhs.red && green == rhs.green && blue == rhs.blue;
+      }
+   };
+
    struct Point
    {
       uint16_t x = 0;

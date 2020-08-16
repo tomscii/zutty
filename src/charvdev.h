@@ -11,9 +11,10 @@
 
 #pragma once
 
+#include "base.h"
 #include "font.h"
-#include "geometry.h"
 #include "gl.h"
+#include "options.h"
 
 #include <cstdint>
 #include <memory>
@@ -29,21 +30,14 @@ namespace zutty {
    class CharVdev
    {
    public:
+
       explicit CharVdev (const Font& priFont,
-                         const Font& altFont,
-                         uint16_t borderPx);
+                         const Font& altFont);
 
       ~CharVdev ();
 
       void resize (uint16_t pxWidth_, uint16_t pxHeight_);
       void draw ();
-
-      struct Color
-      {
-         uint8_t red;
-         uint8_t green;
-         uint8_t blue;
-      };
 
       struct Cell
       {
@@ -52,13 +46,15 @@ namespace zutty {
          uint8_t underline: 1;
          uint8_t inverse: 1;
          uint16_t _fill0: 13;
-         Color fg = {255, 255, 255};
+         Color fg;
          uint8_t _fill1;
-         Color bg = {0, 0, 0};
+         Color bg;
          uint8_t _fill2;
 
-         // For the lack of bitfield initializers:
-         Cell (): bold (0), underline (0), inverse (0) {}
+         Cell ():
+            bold (0), underline (0), inverse (0),
+            fg (opts.fg), bg (opts.bg)
+         {}
 
          using Ptr = std::shared_ptr <Cell>;
       };
@@ -120,7 +116,6 @@ namespace zutty {
 
       const Font& priFont;
       const Font& altFont;
-      uint16_t borderPx;
 
       Cell * cells = nullptr; // valid pointer if mapped, else nullptr
 

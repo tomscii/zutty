@@ -67,7 +67,7 @@ namespace zutty {
 
       explicit Vterm (uint16_t glyphPx, uint16_t glyphPy,
                       uint16_t winPx, uint16_t winPy,
-                      uint16_t borderPx, int ptyFd);
+                      int ptyFd);
 
       ~Vterm () = default;
 
@@ -239,7 +239,6 @@ namespace zutty {
       uint16_t winPy;
       uint16_t nCols;
       uint16_t nRows;
-      uint16_t borderPx;
       uint16_t glyphPx;
       uint16_t glyphPy;
       int ptyFd;
@@ -257,13 +256,13 @@ namespace zutty {
       uint16_t posY = 0;      // current cursor vertical position (on-screen)
 
       CharVdev::Cell attrs;   // prototype cell with current attributes
-      CharVdev::Color* fg = &attrs.fg;
-      CharVdev::Color* bg = &attrs.bg;
-      CharVdev::Color palette256 [256];
-      constexpr const static int defaultFgPalIx = 15;
-      constexpr const static int defaultBgPalIx = 0;
-      int fgPalIx = defaultFgPalIx;
-      int bgPalIx = defaultBgPalIx;
+      Color* fg = &attrs.fg;
+      Color* bg = &attrs.bg;
+      Color palette256 [256];
+      int defaultFgPalIx; // if -1, set from opts.fg, else idx into palette256
+      int defaultBgPalIx; // if -1, set from opts.bg, else idx into palette256
+      int fgPalIx;
+      int bgPalIx;
       bool reverseVideo = false;
       bool hasFocus = false;
 

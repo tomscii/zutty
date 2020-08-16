@@ -10,6 +10,7 @@
  */
 
 #include "charvdev.h"
+#include "options.h"
 
 #include <algorithm>
 #include <cassert>
@@ -234,11 +235,9 @@ void main ()
 namespace zutty {
 
    CharVdev::CharVdev (const Font& priFont_,
-                       const Font& altFont_,
-                       uint16_t borderPx_)
+                       const Font& altFont_)
       : priFont (priFont_)
       , altFont (altFont_)
-      , borderPx (borderPx_)
    {
       createShaders ();
 
@@ -357,8 +356,8 @@ namespace zutty {
 
       pxWidth = pxWidth_;
       pxHeight = pxHeight_;
-      nCols = (pxWidth - (2 * borderPx)) / priFont.getPx ();
-      nRows = (pxHeight - (2 * borderPx)) / priFont.getPy ();
+      nCols = (pxWidth - (2 * opts.border)) / priFont.getPx ();
+      nRows = (pxHeight - (2 * opts.border)) / priFont.getPy ();
 
       std::cout << "resize to " << pxWidth << " x " << pxHeight
                 << " pixels, " << nCols << " x " << nRows << " chars"
@@ -366,7 +365,7 @@ namespace zutty {
 
       GLint viewWidth = nCols * priFont.getPx ();
       GLint viewHeight = nRows * priFont.getPy ();
-      glViewport (borderPx, pxHeight - viewHeight - borderPx,
+      glViewport (opts.border, pxHeight - viewHeight - opts.border,
                   viewWidth, viewHeight);
 
       glUseProgram (P_draw);
@@ -423,6 +422,8 @@ namespace zutty {
       glCheckError ();
 
       glUseProgram (P_draw);
+      glClearColor (opts.bg.red / 255.0, opts.bg.green / 255.0,
+                    opts.bg.blue / 255.0, 1.0);
       glClear (GL_COLOR_BUFFER_BIT);
 
       glActiveTexture (GL_TEXTURE0);

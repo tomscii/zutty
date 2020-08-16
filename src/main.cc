@@ -40,13 +40,6 @@ using zutty::Renderer;
 
 static const std::string fontpath = "/usr/share/fonts/X11/misc/";
 static const std::string fontext = ".pcf.gz";
-static std::string fontname;
-
-static int win_width, win_height;
-static uint16_t geomCols;
-static uint16_t geomRows;
-static uint16_t borderPx;
-static const char* title = nullptr;
 
 static std::unique_ptr <zutty::Font> priFont = nullptr;
 static std::unique_ptr <zutty::Font> altFont = nullptr;
@@ -276,14 +269,14 @@ validateShell (char* progPath)
 }
 
 int
-startShell (uint16_t nCols, uint16_t nRows, const char* const argv[])
+startShell (const char* const argv[])
 {
    int fdm;
    pid_t pid;
    struct winsize size;
 
-   size.ws_col = nCols;
-   size.ws_row = nRows;
+   size.ws_col = opts.nCols;
+   size.ws_row = opts.nRows;
    pid = pty_fork (&fdm, nullptr, 0, nullptr, &size);
 
    if (pid < 0) {
@@ -741,8 +734,6 @@ main (int argc, char* argv[])
    EGLSurface egl_surf;
    EGLContext egl_ctx;
    EGLDisplay egl_dpy;
-   const char* dpyName;
-   bool printInfo = false;
    EGLint egl_major, egl_minor;
    XIC xic = nullptr;
    XIM xim;
@@ -779,59 +770,33 @@ main (int argc, char* argv[])
       return -1;
    }
 
-   zutty::options::initialize (&argc, argv);
+   opts.initialize (&argc, argv);
 
-   dpyName = zutty::options::get ("display", getenv ("DISPLAY"));
-   x_dpy = XOpenDisplay (dpyName);
+   x_dpy = XOpenDisplay (opts.display);
    if (!x_dpy)
    {
-      std::cerr << "Error: couldn't open display " << dpyName << std::endl;
+      std::cerr << "Error: couldn't open display " << opts.display << std::endl;
       return -1;
    }
-   zutty::options::setDisplay (x_dpy);
+   opts.setDisplay (x_dpy);
 
-   if (zutty::options::getBool ("help"))
-   {
-      zutty::options::printUsage ();
-      return 0;
-   }
+   opts.parse ();
 
-   fontname = zutty::options::get ("font");
-   printInfo = zutty::options::getBool ("glinfo");
-
-   Atom selectionTarget;
-   try
-   {
-      zutty::options::convBorder (borderPx);
-      zutty::options::convGeometry (geomCols, geomRows);
-      zutty::options::convSelectionTarget (selectionTarget);
-   }
-   catch (const std::exception& e)
-   {
-      std::cout << "Error: " << e.what () << "!\n"
-                << "Try -help for usage options." << std::endl;
-      return -1;
-   }
-
-   char progPath [PATH_MAX] = "/bin/bash";
-   const char* ppConf = zutty::options::get ("shell");
-   if (ppConf)
-      strncpy (progPath, ppConf, PATH_MAX-1);
+   char progPath [PATH_MAX];
+   strncpy (progPath, opts.shell, PATH_MAX-1);
    char* defaultShArgv [] = { progPath, nullptr };
    char** shArgv = defaultShArgv;
    if (argc > 1 && strcmp (argv [1], "-e") == 0)
    {
       shArgv = argv + 2;
-      title = argv [2];
+      opts.title = argv [2];
    }
    else if (argc == 2)
    {
       strncpy (progPath, argv [1], PATH_MAX-1);
       validateShell (progPath);
    }
-
-   if (!title)
-      title = zutty::options::get ("title");
+   int pty_fd = startShell (shArgv);
 
    egl_dpy = eglGetDisplay ((EGLNativeDisplayType)x_dpy);
    if (!egl_dpy)
@@ -887,13 +852,13 @@ main (int argc, char* argv[])
       }
    }
 
-   priFont = std::make_unique <zutty::Font> (fontpath + fontname + fontext);
-   altFont = std::make_unique <zutty::Font> (fontpath + fontname + "B" + fontext,
+   priFont = std::make_unique <zutty::Font> (fontpath + opts.fontname + fontext);
+   altFont = std::make_unique <zutty::Font> (fontpath + opts.fontname + "B" + fontext,
                                              * priFont.get ());
-   win_width = 2 * borderPx + geomCols * priFont->getPx ();
-   win_height = 2 * borderPx + geomRows * priFont->getPy ();
+   int win_width = 2 * opts.border + opts.nCols * priFont->getPx ();
+   int win_height = 2 * opts.border + opts.nRows * priFont->getPy ();
 
-   make_x_window (x_dpy, egl_dpy, title, win_width, win_height,
+   make_x_window (x_dpy, egl_dpy, opts.title, win_width, win_height,
                   &win, &egl_ctx, &egl_surf);
 
    XMapWindow (x_dpy, win);
@@ -914,17 +879,16 @@ main (int argc, char* argv[])
       return -1;
    }
 
-   selMgr = std::make_unique <SelectionManager> (x_dpy, win, selectionTarget);
+   selMgr = std::make_unique <SelectionManager> (x_dpy, win);
 
    renderer = std::make_unique <Renderer> (
       * priFont.get (),
       * altFont.get (),
-      borderPx,
-      [egl_dpy, egl_surf, egl_ctx, printInfo] ()
+      [egl_dpy, egl_surf, egl_ctx] ()
       {
          if (!eglMakeCurrent (egl_dpy, egl_surf, egl_surf, egl_ctx))
             throw std::runtime_error ("Error: eglMakeCurrent() failed");
-         if (printInfo)
+         if (opts.glinfo)
             printGLInfo (egl_dpy);
       },
       [egl_dpy, egl_surf] ()
@@ -932,10 +896,8 @@ main (int argc, char* argv[])
          eglSwapBuffers (egl_dpy, egl_surf);
       });
 
-   int pty_fd = startShell (geomCols, geomRows, shArgv);
-
    vt = std::make_unique <Vterm> (priFont->getPx (), priFont->getPy (),
-                                  win_width, win_height, borderPx, pty_fd);
+                                  win_width, win_height, pty_fd);
    vt->setRefreshHandler ([] (const Frame& f) { renderer->update (f); });
    vt->setOscHandler ([&] (int cmd, const std::string& arg)
                       { handleOsc (x_dpy, win, cmd, arg); });

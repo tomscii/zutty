@@ -11,47 +11,61 @@
 
 #pragma once
 
+#include "base.h"
+
 #include <X11/Xresource.h>
 
 #include <cstdint>
 #include <string>
 #include <vector>
 
-namespace zutty::options {
+namespace zutty {
 
-struct OptionDesc
-{
-   const char* option;
-   XrmOptionKind parseType;
-   const char* implValue;
-   const char* hardDefault;
-   const char* helpDescr;
-};
+   struct OptionDesc
+   {
+      const char* option;
+      XrmOptionKind parseType;
+      const char* implValue;
+      const char* hardDefault;
+      const char* helpDescr;
+   };
 
-static const std::vector <OptionDesc> optionsTable = {
-   {"border",   XrmoptionSepArg,   nullptr, "2",         "Border width in pixels"},
-   {"display",  XrmoptionSepArg,   nullptr, nullptr,     "Display to connect to"},
-   {"font",     XrmoptionSepArg,   nullptr, "9x18",      "Font to use"},
-   {"geometry", XrmoptionSepArg,   nullptr, "80x24",     "Terminal size in chars"},
-   {"glinfo",   XrmoptionNoArg,    "true",  "false",     "Print OpenGL information"},
-   {"help",     XrmoptionNoArg,    "true",  "false",     "Print usage information"},
-   {"shell",    XrmoptionSepArg,   nullptr, "/bin/bash", "Shell program to run"},
-   {"title",    XrmoptionSepArg,   nullptr, "Zutty",     "Window title"},
-   {"selection",XrmoptionSepArg,   nullptr, "primary",   "Selection target"},
-   {"e",        XrmoptionSkipLine, nullptr, nullptr,     "Command line to run"},
-};
+   static const std::vector <OptionDesc> optionsTable = {
+      {"border",    XrmoptionSepArg,   nullptr, "2",         "Border width in pixels"},
+      {"display",   XrmoptionSepArg,   nullptr, nullptr,     "Display to connect to"},
+      {"font",      XrmoptionSepArg,   nullptr, "9x18",      "Font to use"},
+      {"geometry",  XrmoptionSepArg,   nullptr, "80x24",     "Terminal size in chars"},
+      {"glinfo",    XrmoptionNoArg,    "true",  "false",     "Print OpenGL information"},
+      {"help",      XrmoptionNoArg,    "true",  "false",     "Print usage information"},
+      {"shell",     XrmoptionSepArg,   nullptr, "/bin/bash", "Shell program to run"},
+      {"title",     XrmoptionSepArg,   nullptr, "Zutty",     "Window title"},
+      {"selection", XrmoptionSepArg,   nullptr, "primary",   "Selection target"},
+      {"fg",        XrmoptionSepArg,   nullptr, "ffffff",    "Foreground color"},
+      {"bg",        XrmoptionSepArg,   nullptr, "000000",    "Background color"},
+      {"rv",        XrmoptionNoArg,    "true",  "false",     "Reverse video"},
+      {"e",         XrmoptionSkipLine, nullptr, nullptr,     "Command line to run"},
+   };
 
-void initialize (int* argc, char** argv);
-void setDisplay (Display* dpy);
+   struct Options
+   {
+      // N.B.: no static initializers - will decode hardDefault fields above!
+      uint16_t border;
+      const char* display;
+      const char* fontname;
+      uint16_t nCols;
+      uint16_t nRows;
+      bool glinfo;
+      const char* shell;
+      const char* title;
+      Atom selection;
+      Color fg;
+      Color bg;
+      bool rv;
 
-void printUsage ();
+      void initialize (int* argc, char** argv);
+      void setDisplay (Display* dpy);
+      void parse ();
+   };
+   extern Options opts;
 
-const char* get (const char* name, const char* fallback = nullptr);
-bool getBool (const char* name);
-
-// Convert/validate functions for bespoke options:
-void convBorder (uint16_t& outBorder);
-void convGeometry (uint16_t& outCols, uint16_t& outRows);
-void convSelectionTarget (Atom& outTarget);
-
-} // namespace zutty::options
+} // namespace zutty

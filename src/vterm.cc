@@ -9,6 +9,7 @@
  * See the file LICENSE for the full license.
  */
 
+#include "options.h"
 #include "pty.h"
 #include "vterm.h"
 
@@ -288,7 +289,7 @@ namespace {
 
 
    void
-   makePalette256 (CharVdev::Color p[])
+   makePalette256 (Color p[])
    {
       // Standard colors
       p[  0] = {  0,   0,   0};
@@ -448,12 +449,11 @@ namespace zutty {
 
    Vterm::Vterm (uint16_t glyphPx_, uint16_t glyphPy_,
                  uint16_t winPx_, uint16_t winPy_,
-                 uint16_t borderPx_, int ptyFd_)
+                 int ptyFd_)
       : winPx (winPx_)
       , winPy (winPy_)
-      , nCols ((winPx - 2 * borderPx_) / glyphPx_)
-      , nRows ((winPy - 2 * borderPx_) / glyphPy_)
-      , borderPx (borderPx_)
+      , nCols ((winPx - 2 * opts.border) / glyphPx_)
+      , nRows ((winPy - 2 * opts.border) / glyphPy_)
       , glyphPx (glyphPx_)
       , glyphPy (glyphPy_)
       , ptyFd (ptyFd_)
@@ -464,6 +464,12 @@ namespace zutty {
       , cf (&frame_pri)
    {
       makePalette256 (palette256);
+
+      defaultFgPalIx = (opts.fg == palette256 [15]) ? 15 : -1;
+      defaultBgPalIx = (opts.bg == palette256 [0]) ? 0 : -1;
+      fgPalIx = defaultFgPalIx;
+      bgPalIx = defaultBgPalIx;
+
       resetTerminal ();
    }
 
@@ -485,8 +491,8 @@ namespace zutty {
       winPx = winPx_;
       winPy = winPy_;
 
-      uint16_t nCols_ = (winPx - 2 * borderPx) / glyphPx;
-      uint16_t nRows_ = (winPy - 2 * borderPx) / glyphPy;
+      uint16_t nCols_ = (winPx - 2 * opts.border) / glyphPx;
+      uint16_t nRows_ = (winPy - 2 * opts.border) / glyphPy;
 
       if (nCols == nCols_ && nRows == nRows_)
       {
