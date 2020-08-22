@@ -31,18 +31,19 @@ namespace zutty {
    };
 
    static const std::vector <OptionDesc> optionsTable = {
+      {"altScroll", XrmoptionNoArg,    "true",  "false",     "Alternate scroll mode"},
+      {"bg",        XrmoptionSepArg,   nullptr, "000000",    "Background color"},
       {"border",    XrmoptionSepArg,   nullptr, "2",         "Border width in pixels"},
       {"display",   XrmoptionSepArg,   nullptr, nullptr,     "Display to connect to"},
+      {"fg",        XrmoptionSepArg,   nullptr, "ffffff",    "Foreground color"},
       {"font",      XrmoptionSepArg,   nullptr, "9x18",      "Font to use"},
       {"geometry",  XrmoptionSepArg,   nullptr, "80x24",     "Terminal size in chars"},
       {"glinfo",    XrmoptionNoArg,    "true",  "false",     "Print OpenGL information"},
       {"help",      XrmoptionNoArg,    "true",  "false",     "Print usage information"},
+      {"rv",        XrmoptionNoArg,    "true",  "false",     "Reverse video"},
+      {"selection", XrmoptionSepArg,   nullptr, "primary",   "Selection target"},
       {"shell",     XrmoptionSepArg,   nullptr, "/bin/bash", "Shell program to run"},
       {"title",     XrmoptionSepArg,   nullptr, "Zutty",     "Window title"},
-      {"selection", XrmoptionSepArg,   nullptr, "primary",   "Selection target"},
-      {"fg",        XrmoptionSepArg,   nullptr, "ffffff",    "Foreground color"},
-      {"bg",        XrmoptionSepArg,   nullptr, "000000",    "Background color"},
-      {"rv",        XrmoptionNoArg,    "true",  "false",     "Reverse video"},
       {"e",         XrmoptionSkipLine, nullptr, nullptr,     "Command line to run"},
    };
 
@@ -61,6 +62,7 @@ namespace zutty {
       Color fg;
       Color bg;
       bool rv;
+      bool altScrollMode;
 
       void initialize (int* argc, char** argv);
       void setDisplay (Display* dpy);

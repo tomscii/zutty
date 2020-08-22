@@ -1,16 +1,12 @@
 * Vt support
 
 ** Misc features
-- mouse support
 - more general font support (test: SourceCodePro, GNU Unifont, etc.)
 
 ** Cleanup & polish
 - keys C-1, C-Tab, A-Tab, C-BkSp, A-BkSp
 - logging
-- configuration (defaults -> config file -> command line opt)
-- support more options (command to run, etc)
 - environment setup
-  - which shell to launch
   - set envvars (a'la rxvt)
     - TERM, COLORTERM, COLORFGBG
     - WINDOWID

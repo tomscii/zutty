@@ -462,6 +462,7 @@ namespace zutty {
                { logU << "OSC: '" << cmd << ";" << arg << "'" << std::endl; })
       , frame_pri (winPx, winPy, nCols, nRows)
       , cf (&frame_pri)
+      , utf8dec ([this] () { placeGraphicChar (); })
    {
       makePalette256 (palette256);
 
@@ -1148,23 +1149,10 @@ namespace zutty {
       for (const auto& u16s: lines)
       {
          for (uint16_t cp: u16s)
-         {
-            if (cp < 0x80)
-            {
-               utf8_out.push_back (cp);
-            }
-            else if (cp < 0x0800)
-            {
-               utf8_out.push_back ((cp >> 6) | 0xc0);
-               utf8_out.push_back ((cp & 0x3f) | 0x80);
-            }
-            else
-            {
-               utf8_out.push_back ((cp >> 12) | 0xe0);
-               utf8_out.push_back (((cp >> 6) & 0x3f) | 0x80);
-               utf8_out.push_back ((cp & 0x3f) | 0x80);
-            }
-         }
+            Utf8Encoder::pushUnicode (cp, [&] (char ch)
+                                          {
+                                             utf8_out.push_back (ch);
+                                          });
          utf8_out.push_back ('\n');
       }
       while (utf8_out.size () && utf8_out.back () == '\n')

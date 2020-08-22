@@ -4,16 +4,17 @@ Zutty is a terminal emulator for the X Window System, functionally
 similar to several other X terminal emulators such as xterm, rxvt and
 countless others. It is also similar to other, newer, GPU-accelerated
 terminal emulators such as Alacritty and Kitty. What sets Zutty apart
-is its focus on providing the most efficient rendering technology
-(from the host computer's perspective), enabling it to perform
-seamlessly in extremely constrained environments, where others
-(including the above alternatives) struggle or fail. As a bonus, it
-provides unbeatable performance everywhere else, too.
+is its focus on extremely efficient rendering, enabling it to perform
+seamlessly in constrained environments where others struggle or fail.
+At the same time, Zutty aims to implement a sufficiently complete
+feature set to make it useful for a wide range of users, and strives
+to conform to relevant (actual or de-facto) standards.
 
 Zutty is written in straightforward C++ and only relies on OpenGL ES
-3.1, making it trivially portable to windowing systems other than X
-and operating systems other than Linux (but this is left as an
-exercise to anyone who needs to do so).
+3.1 for rendering, making it trivially portable to windowing systems
+other than X and operating systems other than Linux. Zutty provides a
+clean implementation written from scratch, resulting in a minimal,
+maintainable, modern codebase unencumbered by historical baggage.
 
 Zutty is released under the GNU General Public License (GPL) v3 or (at
 your option) any later version. Please refer to the file LICENSE for
@@ -21,13 +22,13 @@ the full text of the license.
 
 The main idea behind Zutty is the implementation of character video
 memory via OpenGL ES 3.1. This video memory is just an array of cells
-backing all character grid locations, containing character codes (16
-bit Unicode) plus color and other attributes. This area is directly
-writable by the application, very similar to how one could write to
+backing all character grid locations, containing Unicode character
+codes plus color and other attributes. This memory area, allocated on
+the GPU, is mapped to make it directly writable by the application.
+This results in a very similar interface as to how one could write to
 the screen by directly poking at physical video memory starting at
 0xB8000 on the IBM PC. Zutty employs a "compute shader" running on the
-GPU to read this video memory and render pixels directly to the output
-image.
+GPU to read this video memory and render output pixels.
 
 ** Features
 
@@ -133,6 +134,60 @@ Xterm behaviour and follows these steps:
 Note that in case a [shell] argument is *not* given, the "zutty.shell"
 resource is consulted; if that is not set, the built-in default of
 /bin/bash is used.
+
+** Omissions and limitations
+
+There are things that Zutty does not implement compared to other, more
+commonly used X terminal emulators (xterm being the gold standard of
+completeness here). The below list gives an overview of what is
+missing.  Most of them are thought as being out of scope for Zutty,
+but some are marked as possibly being implemented in the future.
+
+- Zutty currently does not support scroll-back. It is easy and
+  straightforward to use programs such as =screen= or =tmux= if you
+  want persistent tty sessions with scrollback and lots of other bells
+  and whistles, and Zutty supports this kind of usage very well.
+  Therefore, scrollback has always been low on the list of priorities.
+  However, we are not ideological about this and there might come a
+  time when scroll-back will be implemented.
+
+- Zutty is opinionated about the primacy of UTF-8, which means that
+  non-UTF-8 interaction is generally not supported, not even via
+  bridges such as =luit=.  DEC builtin character sets (such as the DEC
+  Special Graphics, DEC Technical Characters, etc.) and the escape
+  sequences to enable them are well implemented though, so users of
+  any modern Linux environment should never run into trouble.
+
+- Zutty is Unicode based, but it is a terminal emulator, not a general
+  purpose Unicode program. Therefore it does not aim to implement the
+  whole breadth and depth of glyph and language support that Unicode
+  defines.  Currently not supported:
+  - Characters with a code point above 0xFFFF (that is, outside of the
+    Basic Multilingual Pane);
+  - Bidirectional (right-to-left) text;
+  - Composing characters (things that can only be represented as a
+    base glyph plus one or more composing glyphs superimposed, even in
+    Unicode NFC representation). This might possibly be implemented
+    later if there is sufficient interest.
+  - Possibly more esoteric features.
+
+- Double-width characters (necessary for e.g., drawing CJK glyphs) are
+  not supported. Double-height lines are likewise not supported.
+
+- Rectangular area operations (introduced by the DEC VT400 series) are
+  not supported. However, this set of features is optional and the
+  terminal's self-identification message clearly states the absence of
+  it, so conforming client applications should not run into any
+  trouble. No fundamental technical reasons here other than the lack
+  of pressing need.
+
+- The mouse protocol implementation aims to be complete with the
+  exception of highlight tracking mode that is not implemented. Mouse
+  highlight tracking is a mode that requires cooperation from the
+  client application; it is not clear if any software actively used in
+  2020 needs this feature. Also, all events for mouse buttons above
+  the conventional five (three buttons plus scroll wheel up/down) are
+  discarded.
 
 ** Textures
 

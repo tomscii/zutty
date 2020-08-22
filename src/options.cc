@@ -243,6 +243,7 @@ namespace zutty {
          rv = getBool ("rv");
          if (rv)
             std::swap (fg, bg);
+         altScrollMode = getBool ("altScroll");
       }
       catch (const std::exception& e)
       {

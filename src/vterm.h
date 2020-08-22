@@ -12,6 +12,7 @@
 #pragma once
 
 #include "frame.h"
+#include "utf8.h"
 
 #include <cstdint>
 #include <functional>
@@ -60,6 +61,17 @@ namespace zutty {
          static_cast <uint8_t> (m1) & static_cast <uint8_t> (m2));
    }
 
+   enum class MouseTrackingMode: uint8_t
+   { Disabled = 0, X10_Compat, VT200, VT200_ButtonEvent, VT200_AnyEvent };
+   enum class MouseTrackingEnc: uint8_t
+   { Default = 0, UTF8, SGR, URXVT };
+   struct MouseTrackingState
+   {
+      MouseTrackingMode mode = MouseTrackingMode::Disabled;
+      MouseTrackingEnc enc = MouseTrackingEnc::Default;
+      bool focusEventMode = false;
+   };
+
    class Vterm
    {
    public:
@@ -94,7 +106,11 @@ namespace zutty {
 
       void readPty ();
 
+      const MouseTrackingState& getMouseTrackingState () const;
+
       void setHasFocus (bool);
+      void mouseWheelUp ();
+      void mouseWheelDown ();
 
       void selectStart (int pX, int pY, bool cycleSnapTo);
       void selectExtend (int pX, int pY, bool cycleSnapTo);
@@ -276,16 +292,12 @@ namespace zutty {
       constexpr const static size_t maxEscOps = 16;
       uint32_t inputOps [maxEscOps];
       size_t nInputOps = 0;
-      uint16_t unicode_cp = 0;
-      bool utf8_valid = false;
-      uint8_t utf8_rem = 0;
+      Utf8Decoder utf8dec;
       std::vector <unsigned char> argBuf;
       unsigned char scsDst;  // Select charset / destination designator
       unsigned char scsMod;  // Select charset / selector (intermediate)
 
       VtModifier modifiers = VtModifier::none;
-
-      void utf8_check_premature_EOS ();
 
       // Terminal state - N.B.: keep resetTerminal () in sync with this!
 
@@ -297,6 +309,7 @@ namespace zutty {
       bool bkspSendsDel = true;
       bool localEcho = false;
       bool bracketedPasteMode = false;
+      bool altScrollMode = false;
 
       std::vector <uint16_t> tabStops;
 
@@ -382,6 +395,8 @@ namespace zutty {
       Rect snapSelection (Rect selection, SelectSnapTo snapTo);
       void invalidateSelection (const Rect&& damage);
       void vscrollSelection (int vertOffset);
+
+      MouseTrackingState mouseTrk;
    };
 
 } // namespace zutty

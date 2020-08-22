@@ -111,7 +111,7 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
    attr.colormap = XCreateColormap (x_dpy, root, visInfo->visual, AllocNone);
    attr.event_mask = StructureNotifyMask | ExposureMask | FocusChangeMask |
       PropertyChangeMask | KeyPressMask | ButtonPressMask | ButtonReleaseMask |
-      Button1MotionMask | Button3MotionMask;
+      PointerMotionMask;
    mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
 
    win = XCreateWindow (x_dpy, root, 0, 0, width, height,
@@ -191,7 +191,7 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
    *ctxRet = ctx;
 }
 
-void
+static void
 resolveShell (char* progPath)
 {
    char resolvedPath [PATH_MAX];
@@ -246,7 +246,7 @@ resolveShell (char* progPath)
    strcpy (progPath, "/bin/sh");
 }
 
-void
+static void
 validateShell (char* progPath)
 {
    resolveShell (progPath);
@@ -268,7 +268,7 @@ validateShell (char* progPath)
    unsetenv ("SHELL");
 }
 
-int
+static int
 startShell (const char* const argv[])
 {
    int fdm;
@@ -323,90 +323,57 @@ convertKeyState (KeySym ks, unsigned int state)
 }
 
 static bool
-x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed, bool& holdPtyIn)
+onKeyPress (XEvent& event, XIC& xic, int pty_fd)
 {
    using Key = VtKey;
+   XKeyEvent& xkevt = event.xkey;
 
-   static bool exposed = false;
-   bool redraw = false;
-   destroyed = false;
+   KeySym ks;
+   char buffer [16];
+   const int avail = sizeof (buffer) - 1;
+   int nbytes = 0;
 
-   // cycle selection SnapTo behaviour based on double/triple clicks
-   constexpr const static int Multi_Click_Threshold_Ms = 250;
-   static Time lastButtonReleasedAt = 0;
-   static unsigned int lastButtonReleased = 0;
-
-   switch (event.type) {
-   case Expose:
-      exposed = true;
-      redraw = true;
-      break;
-   case ConfigureNotify:
-      vt->resize (event.xconfigure.width, event.xconfigure.height);
-      redraw = true;
-      break;
-   case ReparentNotify:
-      std::cout << "ReparentNotify" << std::endl;
-      redraw = true;
-      break;
-   case MapNotify:
-      std::cout << "MapNotify" << std::endl;
-      break;
-   case UnmapNotify:
-      std::cout << "UnmapNotify" << std::endl;
-      break;
-   case DestroyNotify:
-      std::cout << "DestroyNotify" << std::endl;
-      destroyed = true;
-      return true;
-   case KeyPress:
+   if (xic)
    {
-      KeySym ks;
-      char buffer [16];
-      const int avail = sizeof (buffer) - 1;
-      int nbytes = 0;
+      Status status;
+      nbytes = XmbLookupString (xic, &xkevt, buffer, avail, &ks, &status);
+      if (status == XBufferOverflow) {
+         std::cerr << "KeyPress event: buffer size " << sizeof (buffer)
+                   << " is too small for XmbLookupString, would have needed "
+                   << " a buffer with " << nbytes + 1 << " bytes."
+                   << std::endl;
+         return true;
+      }
+   }
+   else
+   {
+      nbytes = XLookupString (&xkevt, buffer, avail, &ks, nullptr);
+   }
+   buffer [nbytes] = '\0';
 
-      if (xic)
-      {
-         Status status;
-         nbytes = XmbLookupString (xic, &event.xkey, buffer, avail, &ks, &status);
-         if (status == XBufferOverflow) {
-            std::cerr << "KeyPress event: buffer size " << sizeof (buffer)
-                      << " is too small for XmbLookupString, would have needed "
-                      << " a buffer with " << nbytes + 1 << " bytes."
-                      << std::endl;
-            break;
-         }
-      }
-      else
-      {
-         nbytes = XLookupString (&event.xkey, buffer, avail, &ks, nullptr);
-      }
-      buffer [nbytes] = '\0';
+   // Special key combinations that are handled by Zutty itself:
+   if ((ks == XK_Insert || ks == XK_KP_Insert) &&
+       xkevt.state == ShiftMask)
+   {
+      selMgr->getSelection (xkevt.time,
+                            [] (const std::string& s)
+                            { vt->pasteSelection (s); });
+      return false;
+   }
+   if ((ks == XK_space || ks == XK_KP_Space) &&
+       (xkevt.state & (Button1Mask | Button3Mask)))
+   {
+      vt->selectRectangularModeToggle ();
+      return false;
+   }
 
-      // Special key combinations that are handled by Zutty itself:
-      if ((ks == XK_Insert || ks == XK_KP_Insert) &&
-          event.xkey.state == ShiftMask)
-      {
-         selMgr->getSelection (event.xkey.time,
-                               [] (const std::string& s)
-                               { vt->pasteSelection (s); });
-         break;
-      }
-      if ((ks == XK_space || ks == XK_KP_Space) &&
-          (event.xkey.state & (Button1Mask | Button3Mask)))
-      {
-         vt->selectRectangularModeToggle ();
-         break;
-      }
-
-      VtModifier mod = convertKeyState (ks, event.xkey.state);
-      switch (ks)
-      {
-#define KEYSEND(XKey, VtKey)                                            \
-         case XKey:                                                     \
-         vt->writePty (VtKey, mod);                                     \
-            break
+   VtModifier mod = convertKeyState (ks, xkevt.state);
+   switch (ks)
+   {
+#define KEYSEND(XKey, VtKey)                    \
+      case XKey:                                \
+         vt->writePty (VtKey, mod);             \
+         return false
 
       KEYSEND (XK_Return,           Key::Return);
       KEYSEND (XK_BackSpace,        Key::Backspace);
@@ -479,9 +446,9 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed, bool& holdPtyIn)
 
 #undef KEYSEND
 
-#define KEYIGN(XKey)                                              \
-      case XKey:                                                  \
-         break
+#define KEYIGN(XKey)                            \
+      case XKey:                                \
+         return false
 
       // Ignore clauses for modifiers to avoid sending NUL bytes
       KEYIGN (XK_Shift_L);
@@ -501,79 +468,316 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed, bool& holdPtyIn)
 
 #undef KEYIGN
 
-      default:
-         if (! XFilterEvent (&event, event.xkey.window))
+   default:
+      if (! XFilterEvent (&event, xkevt.window))
+      {
+         if (nbytes > 1)
          {
-            if (nbytes > 1)
-            {
-               if (vt->writePty (buffer) < nbytes)
-                  return true;
-            }
-            else
-            {
-               if (vt->writePty (buffer [0], mod) < 1)
-                  return true;
-            }
+            if (vt->writePty (buffer) < nbytes)
+               return true;
          }
-         break;
+         else
+         {
+            if (vt->writePty (buffer [0], mod) < 1)
+               return true;
+         }
       }
+      return false;
    }
-   redraw = true;
+}
+
+// Data shared between mouse event handlers
+struct MouseContext
+{
+   // cycle selection SnapTo behaviour based on double/triple clicks
+   constexpr const static int Multi_Click_Threshold_Ms = 250;
+   Time lastButtonReleasedAt = 0;
+   unsigned int lastButtonReleased = 0;
+   bool selectionOngoing = false;
+};
+static MouseContext mouseCtx;
+
+static inline bool
+isMouseProtocol (unsigned int state, const MouseTrackingState& mouseTrk)
+{
+   return !mouseCtx.selectionOngoing &&
+      !(state & ShiftMask) &&
+      mouseTrk.mode != MouseTrackingMode::Disabled;
+}
+
+static inline void
+mouseProtoSend (MouseTrackingEnc enc, int eventType, unsigned int modstate,
+                int button, int cx, int cy)
+{
+   int cb = 0;
+   if (eventType == MotionNotify)
+   {
+      if (modstate & Button1Mask) cb = 32;
+      else if (modstate & Button2Mask) cb = 33;
+      else if (modstate & Button3Mask) cb = 34;
+      else cb = 35;
+   }
+   else if (eventType == ButtonRelease && enc != MouseTrackingEnc::SGR)
+   {
+      cb = 3;
+   }
+   else // normal button encoding
+   {
+      if (button == 4)
+         cb = 64; // Mouse wheel up
+      else if (button == 5)
+         cb = 65; // Mouse wheel down
+      else
+         cb = button - 1; // Mouse button 1..3
+   }
+
+   if (modstate & ShiftMask) cb += 4;
+   if (modstate & Mod1Mask) cb += 8;
+   if (modstate & ControlMask) cb += 16;
+
+   std::ostringstream oss;
+   switch (enc)
+   {
+   case MouseTrackingEnc::Default:
+      oss << "\e[M" << (char)(32 + cb) << (char)(32 + cx) << (char)(32 + cy);
+      vt->writePty (oss.str ().c_str ());
+      break;
+   case MouseTrackingEnc::UTF8:
+      oss << "\e[M";
+      Utf8Encoder::pushUnicode (32 + cb, [&] (char ch) { oss << ch; });
+      Utf8Encoder::pushUnicode (32 + cx, [&] (char ch) { oss << ch; });
+      Utf8Encoder::pushUnicode (32 + cy, [&] (char ch) { oss << ch; });
+      vt->writePty (oss.str ().c_str ());
+      break;
+   case MouseTrackingEnc::SGR:
+      oss << "\e[<" << cb << ";" << cx << ";" << cy
+          << (eventType == ButtonRelease ? "m" : "M");
+      vt->writePty (oss.str ().c_str ());
+      break;
+   case MouseTrackingEnc::URXVT:
+      oss << "\e[" << cb + 32 << ";" << cx << ";" << cy << "M";
+      vt->writePty (oss.str ().c_str ());
+      break;
+   }
+}
+
+static inline void
+mouseProtoConvCoords (int px, int py, uint16_t& out_cx, uint16_t& out_cy)
+{
+   out_cx = std::max (0, (px - opts.border - 1) / priFont->getPx ()) + 1;
+   out_cy = std::max (0, (py - opts.border - 1) / priFont->getPy ()) + 1;
+}
+
+static inline void
+onButtonPressMouseProto (XButtonEvent& xbevt,
+                         const MouseTrackingState& mouseTrk)
+{
+   uint16_t cx, cy;
+
+   if (xbevt.button > 5)
+      return;
+
+   switch (mouseTrk.mode)
+   {
+   case MouseTrackingMode::VT200:
+   case MouseTrackingMode::VT200_ButtonEvent:
+   case MouseTrackingMode::VT200_AnyEvent:
+      mouseProtoConvCoords (xbevt.x, xbevt.y, cx, cy);
+      mouseProtoSend (mouseTrk.enc, ButtonPress,
+                      xbevt.state, xbevt.button, cx, cy);
+      break;
+   case MouseTrackingMode::X10_Compat:
+      mouseProtoConvCoords (xbevt.x, xbevt.y, cx, cy);
+      mouseProtoSend (mouseTrk.enc, ButtonPress, 0, xbevt.button, cx, cy);
+      break;
+   case MouseTrackingMode::Disabled:
+      break;
+   }
+}
+
+static inline void
+onButtonReleaseMouseProto (XButtonEvent& xbevt,
+                           const MouseTrackingState& mouseTrk)
+{
+   uint16_t cx, cy;
+
+   if (xbevt.button > 3)
+      return;
+
+   switch (mouseTrk.mode)
+   {
+   case MouseTrackingMode::VT200:
+   case MouseTrackingMode::VT200_ButtonEvent:
+   case MouseTrackingMode::VT200_AnyEvent:
+      mouseProtoConvCoords (xbevt.x, xbevt.y, cx, cy);
+      mouseProtoSend (mouseTrk.enc, ButtonRelease,
+                      xbevt.state, xbevt.button, cx, cy);
+      break;
+   case MouseTrackingMode::X10_Compat:
+   case MouseTrackingMode::Disabled:
+      break;
+   }
+}
+
+static inline void
+onMotionNotifyMouseProto (XMotionEvent& xmoevt,
+                          const MouseTrackingState& mouseTrk)
+{
+   uint16_t cx, cy;
+   static uint16_t lastCx = 65535;
+   static uint16_t lastCy = 65535;
+
+   switch (mouseTrk.mode)
+   {
+   case MouseTrackingMode::VT200_ButtonEvent:
+      if (! (xmoevt.state & (Button1Mask | Button2Mask | Button3Mask)))
+         break;
+      // fall through
+   case MouseTrackingMode::VT200_AnyEvent:
+      mouseProtoConvCoords (xmoevt.x, xmoevt.y, cx, cy);
+      if (cx != lastCx || cy != lastCy)
+      {
+         mouseProtoSend (mouseTrk.enc, MotionNotify,
+                         xmoevt.state, 0, cx, cy);
+         lastCx = cx;
+         lastCy = cy;
+      }
+      break;
+   default:
+      break;
+   }
+}
+
+static void
+onButtonPress (XButtonEvent& xbevt, bool& holdPtyIn)
+{
+   const auto& mouseTrk = vt->getMouseTrackingState ();
+   if (isMouseProtocol (xbevt.state, mouseTrk))
+   {
+      onButtonPressMouseProto (xbevt, mouseTrk);
+      return;
+   }
+
+   const auto& lastReleaseTime = mouseCtx.lastButtonReleasedAt;
+   bool cycleSnapTo =
+      xbevt.button == mouseCtx.lastButtonReleased &&
+      xbevt.time - lastReleaseTime < mouseCtx.Multi_Click_Threshold_Ms;
+   switch (xbevt.button)
+   {
+   case 1:
+      vt->selectStart (xbevt.x, xbevt.y, cycleSnapTo);
+      mouseCtx.selectionOngoing = true;
+      holdPtyIn = true;
+      break;
+   case 3:
+      vt->selectExtend (xbevt.x, xbevt.y, cycleSnapTo);
+      mouseCtx.selectionOngoing = true;
+      holdPtyIn = true;
+      break;
+   default:
+      break;
+   }
+}
+
+static void
+onButtonRelease (XButtonEvent& xbevt, bool& holdPtyIn)
+{
+   const auto& mouseTrk = vt->getMouseTrackingState ();
+   if (isMouseProtocol (xbevt.state, mouseTrk))
+   {
+      onButtonReleaseMouseProto (xbevt, mouseTrk);
+      return;
+   }
+
+   mouseCtx.lastButtonReleased = xbevt.button;
+   mouseCtx.lastButtonReleasedAt = xbevt.time;
+
+   switch (xbevt.button)
+   {
+   case 1: case 3:
+   {
+      std::string utf8_sel;
+      holdPtyIn = false;
+      mouseCtx.selectionOngoing = false;
+      if (vt->selectFinish (utf8_sel))
+         selMgr->setSelection (xbevt.time, utf8_sel);
+   }
    break;
+   case 2:
+      selMgr->getSelection (xbevt.time,
+                            [] (const std::string& s)
+                            { vt->pasteSelection (s); });
+      break;
+   case 4: vt->mouseWheelUp (); break;
+   case 5: vt->mouseWheelDown (); break;
+      break;
+   }
+}
+
+static void
+onMotionNotify (XMotionEvent& xmoevt)
+{
+   const auto& mouseTrk = vt->getMouseTrackingState ();
+   if (isMouseProtocol (xmoevt.state, mouseTrk))
+      onMotionNotifyMouseProto (xmoevt, mouseTrk);
+   else if (xmoevt.state & (Button1Mask | Button3Mask))
+      vt->selectUpdate (xmoevt.x, xmoevt.y);
+}
+
+static bool
+x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed, bool& holdPtyIn)
+{
+   static bool exposed = false;
+   bool redraw = false;
+   destroyed = false;
+
+   switch (event.type) {
+   case Expose:
+      exposed = true;
+      redraw = true;
+      break;
+   case ConfigureNotify:
+      vt->resize (event.xconfigure.width, event.xconfigure.height);
+      redraw = true;
+      break;
+   case ReparentNotify:
+      std::cout << "ReparentNotify" << std::endl;
+      redraw = true;
+      break;
+   case MapNotify:
+      std::cout << "MapNotify" << std::endl;
+      break;
+   case UnmapNotify:
+      std::cout << "UnmapNotify" << std::endl;
+      break;
+   case DestroyNotify:
+      std::cout << "DestroyNotify" << std::endl;
+      destroyed = true;
+      return true;
+   case KeyPress:
+      if (onKeyPress (event, xic, pty_fd))
+         return true;
+      redraw = true;
+      break;
    case KeyRelease:
       break;
    case ButtonPress:
-   {
-      bool cycleSnapTo =
-         event.xbutton.button == lastButtonReleased &&
-         event.xbutton.time - lastButtonReleasedAt < Multi_Click_Threshold_Ms;
-      switch (event.xbutton.button)
-      {
-      case 1:
-         vt->selectStart (event.xbutton.x, event.xbutton.y, cycleSnapTo);
-         holdPtyIn = true;
-         break;
-      case 3:
-         vt->selectExtend (event.xbutton.x, event.xbutton.y, cycleSnapTo);
-         holdPtyIn = true;
-         break;
-      default:
-         break;
-      }
-   }
+      onButtonPress (event.xbutton, holdPtyIn);
       break;
    case ButtonRelease:
-   {
-      lastButtonReleased = event.xbutton.button;
-      lastButtonReleasedAt = event.xbutton.time;
-      switch (event.xbutton.button)
-      {
-      case 1: case 3:
-      {
-         std::string utf8_sel;
-         holdPtyIn = false;
-         if (vt->selectFinish (utf8_sel))
-            selMgr->setSelection (event.xbutton.time, utf8_sel);
-      }
-      break;
-      case 2:
-         selMgr->getSelection (event.xbutton.time,
-                               [] (const std::string& s)
-                               { vt->pasteSelection (s); });
-         break;
-      case 4: std::cout << "Mouse wheel up" << std::endl; break;
-      case 5: std::cout << "Mouse wheel down" << std::endl; break;
-         break;
-      }
-   }
+      onButtonRelease (event.xbutton, holdPtyIn);
       break;
    case MotionNotify:
-      vt->selectUpdate (event.xmotion.x, event.xmotion.y);
+      onMotionNotify (event.xmotion);
       break;
    case FocusIn:
+      if (vt->getMouseTrackingState ().focusEventMode)
+         vt->writePty ("\e[I");
       vt->setHasFocus (true);
       break;
    case FocusOut:
+      if (vt->getMouseTrackingState ().focusEventMode)
+         vt->writePty ("\e[O");
       vt->setHasFocus (false);
       break;
    case PropertyNotify:

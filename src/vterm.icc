@@ -174,12 +174,40 @@ namespace zutty {
       onRefresh (* cf);
    }
 
+   inline const MouseTrackingState&
+   Vterm::getMouseTrackingState () const
+   {
+      return mouseTrk;
+   }
+
    inline void
    Vterm::setHasFocus (bool hasFocus_)
    {
       hasFocus = hasFocus_;
       showCursor ();
       redraw ();
+   }
+
+   inline void
+   Vterm::mouseWheelUp ()
+   {
+      if (altScrollMode && altScreenBufferMode)
+      {
+         inputOps [0] = 1;
+         nInputOps = 1;
+         writePty (VtKey::Up);
+      }
+   }
+
+   inline void
+   Vterm::mouseWheelDown ()
+   {
+      if (altScrollMode && altScreenBufferMode)
+      {
+         inputOps [0] = 1;
+         nInputOps = 1;
+         writePty (VtKey::Down);
+      }
    }
 
    inline void
@@ -202,6 +230,7 @@ namespace zutty {
       setCur ();
 
       switchScreenBufferMode (false);
+      altScrollMode = opts.altScrollMode;
 
       setState (InputState::Normal);
    }
@@ -225,6 +254,8 @@ namespace zutty {
 
       savedCursor_SCO.isSet = false;
       savedCursor_DEC->isSet = false;
+
+      mouseTrk = MouseTrackingState {};
 
       tabStops.clear ();
       selection.clear ();
@@ -550,22 +581,11 @@ namespace zutty {
    }
 
    inline void
-   Vterm::utf8_check_premature_EOS ()
-   {
-      if (utf8_rem > 0)
-      {
-         utf8_rem = 0;
-         utf8_valid = false;
-         placeGraphicChar ();
-      }
-   }
-
-   inline void
    Vterm::inputGraphicChar (unsigned char ch)
    {
       if ((ch & 0x80) == 0)
       {
-         utf8_check_premature_EOS ();
+         utf8dec.checkPrematureEOS ();
 
          // GL range
          Charset cs;
@@ -578,102 +598,18 @@ namespace zutty {
             cs = charsetState.g [charsetState.gl];
 
          if (cs == Charset::UTF8)
-            unicode_cp = ch < 127 ? ch : 0;
+            utf8dec.onUnicode (ch < 127 ? ch : 0);
          else if (ch >= 32 && (cs == Charset::IsoLatin1 || ch < 127))
-            unicode_cp = charCodes [(uint8_t)cs] [ch - 32];
-         else
-            unicode_cp = 0;
-
-         if (unicode_cp)
-         {
-            utf8_valid = true;
-            placeGraphicChar ();
-         }
+            utf8dec.onUnicode (charCodes [(uint8_t)cs] [ch - 32]);
       }
       else
       {
          // GR range
          Charset cs = charsetState.g [charsetState.gr];
          if (cs == Charset::UTF8)
-         {
-            if ((ch >> 6) == 0x2) // 10xx'xxxx
-            {
-               logT << "utf-8 sequence cont, utf8_rem=" << (int)utf8_rem
-                    << " utf8_valid=" << utf8_valid << std::endl;
-               if (utf8_rem > 0)
-               {
-                  if (utf8_rem > 1 && (!ch || (unicode_cp == 0 && ch < 0xa0)))
-                     utf8_valid = false; // reject overlong encodings
-                  unicode_cp <<= 6;
-                  unicode_cp += ch & 0x3f;
-                  --utf8_rem;
-               }
-               else
-                  utf8_valid = false; // unexpected UTF-8 continuation byte
-
-               if (utf8_rem == 0)
-                  placeGraphicChar ();
-            }
-            else if ((ch >> 5) == 0x6) // 110x'xxxx
-            {
-               utf8_check_premature_EOS ();
-               logT << "utf-8 2-byte sequence" << std::endl;
-               unicode_cp = ch & 0x1f;
-               utf8_rem = 1;
-               utf8_valid = unicode_cp > 1; // reject overlong encodings
-            }
-            else if ((ch >> 4) == 0xe) // 1110'xxxx
-            {
-               utf8_check_premature_EOS ();
-               logT << "utf-8 3-byte sequence" << std::endl;
-               unicode_cp = ch & 0x0f;
-               utf8_rem = 2;
-               utf8_valid = true;
-            }
-            else if ((ch >> 3) == 0x1e) // 1111'0xxx
-            {
-               utf8_check_premature_EOS ();
-               logT << "utf-8 4-byte sequence" << std::endl;
-               unicode_cp = ch & 0x07;
-               utf8_rem = 3;
-               utf8_valid = false; // not supported
-            }
-            else if ((ch >> 2) == 0x3e) // 1111'10xx
-            {
-               utf8_check_premature_EOS ();
-               logT << "utf-8 5-byte sequence" << std::endl;
-               unicode_cp = ch & 0x03;
-               utf8_rem = 4;
-               utf8_valid = false; // not supported
-            }
-            else if ((ch >> 1) == 0x7e) // 1111'110x
-            {
-               utf8_check_premature_EOS ();
-               logT << "utf-8 6-byte sequence" << std::endl;
-               unicode_cp = ch & 0x01;
-               utf8_rem = 5;
-               utf8_valid = false; // not supported
-            }
-            else if (ch == 0xfe || ch == 0xff)
-            {
-               // illegal UTF-8 characters
-               utf8_valid = false;
-               placeGraphicChar ();
-            }
-         }
-         else
-         {
-            if (ch >= 160 && (cs == Charset::IsoLatin1 || ch < 255))
-               unicode_cp = charCodes [(uint8_t)cs] [ch - 160];
-            else
-               unicode_cp = 0;
-
-            if (unicode_cp)
-            {
-               utf8_valid = true;
-               placeGraphicChar ();
-            }
-         }
+            utf8dec.pushByte (ch);
+         else if (ch >= 160 && (cs == Charset::IsoLatin1 || ch < 255))
+            utf8dec.onUnicode (charCodes [(uint8_t)cs] [ch - 160]);
       }
    }
 
@@ -698,7 +634,7 @@ namespace zutty {
 
       auto& c = (* cf) [cur];
       c = attrs;
-      c.uc_pt = utf8_valid ? unicode_cp : Unicode_Replacement_Character;
+      c.uc_pt = utf8dec.getUnicode ();
       invalidateSelection (Rect (posX, posY));
       advancePosition ();
     }
@@ -1232,7 +1168,7 @@ namespace zutty {
       uint16_t arg = inputOps [0] ? inputOps [0] : 1;
       for (int k = 0; k < arg; ++k)
          placeGraphicChar ();
-      unicode_cp = ' ';
+      utf8dec.setUnicode (' ');
       setState (InputState::Normal);
    }
 
@@ -1485,26 +1421,25 @@ namespace zutty {
             compatLevel = CompatibilityLevel::VT400;
             break;
          case 3: switchColMode (ColMode::C132); break;
-         case 4:
-            logT << "DECSCLM: Selected smooth scroll" << std::endl;
-            break;
-         case 5:
-            logU << "DECSCNM: Selected inverse video mode" << std::endl;
-            break;
+         case 4: logT << "DECSCLM: Set smooth scroll" << std::endl; break;
+         case 5: logU << "DECSCNM: Set inverse video mode" << std::endl; break;
          case 6: originMode = OriginMode::ScrollingRegion; break;
          case 7: autoWrapMode = true; break;
-         case 8:
-            logU << "DECARM: Auto-repeat mode enabled" << std::endl;
-            break;
-         case 12:
-            logU << "Start blinking cursor" << std::endl;
-            break;
+         case 8: logU << "DECARM: Set auto-repeat mode" << std::endl; break;
+         case 9: mouseTrk.mode = MouseTrackingMode::X10_Compat; break;
+         case 12: logU << "Start blinking cursor" << std::endl; break;
          case 25: showCursorMode = true; break;
          case 47: switchScreenBufferMode (true);  break;
          case 67: bkspSendsDel = false; break;
-         case 1000:
-            logU << "Enable mouse tracking mode" << std::endl;
-            break;
+         case 1000: mouseTrk.mode = MouseTrackingMode::VT200; break;
+         case 1001: logU << "Set VT200 Highlight Mouse mode" << std::endl; break;
+         case 1002: mouseTrk.mode = MouseTrackingMode::VT200_ButtonEvent; break;
+         case 1003: mouseTrk.mode = MouseTrackingMode::VT200_AnyEvent; break;
+         case 1004: mouseTrk.focusEventMode = true; break;
+         case 1005: mouseTrk.enc = MouseTrackingEnc::UTF8; break;
+         case 1006: mouseTrk.enc = MouseTrackingEnc::SGR; break;
+         case 1007: altScrollMode = true; break;
+         case 1015: mouseTrk.enc = MouseTrackingEnc::URXVT; break;
          case 1047: switchScreenBufferMode (true); break;
          case 1048: esc_DECSC (); break;
          case 1049: esc_DECSC (); switchScreenBufferMode (true); break;
@@ -1533,26 +1468,22 @@ namespace zutty {
             compatLevel = CompatibilityLevel::VT52;
             break;
          case 3: switchColMode (ColMode::C80); break;
-         case 4:
-            logT << "DECSCLM: Selected jump scroll" << std::endl;
-            break;
-         case 5:
-            logU << "DECSCNM: Selected normal video mode" << std::endl;
-            break;
+         case 4: logT << "DECSCLM: Set jump scroll" << std::endl; break;
+         case 5: logU << "DECSCNM: Set normal video mode" << std::endl; break;
          case 6: originMode = OriginMode::Absolute; break;
          case 7: autoWrapMode = false; break;
-         case 8:
-            logU << "DECARM: Auto-repeat mode disabled" << std::endl;
-            break;
-         case 12:
-            logU << "Stop blinking cursor" << std::endl;
-            break;
+         case 8: logU << "DECARM: Reset auto-repeat mode" << std::endl; break;
+         case 9: case 1000: case 1002: case 1003:
+            mouseTrk.mode = MouseTrackingMode::Disabled; break;
+         case 12: logU << "Stop blinking cursor" << std::endl; break;
          case 25: showCursorMode = false; break;
          case 47: switchScreenBufferMode (false); break;
          case 67: bkspSendsDel = true; break;
-         case 1000:
-            logU << "Disable mouse tracking mode" << std::endl;
-            break;
+         case 1001: logU << "Reset VT200 Highlight Mouse mode" << std::endl; break;
+         case 1004: mouseTrk.focusEventMode = false; break;
+         case 1005: case 1006: case 1015:
+            mouseTrk.enc = MouseTrackingEnc::Default; break;
+         case 1007: altScrollMode = false; break;
          case 1047: switchScreenBufferMode (false); break;
          case 1048: esc_DECRC (); break;
          case 1049: switchScreenBufferMode (false); esc_DECRC (); break;
