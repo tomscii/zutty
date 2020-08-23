@@ -463,6 +463,8 @@ namespace zutty {
       , frame_pri (winPx, winPy, nCols, nRows)
       , cf (&frame_pri)
       , utf8dec ([this] () { placeGraphicChar (); })
+      , nColsEff (nCols)
+      , hMargin (0)
    {
       makePalette256 (palette256);
 
@@ -516,6 +518,16 @@ namespace zutty {
 
       nCols = nCols_;
       nRows = nRows_;
+      if (horizMarginMode)
+      {
+         nColsEff = std::min (nColsEff, nCols);
+         hMargin = std::max (0, std::min ((int)hMargin, nColsEff - 2));
+      }
+      else
+      {
+         nColsEff = nCols;
+         hMargin = 0;
+      }
       normalizeCursorPos ();
       showCursor ();
 
@@ -529,6 +541,13 @@ namespace zutty {
    int
    Vterm::writePty (VtKey key, VtModifier modifiers_)
    {
+#ifdef DEBUG
+      if (key == VtKey::Print)
+      {
+         debugKey ();
+         return 0;
+      }
+#endif
       modifiers = modifiers_;
       const auto& spec = getInputSpec (key);
       if (modifiers == VtModifier::none)
@@ -846,9 +865,10 @@ namespace zutty {
             case 'm': csi_SGR (); break;
             case 'n': csi_DSR (); break;
             case 'r': csi_STBM (); break;
-            case 's': csi_SCOSC (); break;
+            case 's': csi_SCOSC_SLRM (); break;
             case 'u': csi_SCORC (); break;
-            case '\"': setState (InputState::CSI_Quote); break;
+            case '\'': setState (InputState::CSI_Quote); break;
+            case '\"': setState (InputState::CSI_DblQuote); break;
             case '!': setState (InputState::CSI_Bang); break;
             case '?': setState (InputState::CSI_priv); break;
             case ' ': setState (InputState::CSI_SPC); break;
@@ -875,6 +895,14 @@ namespace zutty {
             }
             break;
          case InputState::CSI_Quote:
+            switch (ch)
+            {
+            case '}': csi_DECIC (); break;
+            case '~': csi_DECDC (); break;
+            default: unhandledInput (ch); break;
+            }
+            break;
+         case InputState::CSI_DblQuote:
             switch (ch)
             {
             case 'p': csiq_DECSCL (); break;

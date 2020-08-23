@@ -16,6 +16,11 @@ echo "Filesize: ${BYTES} bytes" >> ${TEST_LOG}
 echo "Repeated: ${TIMES} times" >> ${TEST_LOG}
 echo "Timings in seconds:" >> ${TEST_LOG}
 
+if [ -z ${HMARGINS} ] ; then
+    echo "Horizontal margins not set; run with HMARGINS=1 to enable."
+else
+    IN "source set_hmargins_inc.sh\r"
+fi
 IN "{ time -p for i in \$(seq 1 ${TIMES}); do cat ${DICT}; done } 2>>${TEST_LOG} && touch .complete\r"
 
 WAIT_FOR_DOT_COMPLETE

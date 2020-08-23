@@ -192,6 +192,7 @@ that double-width lines are not supported.
 - [X] 11.3.2.8 Test Forward Index (FI)
 - [X] 11.3.2.9 Test cursor movement within margins
 - [X] 11.3.2.10 Test other movement (CR/HT/LF/FF) within margins
+- [X] 11.3.3.9 Test insert/delete column (DECIC, DECDC)
 - [X] 11.3.3.10 Test vertical scrolling (IND, RI)
 - [X] 11.3.3.11 Test insert/delete line (IL, DL)
 - [X] 11.3.3.12 Test insert/delete char (ICH, DCH)

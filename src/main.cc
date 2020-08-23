@@ -443,6 +443,9 @@ onKeyPress (XEvent& event, XIC& xic, int pty_fd)
       KEYSEND (XK_KP_Space,         Key::KP_Space);
       KEYSEND (XK_KP_Tab,           Key::KP_Tab);
       KEYSEND (XK_KP_Enter,         Key::KP_Enter);
+#ifdef DEBUG
+      KEYSEND (XK_Print,            Key::Print);
+#endif
 
 #undef KEYSEND
 
@@ -743,6 +746,9 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed, bool& holdPtyIn)
    case ReparentNotify:
       std::cout << "ReparentNotify" << std::endl;
       redraw = true;
+      break;
+   case MappingNotify:
+      std::cout << "MappingNotify" << std::endl;
       break;
    case MapNotify:
       std::cout << "MapNotify" << std::endl;

@@ -409,10 +409,56 @@ function VT_11 {
     IN "10\r" # Test other movement within margins
     SNAP vt_11_3_2_10_04 709198649248b78ce16e77560f8ef7ae
     IN "\r"
+    IN "4\r" # Top/Bottom margins are reset
+    IN "3\r" # Enable DECLRMM (left/right mode)
+    IN "5\r" # Left/Right margins are set to left half of screen
+    IN "7\r" # Test Back Index (BI)
+    SNAP vt_11_3_2_7_05 f4733b367ad0d92cf68499b56d1a0967
+    IN "\r"
+    IN "8\r" # Test Forward Index (FI)
+    SNAP vt_11_3_2_8_05 71464ccf5d191e957612c9676cb774ef
+    IN "\r"
+    IN "9\r" # Test cursor movement within margins
+    SNAP vt_11_3_2_9_05 7a8aaaa6e9633b134d3c325bad26aa8b
+    IN "\r"
+    IN "10\r" # Test other movement within margins
+    SNAP vt_11_3_2_10_05 bb1b2f465352bc1be5e47250c447a331
+    IN "\r"
+    IN "5\r" # Left/Right margins are set to right half of screen
+    IN "7\r" # Test Back Index (BI)
+    SNAP vt_11_3_2_7_06 b55ae9eb3ab0e96b02ee40e796aa5ae2
+    IN "\r"
+    IN "8\r" # Test Forward Index (FI)
+    SNAP vt_11_3_2_8_06 5b08d36cfe69faa62d546a5560e88e91
+    IN "\r"
+    IN "9\r" # Test cursor movement within margins
+    SNAP vt_11_3_2_9_06 fb66ea22e6c9684e2b0ddb88f95e2547
+    IN "\r"
+    IN "10\r" # Test other movement within margins
+    SNAP vt_11_3_2_10_06 d57bcc097ad7229f71855682ee7bba22
+    IN "\r"
+    IN "5\r" # Left/Right margins are set to middle half of screen
+    IN "7\r" # Test Back Index (BI)
+    SNAP vt_11_3_2_7_07 968eef03ef9fcc8b41ea1f513455a538
+    IN "\r"
+    IN "8\r" # Test Forward Index (FI)
+    SNAP vt_11_3_2_8_07 4a0d1cea14942f839e331b1cd444f82d
+    IN "\r"
+    IN "9\r" # Test cursor movement within margins
+    SNAP vt_11_3_2_9_07 d6b8514303928a596f8593719bae7af8
+    IN "\r"
+    IN "10\r" # Test other movement within margins
+    SNAP vt_11_3_2_10_07 9b5dd2a33f79a98fea7fa6cbf46bafb9
+    IN "\r"
     IN "0\r"
 
     IN "3\r" # VT420 Editing Sequences
     IN "5\r" # Color test-regions
+    IN "9\r" # Test insert/delete column (DECIC, DECDC)
+    SNAP vt_11_3_3_09_01a 14bbfcab4696f19b634c71f00f7e7b60
+    IN "\r"
+    SNAP vt_11_3_3_09_01b 22adba4322e3b2fa323496e80b477643
+    IN "\r"
     IN "10\r\r" # Test vertical scrolling (IND, RI)
     SNAP vt_11_3_3_10_01a 9a310e01d6d5b0bf494d7d88d730f1c0
     IN "\r\r"
@@ -432,6 +478,11 @@ function VT_11 {
     SNAP vt_11_3_3_13_01 ad7fc21351dfe257154578e42d37b1f3
     IN "\r"
     IN "3\r" # Top/Bottom margins are set to top half of screen
+    IN "9\r" # Test insert/delete column (DECIC, DECDC)
+    SNAP vt_11_3_3_09_02a 7574137aa9b9c9b5fe0931369d94db97
+    IN "\r"
+    SNAP vt_11_3_3_09_02b 77faad730a97e04ceaf1be6d721bffb2
+    IN "\r"
     IN "10\r\r" # Test vertical scrolling (IND, RI)
     SNAP vt_11_3_3_10_02a 93419dff4f7104eb2708fa2065de5690
     IN "\r\r"
@@ -453,6 +504,11 @@ function VT_11 {
     SNAP vt_11_3_3_13_02 c33aec43990b0a4021648259f659deaf
     IN "\r"
     IN "3\r" # Top/Bottom margins are set to bottom half of screen
+    IN "9\r" # Test insert/delete column (DECIC, DECDC)
+    SNAP vt_11_3_3_09_03a 99f5f02dd644dd755adbd255c3a46c18
+    IN "\r"
+    SNAP vt_11_3_3_09_03b fddf91000e0e50d8ece09d87649d063d
+    IN "\r"
     IN "10\r\r" # Test vertical scrolling (IND, RI)
     SNAP vt_11_3_3_10_03a 75d7b3c2dcdc4d1b5a0036a5fdce573e
     IN "\r\r"
@@ -472,6 +528,11 @@ function VT_11 {
     SNAP vt_11_3_3_13_03 3d99e0a735ec7b24382e9b8d811479ea
     IN "\r"
     IN "3\r" # Top/Bottom margins are set to middle half of screen
+    IN "9\r" # Test insert/delete column (DECIC, DECDC)
+    SNAP vt_11_3_3_09_04a 2b2000586bba2c903b3235fdfbea6d08
+    IN "\r"
+    SNAP vt_11_3_3_09_04b 183959b69a6dbc6f916dc156d7388b26
+    IN "\r"
     IN "10\r\r" # Test vertical scrolling (IND, RI)
     SNAP vt_11_3_3_10_04a e89fde9af7a3d9497b9df5547caddba5
     IN "\r\r"
@@ -491,6 +552,83 @@ function VT_11 {
     IN "\r"
     IN "13\r" # Test ASCII formatting (BS, CR, TAB)
     SNAP vt_11_3_3_13_04 6926417da2a660a1f9243c709d41f268
+    IN "\r"
+    IN "3\r" # Top/Bottom margins are reset
+    IN "2\r" # Enable DECLRMM (left/right mode)
+    IN "4\r" # Left/Right margins are set to left half of screen
+    IN "9\r" # Test insert/delete column (DECIC, DECDC)
+    SNAP vt_11_3_3_09_05a b6c7b64efeb2c4bb2366610ca3f96dbd
+    IN "\r"
+    SNAP vt_11_3_3_09_05b bd808658e99213cceffc99697d7e4153
+    IN "\r"
+    IN "10\r\r" # Test vertical scrolling (IND, RI)
+    SNAP vt_11_3_3_10_05a 33bfb1ec1703b75108b61f7a4d71ee5b
+    IN "\r\r"
+    SNAP vt_11_3_3_10_05b b0ae034833228f898954ab951e3bbeea
+    IN "\r"
+    IN "11\r\r" # Test insert/delete line (IL, DL)
+    echo "N.B.: Bug in vttest, extra line scroll!"
+    SNAP vt_11_3_3_11_05a 2b3826f46745abcb490c9cd5296f6d4f
+    IN "\r\r"
+    SNAP vt_11_3_3_11_05b a076afeb72458eb8505a3555b108bc18
+    IN "\r"
+    IN "12\r" # Test insert/delete char (ICH, DCH)
+    SNAP vt_11_3_3_12_05a 57c4499b67374737b3b643f433142af6
+    IN "\r"
+    SNAP vt_11_3_3_12_05b ed1a9e38f21071506f19f82752326930
+    IN "\r"
+    IN "13\r" # Test ASCII formatting (BS, CR, TAB)
+    SNAP vt_11_3_3_13_05 d9157c0da7b2dfe8a7531cf40436ac1d
+    IN "\r"
+    IN "4\r" # Left/Right margins are set to right half of screen
+    IN "9\r" # Test insert/delete column (DECIC, DECDC)
+    SNAP vt_11_3_3_09_06a c5f83e9dca026fd2366c3beca415f47b
+    IN "\r"
+    SNAP vt_11_3_3_09_06b 02dd71b281004a2333abc0d47d1f2965
+    IN "\r"
+    IN "10\r\r" # Test vertical scrolling (IND, RI)
+    SNAP vt_11_3_3_10_06a df58da35fd49a0efdda76bb644dda213
+    IN "\r\r"
+    SNAP vt_11_3_3_10_06b 0e9e493a6ea7fe4a4dbb8e68be09b084
+    IN "\r"
+    IN "11\r\r" # Test insert/delete line (IL, DL)
+    echo "N.B.: Bug in vttest, extra line scroll!"
+    SNAP vt_11_3_3_11_06a fa7903f3cf6b236c8b6e3d3bd4f4a881
+    IN "\r\r"
+    SNAP vt_11_3_3_11_06b 3e567cec673863215fb9cba66f495de1
+    IN "\r"
+    IN "12\r" # Test insert/delete char (ICH, DCH)
+    SNAP vt_11_3_3_12_06a 2bd35dd458506cdab1199792bda5b861
+    IN "\r"
+    SNAP vt_11_3_3_12_06b e24b7d57ea33ed7b71312d5ad9588487
+    IN "\r"
+    IN "13\r" # Test ASCII formatting (BS, CR, TAB)
+    SNAP vt_11_3_3_13_06 0ac7759b643f4878becf594eb55cc100
+    IN "\r"
+    IN "4\r" # Left/Right margins are set to middle half of screen
+    IN "9\r" # Test insert/delete column (DECIC, DECDC)
+    SNAP vt_11_3_3_09_07a afc872967688bead9a83368e5747f57f
+    IN "\r"
+    SNAP vt_11_3_3_09_07b bebe1dfe44102b01cfadf51f35dcfc5e
+    IN "\r"
+    IN "10\r\r" # Test vertical scrolling (IND, RI)
+    SNAP vt_11_3_3_10_07a 46e6867ed643642614a6bba671181e08
+    IN "\r\r"
+    SNAP vt_11_3_3_10_07b 2c1a82bfdc314387a5076016b11eed13
+    IN "\r"
+    IN "11\r\r" # Test insert/delete line (IL, DL)
+    echo "N.B.: Bug in vttest, extra line scroll!"
+    SNAP vt_11_3_3_11_07a 415f8ee48b45c8a307626d6f52b9c8d0
+    IN "\r\r"
+    SNAP vt_11_3_3_11_07b d6a126d5244b127928549d0457335eb7
+    IN "\r"
+    IN "12\r" # Test insert/delete char (ICH, DCH)
+    SNAP vt_11_3_3_12_07a 816eb609f41c6694d4799c0f259d6662
+    IN "\r"
+    SNAP vt_11_3_3_12_07b 78ca06ffabfd7fb914840f8d3904a19c
+    IN "\r"
+    IN "13\r" # Test ASCII formatting (BS, CR, TAB)
+    SNAP vt_11_3_3_13_07 9622e6ff07a4abda08f1f12203c58a14
     IN "\r"
     IN "0\r"
 
@@ -615,6 +753,92 @@ function VT_11 {
     IN "\r"
     IN "15\r" # Test Vertical-Position-Relative (VPR)
     SNAP vt_11_4_2_15_04 5329ca8525fb86006a1b376a68fe81da
+    IN "\r"
+    IN "4\r" # Top/Bottom margins are reset
+    IN "3\r" # Enable DECLRMM (left/right mode)
+    IN "5\r" # Left/right margins are set to left half of screen
+    IN "7\r" # Test Character-Position-Absolute (HPA)
+    SNAP vt_11_4_2_7_05 da57d0d4a995fc57e0e82f26890e558a
+    IN "\r"
+    IN "8\r" # Test Cursor-Back-Tab (CBT)
+    SNAP vt_11_4_2_8_05 af722e4cce2d81bb27aa10c688dc8e29
+    IN "\r"
+    IN "9\r" # Test Cursor-Character-Absolute (CHA)
+    SNAP vt_11_4_2_9_05 94dab29595fc3d8d70d359fae4f5b76d
+    IN "\r"
+    IN "10\r" # Test Cursor-Horizontal-Index (CHT)
+    SNAP vt_11_4_2_10_05 8e2bc2cad2120d9467818971e4ea0e91
+    IN "\r"
+    IN "11\r" # Test Horizontal-Position-Relative (HPR)
+    SNAP vt_11_4_2_11_05 9cbace667c9d5be1950205eb18711b61
+    IN "\r"
+    IN "12\r" # Test Line-Position-Absolute (VPA)
+    SNAP vt_11_4_2_12_05 d1bb1ef4f230c6736246251215fe3b26
+    IN "\r"
+    IN "13\r" # Test Next-Line (CNL)
+    SNAP vt_11_4_2_13_05 5b9c63f652adb71b4466d1bbeebfe000
+    IN "\r"
+    IN "14\r" # Test Previous-Line (CPL)
+    SNAP vt_11_4_2_14_05 fa4b2a60c62b5f559633b328e00dc677
+    IN "\r"
+    IN "15\r" # Test Vertical-Position-Relative (VPR)
+    SNAP vt_11_4_2_15_05 e515a977ad7f30cddba916cea8802764
+    IN "\r"
+    IN "5\r" # Left/right margins are set to right half of screen
+    IN "7\r" # Test Character-Position-Absolute (HPA)
+    SNAP vt_11_4_2_7_06 57f6fc1342052b4f151e87d4bc90f9e7
+    IN "\r"
+    IN "8\r" # Test Cursor-Back-Tab (CBT)
+    SNAP vt_11_4_2_8_06 9142b815b833a5cd05fe5b5e6f45e54b
+    IN "\r"
+    IN "9\r" # Test Cursor-Character-Absolute (CHA)
+    SNAP vt_11_4_2_9_06 8aa64c9033fd2e4ab29a87b5da0b261a
+    IN "\r"
+    IN "10\r" # Test Cursor-Horizontal-Index (CHT)
+    SNAP vt_11_4_2_10_06 bf078d72d06cc310f7b51fc653aa26ad
+    IN "\r"
+    IN "11\r" # Test Horizontal-Position-Relative (HPR)
+    SNAP vt_11_4_2_11_06 79339821a7dd4db3fa9f035f4244493f
+    IN "\r"
+    IN "12\r" # Test Line-Position-Absolute (VPA)
+    SNAP vt_11_4_2_12_06 637b9c630787ed2b36c1ddb2e0e04fa7
+    IN "\r"
+    IN "13\r" # Test Next-Line (CNL)
+    SNAP vt_11_4_2_13_06 d0fd73b732ba36b01f235a934249535f
+    IN "\r"
+    IN "14\r" # Test Previous-Line (CPL)
+    SNAP vt_11_4_2_14_06 d64cd1331a249b5426cefaa1063bcfbf
+    IN "\r"
+    IN "15\r" # Test Vertical-Position-Relative (VPR)
+    SNAP vt_11_4_2_15_06 06ec75a35ab7ad36f4666b80fbfe5ee6
+    IN "\r"
+    IN "5\r" # Left/right margins are set to middle half of screen
+    IN "7\r" # Test Character-Position-Absolute (HPA)
+    SNAP vt_11_4_2_7_07 6c62fdaf3664c0483d748b4593ab7c4d
+    IN "\r"
+    IN "8\r" # Test Cursor-Back-Tab (CBT)
+    SNAP vt_11_4_2_8_07 caa1776d46320fcef28a15170df455e0
+    IN "\r"
+    IN "9\r" # Test Cursor-Character-Absolute (CHA)
+    SNAP vt_11_4_2_9_07 75bed4faf3bf1c506f3fed606eb82a2b
+    IN "\r"
+    IN "10\r" # Test Cursor-Horizontal-Index (CHT)
+    SNAP vt_11_4_2_10_07 86cb1e9ef93f3dbe6c2bba602cd5e638
+    IN "\r"
+    IN "11\r" # Test Horizontal-Position-Relative (HPR)
+    SNAP vt_11_4_2_11_07 6d260bb190de2dea4f72e41b35695247
+    IN "\r"
+    IN "12\r" # Test Line-Position-Absolute (VPA)
+    SNAP vt_11_4_2_12_07 12b7cc61450b86c8254ad068287b8e14
+    IN "\r"
+    IN "13\r" # Test Next-Line (CNL)
+    SNAP vt_11_4_2_13_07 c61325eab90d37fef34f5a343198d144
+    IN "\r"
+    IN "14\r" # Test Previous-Line (CPL)
+    SNAP vt_11_4_2_14_07 edaa6652a7f6037e36b62875c48ee16c
+    IN "\r"
+    IN "15\r" # Test Vertical-Position-Relative (VPR)
+    SNAP vt_11_4_2_15_07 5b46dff0c40888bacc199415074f0fa0
     IN "\r"
     IN "0\r"
     IN "0\r"

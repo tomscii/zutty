@@ -9,7 +9,7 @@ fi
 # A declaration of parameters and their default values
 declare -A ARGS=(
     ["profile"]=zutty
-    ["step"]=no
+    ["step"]=no          # N.B.: --step=new will only stop at new snaps!
     ["update-sig"]=no
     ["ci-mode"]=no
 )
@@ -215,6 +215,19 @@ function update_sig {
     esac
 }
 
+function step_prompt {
+    FOCUS_CONSOLE
+    read -p "[S]tep / [N]ew only / [C]ontinue / [Q]uit (s/n/c/q) ? " ans
+    printf "${ERASE_PROMPT}"
+    case $ans in
+        [sS]* ) STEP_MODE=yes ;;
+        [nN]* ) STEP_MODE=new ;;
+        [cC]* ) STEP_MODE=no ;;
+        [qQ]* ) exit ;;
+        * ) ;;
+    esac
+}
+
 function SNAP {
     local name="$1"; shift
     local refsig="$1"; shift
@@ -229,6 +242,9 @@ function SNAP {
                       awk '{print $2}' | cut -c -32)
             if [ -z "${refsig}" ] ; then
                 printf "${name}: ${YELLOW}NEW${DFLT} ${sig}\n"
+                if [ ${STEP_MODE} == "new" ] ; then
+                    step_prompt
+                fi
             elif [ "${sig}" == "${refsig}" ] ; then
                 printf "${name}: ${GREEN}OK${DFLT}\n"
             else
@@ -268,14 +284,7 @@ function SNAP {
     esac
 
     if [ ${STEP_MODE} == "yes" ] ; then
-        FOCUS_CONSOLE
-        read -p "[S]tep / [C]ontinue / [Q]uit (S/c/q) ? " ans
-        printf "${ERASE_PROMPT}"
-        case $ans in
-            [cC]* ) STEP_MODE=no ;;
-            [qQ]* ) exit ;;
-            * ) ;;
-        esac
+        step_prompt
     fi
 }
 

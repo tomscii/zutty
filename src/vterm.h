@@ -36,7 +36,9 @@ namespace zutty {
       KP_Home, KP_End, KP_PageUp, KP_PageDown, KP_Begin,
       KP_Plus, KP_Minus, KP_Star, KP_Slash, KP_Comma, KP_Dot,
       KP_Space, KP_Equal, KP_Tab, KP_Enter,
-      KP_0, KP_1, KP_2, KP_3, KP_4, KP_5, KP_6, KP_7, KP_8, KP_9
+      KP_0, KP_1, KP_2, KP_3, KP_4, KP_5, KP_6, KP_7, KP_8, KP_9,
+
+      Print
    };
 
    enum class VtModifier: uint8_t
@@ -137,7 +139,6 @@ namespace zutty {
       const InputSpec * selectInputSpecs ();
       const InputSpec & getInputSpec (VtKey key);
 
-      void debugStop ();
       void unhandledInput (char ch);
       void traceNormalInput ();
       void resetTerminal ();
@@ -156,6 +157,7 @@ namespace zutty {
          CSI,
          CSI_priv,
          CSI_Quote,
+         CSI_DblQuote,
          CSI_Bang,
          CSI_SPC,
          CSI_GT,
@@ -174,10 +176,11 @@ namespace zutty {
       void eraseRange (uint32_t start, uint32_t end);
       void eraseRow (uint16_t pY);
       void copyRow (uint16_t dstY, uint16_t srcY);
-      void insertLines (uint16_t count);
-      void deleteLines (uint16_t count);
+      void insertRows (uint16_t startY, uint16_t count);
+      void deleteRows (uint16_t startY, uint16_t count);
+      void insertCols (uint16_t startX, uint16_t count);
+      void deleteCols (uint16_t startX, uint16_t count);
 
-      void advancePosition ();
       void showCursor ();
       void hideCursor ();
       void inputGraphicChar (unsigned char ch);
@@ -198,6 +201,7 @@ namespace zutty {
       void esc_BI ();        // Back Index
       void esc_FI ();        // Forward Index
       void esc_HTS ();       // Horizontal Tab Set
+      void csi_SCOSC_SLRM (); // disambiguation
       void csi_SCOSC ();     // Save Cursor Position
       void csi_SCORC ();     // Restore Cursor Position
       void esc_DECSC ();     // Save Cursor and Attributes
@@ -230,8 +234,11 @@ namespace zutty {
       void csi_ICH ();       // Insert Characters
       void csi_DCH ();       // Delete Characters
       void csi_ECH ();       // Erase Characters
+      void csi_DECIC ();     // Insert Column
+      void csi_DECDC ();     // Delete Column
 
       void csi_STBM ();      // Set Top and Bottom Margins
+      void csi_SLRM ();      // Set Left and Right Margins
       void csi_TBC ();       // Tabulation Clear
 
       void csi_SM ();        // Set Mode
@@ -270,6 +277,7 @@ namespace zutty {
       uint32_t cur = 0;       // current screen position (abs. offset in cells)
       uint16_t posX = 0;      // current cursor horizontal position (on-screen)
       uint16_t posY = 0;      // current cursor vertical position (on-screen)
+      bool curPosViaCharPlacement = false;
 
       CharVdev::Cell attrs;   // prototype cell with current attributes
       Color* fg = &attrs.fg;
@@ -310,6 +318,10 @@ namespace zutty {
       bool localEcho = false;
       bool bracketedPasteMode = false;
       bool altScrollMode = false;
+
+      bool horizMarginMode = false;
+      uint16_t nColsEff = 0;
+      uint16_t hMargin = 0;
 
       std::vector <uint16_t> tabStops;
 
@@ -397,6 +409,14 @@ namespace zutty {
       void vscrollSelection (int vertOffset);
 
       MouseTrackingState mouseTrk;
+
+      #ifdef DEBUG
+      // step debugger facilities
+      int debugStep = 0;
+      int debugCnt = 0;
+      void debugKey ();
+      void debugStop ();
+      #endif // DEBUG
    };
 
 } // namespace zutty

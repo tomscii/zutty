@@ -30,7 +30,6 @@ namespace {
 
 #ifdef DEBUG
 #define LOG_TRACE
-//#define STEP_DEBUGGER
 #endif
 
 #ifdef LOG
@@ -61,7 +60,10 @@ namespace {
       logTcont << "]   \t"                     \
       << "p(" << posY << "," << posX           \
       << ")  d(" << nRows << "," << nCols      \
-      << ")  mgn[" << cf->marginTop << "," << cf->marginBottom  \
+      << ")  mgn[" << cf->marginTop << ","     \
+                   << cf->marginBottom         \
+      << ")  hmgn:" << horizMarginMode         \
+      << " [" << hMargin << "," << nColsEff    \
       << ")  cur=" << cur                      \
       << "  head=" << cf->scrollHead           \
       << std::endl
@@ -117,13 +119,29 @@ namespace {
 
 namespace zutty {
 
-#ifdef STEP_DEBUGGER
-   #define DEBUGSTOP debugStop()
+#ifdef DEBUG
+   inline void
+   Vterm::debugKey ()
+   {
+      switch (debugStep)
+      {
+      case 0: debugStep = 1; break;
+      case 1: debugStep = 10; break;
+      case 10: debugStep = 100; break;
+      case 100: debugStep = 0; break;
+      }
+      debugCnt = debugStep;
+      logT << "*** DEBUG step=" << debugStep << std::endl;
+   }
 
    inline void
    Vterm::debugStop ()
    {
-      logT << "*** DEBUG STOP, "
+      if (!debugStep || --debugCnt > 0)
+         return;
+
+      debugCnt = debugStep;
+      logT << "*** DEBUG STOP (step=" << debugStep << "), "
            << readPos + 1 - lastStopPos << " bytes since last:\n        ";
       debugPrintInput (logTcont, inputBuf + lastStopPos, inputBuf + readPos + 1);
       lastStopPos = readPos + 1;
@@ -137,9 +155,11 @@ namespace zutty {
 
       kill (getpid (), SIGSTOP);
    }
+
+   #define DEBUGSTOP debugStop()
 #else
    #define DEBUGSTOP
-#endif // STEP_DEBUGGER
+#endif // DEBUG
 
    inline void
    Vterm::unhandledInput (char ch)
@@ -231,6 +251,10 @@ namespace zutty {
 
       switchScreenBufferMode (false);
       altScrollMode = opts.altScrollMode;
+
+      horizMarginMode = false;
+      hMargin = 0;
+      nColsEff = nCols;
 
       setState (InputState::Normal);
    }
@@ -427,7 +451,7 @@ namespace zutty {
          inputOps [0] = 0;
          lastNormalBegin = readPos + 1;
       }
-      else
+      else if (inputState == InputState::Normal)
       {
          traceNormalInput ();
       }
@@ -495,6 +519,7 @@ namespace zutty {
    inline uint32_t
    Vterm::setCur ()
    {
+      curPosViaCharPlacement = false;
       cur = cf->getIdx (posY, posX);
       return cur;
    }
@@ -502,8 +527,8 @@ namespace zutty {
    inline void
    Vterm::normalizeCursorPos ()
    {
-      if (nCols < posX + 1)
-         posX = nCols - 1;
+      if (nColsEff < posX + 1)
+         posX = nColsEff - 1;
 
       if (nRows < posY + 1)
          posY = nRows - 1;
@@ -538,46 +563,70 @@ namespace zutty {
    Vterm::eraseRow (uint16_t pY)
    {
       uint32_t idx = cf->getIdx (pY, 0);
-      eraseRange (idx, idx + nCols);
-      invalidateSelection (Rect (0, pY, nCols, pY));
+      eraseRange (idx + hMargin, idx + nColsEff);
+      invalidateSelection (Rect (hMargin, pY, nColsEff, pY));
    }
 
    inline void
    Vterm::copyRow (uint16_t dstY, uint16_t srcY)
    {
-      uint32_t dstIdx = cf->getIdx (dstY, 0);
-      uint32_t srcIdx = cf->getIdx (srcY, 0);
-      cf->copyCells (dstIdx, srcIdx, nCols);
-      invalidateSelection (Rect (0, dstY, nCols, dstY));
+      uint32_t dstIdx = cf->getIdx (dstY, hMargin);
+      uint32_t srcIdx = cf->getIdx (srcY, hMargin);
+      cf->copyCells (dstIdx, srcIdx, nColsEff - hMargin);
+      invalidateSelection (Rect (hMargin, dstY, nColsEff, dstY));
    }
 
-   // insert lines at and below posY, within the scrolling area
+   // insert blank rows at and below startY, within the scrolling area
    inline void
-   Vterm::insertLines (uint16_t count)
+   Vterm::insertRows (uint16_t startY, uint16_t count)
    {
-      logT << "insertLines: count=" << count << std::endl;
-
-      for (uint16_t pY = cf->marginBottom - count - 1; pY >= posY; --pY)
+      for (uint16_t pY = cf->marginBottom - count - 1; pY >= startY; --pY)
       {
          copyRow (pY + count, pY);
          if (!pY) break;
       }
 
-      for (uint16_t pY = posY; pY < posY + count; ++pY)
+      for (uint16_t pY = startY; pY < startY + count; ++pY)
          eraseRow (pY);
    }
 
-   // delete lines at and below posY, within the scrolling area
+   // delete rows at and below startY, within the scrolling area
    inline void
-   Vterm::deleteLines (uint16_t count)
+   Vterm::deleteRows (uint16_t startY, uint16_t count)
    {
-      logT << "deleteLines: count=" << count << std::endl;
-
-      for (uint16_t pY = posY; pY < cf->marginBottom - count; ++pY)
+      for (uint16_t pY = startY; pY < cf->marginBottom - count; ++pY)
          copyRow (pY, pY + count);
 
       for (uint16_t pY = cf->marginBottom - count; pY < cf->marginBottom; ++pY)
          eraseRow (pY);
+   }
+
+   // insert blank cols at and to the right of startX, within the scrolling area
+   inline void
+   Vterm::insertCols (uint16_t startX, uint16_t count)
+   {
+      for (uint16_t r = cf->marginTop; r < cf->marginBottom; ++r)
+      {
+         cf->moveCells (nCols * r + startX + count, nCols * r + startX,
+                        nColsEff - startX - count);
+         eraseRange (nCols * r + startX, nCols * r + startX + count);
+      }
+      invalidateSelection (Rect (startX, cf->marginTop,
+                                 nColsEff, cf->marginBottom));
+   }
+
+   // delete cols at and to the right of startX, within the scrolling area
+   inline void
+   Vterm::deleteCols (uint16_t startX, uint16_t count)
+   {
+      for (uint16_t r = cf->marginTop; r < cf->marginBottom; ++r)
+      {
+         cf->moveCells (nCols * r + startX, nCols * r + startX + count,
+                        nColsEff - startX - count);
+         eraseRange (nCols * r + nColsEff - count, nCols * r + nColsEff);
+      }
+      invalidateSelection (Rect (startX, cf->marginTop,
+                                 nColsEff, cf->marginBottom));
    }
 
    inline void
@@ -616,11 +665,9 @@ namespace zutty {
    inline void
    Vterm::placeGraphicChar ()
    {
-      if (! autoWrapMode && posX == nCols)
-         return;
-
-      if (posX == nCols)
+      if (curPosViaCharPlacement && (posX == nColsEff || posX == nCols))
       {
+         if (! autoWrapMode) return;
          inp_CR ();
          inp_LF ();
       }
@@ -636,7 +683,10 @@ namespace zutty {
       c = attrs;
       c.uc_pt = utf8dec.getUnicode ();
       invalidateSelection (Rect (posX, posY));
-      advancePosition ();
+
+      ++posX;
+      setCur ();
+      curPosViaCharPlacement = true;
     }
 
    inline void
@@ -644,14 +694,14 @@ namespace zutty {
    {
       TRACE_FUN;
       if (esc_IND ())
-         eraseRange (cur, startOfNextLine ());
+         eraseRange (cur, cur - posX + nColsEff);
    }
 
    inline void
    Vterm::inp_CR ()
    {
       TRACE_FUN;
-      posX = 0;
+      posX = hMargin;
       setCur ();
    }
 
@@ -661,7 +711,11 @@ namespace zutty {
       if (tabStops.empty ())
       {
          // Hard default of 8 chars limited to right margin
-         posX = std::min(((posX / 8) + 1) * 8, nCols - 1);
+         do
+         {
+            posX = ((posX / 8) + 1) * 8;
+         } while (posX < hMargin);
+         posX = std::min ((int)posX, nColsEff - 1);
       }
       else
       {
@@ -676,20 +730,13 @@ namespace zutty {
    Vterm::inp_HT ()
    {
       TRACE_FUN;
-      if (posX == nCols)
+      if (posX == nColsEff)
       {
          inp_CR ();
          esc_IND ();
       }
       else
          jumpToNextTabStop ();
-   }
-
-   inline void
-   Vterm::advancePosition ()
-   {
-      ++posX;
-      setCur ();
    }
 
    inline void
@@ -798,15 +845,9 @@ namespace zutty {
    Vterm::csi_ecma48_SL ()
    {
       TRACE_FUN;
-      uint16_t arg = inputOps [0] ? inputOps [0] : 1u;
-      arg = std::min (arg, nCols);
-      // move all lines within scrolling area to the left by arg positions:
-      for (uint16_t r = cf->marginTop; r < cf->marginBottom; ++r)
-      {
-         cf->moveCells (nCols * r, nCols * r + arg, nCols - arg);
-         eraseRange (nCols * (r + 1) - arg, nCols * (r + 1));
-      }
-      invalidateSelection (Rect (0, cf->marginTop, 0, cf->marginBottom));
+      int arg = inputOps [0] ? inputOps [0] : 1u;
+      arg = std::min (arg, nColsEff - hMargin);
+      deleteCols (hMargin, arg);
       setState (InputState::Normal);
    }
 
@@ -814,15 +855,37 @@ namespace zutty {
    Vterm::csi_ecma48_SR ()
    {
       TRACE_FUN;
-      uint16_t arg = inputOps [0] ? inputOps [0] : 1u;
-      arg = std::min (arg, nCols);
-      // move all lines within scrolling area to the right by arg positions:
-      for (uint16_t r = cf->marginTop; r < cf->marginBottom; ++r)
+      int arg = inputOps [0] ? inputOps [0] : 1u;
+      arg = std::min (arg, nColsEff - hMargin);
+      insertCols (hMargin, arg);
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_DECIC ()
+   {
+      TRACE_FUN;
+      int arg = inputOps [0] ? inputOps [0] : 1u;
+      if (posX >= hMargin && posX < nColsEff &&
+          posY >= cf->marginTop && posY < cf->marginBottom)
       {
-         cf->moveCells (nCols * r + arg, nCols * r, nCols - arg);
-         eraseRange (nCols * r, nCols * r + arg);
+         arg = std::min (arg, nColsEff - posX);
+         insertCols (posX, arg);
       }
-      invalidateSelection (Rect (0, cf->marginTop, 0, cf->marginBottom));
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_DECDC ()
+   {
+      TRACE_FUN;
+      int arg = inputOps [0] ? inputOps [0] : 1u;
+      if (posX >= hMargin && posX < nColsEff &&
+          posY >= cf->marginTop && posY < cf->marginBottom)
+      {
+         arg = std::min (arg, nColsEff - posX);
+         deleteCols (posX, arg);
+      }
       setState (InputState::Normal);
    }
 
@@ -832,7 +895,7 @@ namespace zutty {
       TRACE_FUN;
       nInputOps = 1;
       inputOps [0] = 1;
-      if (posX < nCols - 1)
+      if (posX < nColsEff - 1)
          csi_CUF ();
       else
          csi_ecma48_SL ();
@@ -845,7 +908,7 @@ namespace zutty {
       TRACE_FUN;
       nInputOps = 1;
       inputOps [0] = 1;
-      if (posX > 0)
+      if (posX > hMargin)
          csi_CUB ();
       else
          csi_ecma48_SR ();
@@ -869,6 +932,15 @@ namespace zutty {
       tabStops.push_back (posX);
       std::sort (tabStops.begin (), tabStops.end ());
       setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_SCOSC_SLRM ()
+   {
+      if (horizMarginMode)
+         csi_SLRM ();
+      else
+         csi_SCOSC ();
    }
 
    inline void
@@ -970,7 +1042,7 @@ namespace zutty {
    {
       TRACE_FUN;
       int arg = inputOps [0] ? inputOps [0] : 1;
-      arg = std::min (arg, nCols - posX - 1);
+      arg = std::min (arg, nColsEff - posX - 1);
       posX += arg;
       setCur ();
       setState (InputState::Normal);
@@ -980,9 +1052,12 @@ namespace zutty {
    Vterm::csi_CUB ()
    {
       TRACE_FUN;
-      uint16_t arg = inputOps [0] ? inputOps [0] : 1;
-      arg = std::min (arg, posX);
-      if (posX == nCols)
+      int arg = inputOps [0] ? inputOps [0] : 1;
+      if (posX >= hMargin)
+         arg = std::min (arg, posX - hMargin);
+      else
+         arg = std::min (arg, (int)posX);
+      if (posX == nColsEff)
          arg = std::min (arg + 1, (int)posX);
       posX -= arg;
       setCur ();
@@ -1090,15 +1165,23 @@ namespace zutty {
    {
       TRACE_FUN;
       uint16_t arg = inputOps [0] ? inputOps [0] : 1;
-      vscrollSelection (-arg);
-      for (uint16_t k = 0; k < arg; ++k)
+      if (horizMarginMode)
       {
-         ++cf->scrollHead;
-         if (cf->scrollHead == cf->marginBottom)
-            cf->scrollHead = cf->marginTop;
-         eraseRow (cf->marginBottom - 1);
+         arg = std::min ((int)arg, cf->marginBottom - cf->marginTop);
+         deleteRows (cf->marginTop, arg);
       }
-      setCur ();
+      else
+      {
+         vscrollSelection (-arg);
+         for (uint16_t k = 0; k < arg; ++k)
+         {
+            ++cf->scrollHead;
+            if (cf->scrollHead == cf->marginBottom)
+               cf->scrollHead = cf->marginTop;
+            eraseRow (cf->marginBottom - 1);
+         }
+         setCur ();
+      }
       setState (InputState::Normal);
    }
 
@@ -1107,16 +1190,24 @@ namespace zutty {
    {
       TRACE_FUN;
       uint16_t arg = inputOps [0] ? inputOps [0] : 1;
-      vscrollSelection (arg);
-      for (uint16_t k = 0; k < arg; ++k)
+      if (horizMarginMode)
       {
-         if (cf->scrollHead >= cf->marginTop + 1)
-            --cf->scrollHead;
-         else
-            cf->scrollHead = cf->marginBottom - 1;
-         eraseRow (cf->marginTop);
+         arg = std::min ((int)arg, cf->marginBottom - cf->marginTop);
+         insertRows (cf->marginTop, arg);
       }
-      setCur ();
+      else
+      {
+         vscrollSelection (arg);
+         for (uint16_t k = 0; k < arg; ++k)
+         {
+            if (cf->scrollHead >= cf->marginTop + 1)
+               --cf->scrollHead;
+            else
+               cf->scrollHead = cf->marginBottom - 1;
+            eraseRow (cf->marginTop);
+         }
+         setCur ();
+      }
       setState (InputState::Normal);
    }
 
@@ -1244,7 +1335,7 @@ namespace zutty {
       }
       int arg = inputOps [0] ? inputOps [0] : 1;
       arg = std::min (arg, cf->marginBottom - posY);
-      insertLines (arg);
+      insertRows (posY, arg);
       inp_CR ();
       setState (InputState::Normal);
    }
@@ -1260,7 +1351,7 @@ namespace zutty {
       }
       int arg = inputOps [0] ? inputOps [0] : 1;
       arg = std::min (arg, cf->marginBottom - posY);
-      deleteLines (arg);
+      deleteRows (posY, arg);
       inp_CR ();
       setState (InputState::Normal);
    }
@@ -1270,7 +1361,7 @@ namespace zutty {
    {
       TRACE_FUN;
       uint32_t arg = inputOps [0] ? inputOps [0] : 1;
-      uint32_t len = nCols - posX;
+      uint32_t len = nColsEff - posX;
       arg = std::min (arg, len);
       len -= arg;
       cf->moveCells (cur + arg, cur, len);
@@ -1283,7 +1374,7 @@ namespace zutty {
    {
       TRACE_FUN;
       uint32_t arg = inputOps [0] ? inputOps [0] : 1;
-      uint32_t len = nCols - posX;
+      uint32_t len = nColsEff - posX;
       arg = std::min (arg, len);
       len -= arg;
       cf->moveCells (cur, cur + arg, len);
@@ -1296,7 +1387,7 @@ namespace zutty {
    {
       TRACE_FUN;
       uint32_t arg = inputOps [0] ? inputOps [0] : 1;
-      uint32_t len = nCols - posX;
+      uint32_t len = nColsEff - posX;
       arg = std::min (arg, len);
       eraseRange (cur, cur + arg);
       setState (InputState::Normal);
@@ -1332,6 +1423,38 @@ namespace zutty {
             cf->marginTop = newMarginTop;
             cf->marginBottom = newMarginBottom;
             cf->scrollHead = cf->marginTop;
+         }
+      }
+
+      posX = 0;
+      posY = cf->marginTop;
+      setCur ();
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_SLRM ()
+   {
+      TRACE_FUN;
+      if (nInputOps == 1 && inputOps [0] == 0)
+      {
+         hMargin = 0;
+         nColsEff = nCols;
+      }
+      else if (nInputOps == 2)
+      {
+         uint16_t newMarginLeft = inputOps [0] > 0 ? inputOps [0] - 1 : 0;
+         uint16_t newMarginRight = inputOps [1];
+
+         if (newMarginRight < newMarginLeft + 2 || nCols < newMarginRight)
+         {
+            logI << "Illegal arguments to SetLeftRightMargins: left="
+                 << inputOps [0] << ", right=" << inputOps [1] << std::endl;
+         }
+         else if (newMarginLeft != hMargin || newMarginRight != nColsEff)
+         {
+            hMargin = newMarginLeft;
+            nColsEff = newMarginRight;
          }
       }
 
@@ -1431,6 +1554,7 @@ namespace zutty {
          case 25: showCursorMode = true; break;
          case 47: switchScreenBufferMode (true);  break;
          case 67: bkspSendsDel = false; break;
+         case 69: horizMarginMode = true; hMargin = 0; nColsEff = nCols; break;
          case 1000: mouseTrk.mode = MouseTrackingMode::VT200; break;
          case 1001: logU << "Set VT200 Highlight Mouse mode" << std::endl; break;
          case 1002: mouseTrk.mode = MouseTrackingMode::VT200_ButtonEvent; break;
@@ -1479,6 +1603,7 @@ namespace zutty {
          case 25: showCursorMode = false; break;
          case 47: switchScreenBufferMode (false); break;
          case 67: bkspSendsDel = true; break;
+         case 69: horizMarginMode = false; hMargin = 0; nColsEff = nCols; break;
          case 1001: logU << "Reset VT200 Highlight Mouse mode" << std::endl; break;
          case 1004: mouseTrk.focusEventMode = false; break;
          case 1005: case 1006: case 1015:
