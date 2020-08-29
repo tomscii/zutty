@@ -5,7 +5,6 @@
 
 ** Cleanup & polish
 - keys C-1, C-Tab, A-Tab, C-BkSp, A-BkSp
-- logging
 - environment setup
   - set envvars (a'la rxvt)
     - TERM, COLORTERM, COLORFGBG

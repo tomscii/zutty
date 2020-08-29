@@ -10,10 +10,10 @@
  * See the file LICENSE for the full license.
  */
 
+#include "log.h"
 #include "pty.h"
 
 #include <algorithm>
-#include <iostream>
 #include <sstream>
 
 // for the debug/step facility:
@@ -22,104 +22,29 @@
 #include <sys/types.h>
 #include <signal.h>
 
-namespace {
-
-   using namespace zutty;
-
-#define LOG
-
-#ifdef DEBUG
-#define LOG_TRACE
-#endif
-
-#ifdef LOG
-   #define logE      std::cout << "Error: "
-   #define logEcont  std::cout
-   #define logU      std::cout << "(unimpl) "
-   #define logUcont  std::cout
-   #define logI      std::cout << "Info | "
-#else
-   #define logE      nullptr && std::cout
-   #define logEcont  nullptr && std::cout
-   #define logU      nullptr && std::cout
-   #define logUcont  nullptr && std::cout
-   #define logI      nullptr && std::cout
-#endif
-
-#ifdef LOG_TRACE
-   #define logT      std::cout << "Trace | "
-   #define logTcont  std::cout
-   #define logP      std::cout << "-<pty>- "
-   #define logPcont  std::cout
-   #define TRACE_FUN                           \
-      logT << __FUNCTION__ << " [";            \
-      for (size_t k = 0; k < nInputOps; ++k) { \
-         if (k) logTcont << ";";               \
-         logTcont << inputOps [k];             \
-      }                                        \
-      logTcont << "]   \t"                     \
-      << "p(" << posY << "," << posX           \
-      << ")  d(" << nRows << "," << nCols      \
-      << ")  mgn[" << cf->marginTop << ","     \
-                   << cf->marginBottom         \
-      << ")  hmgn:" << horizMarginMode         \
-      << " [" << hMargin << "," << nColsEff    \
-      << ")  cur=" << cur                      \
-      << "  head=" << cf->scrollHead           \
-      << std::endl
-
-#else
-   #define logT      nullptr && std::cout
-   #define logTcont  nullptr && std::cout
-   #define logP      nullptr && std::cout
-   #define logPcont  nullptr && std::cout
-   #define TRACE_FUN
-#endif
-
-   inline int
-   debugPrintInput (std::ostream & os,
-                    unsigned char* start, unsigned char* end,
-                    bool breakOnEsc = false)
-   {
-      int count = 0;
-      os << "'";
-      for (auto it = start; it != end; ++it)
-      {
-         if (breakOnEsc && *it == '\e')
-            break;
-         switch (*it)
-         {
-         case '\a': os << "\\a"; break;
-         case '\b': os << "\\b"; break;
-         case '\e': os << "\\e"; break;
-         case '\f': os << "\\f"; break;
-         case '\n': os << "\\n"; break;
-         case '\r': os << "\\r"; break;
-         case '\t': os << "\\t"; break;
-         case '\v': os << "\\v"; break;
-         case '\x7f': os << "<DEL>"; break;
-         default:
-            if (*it < ' ')
-               os << "<" << (unsigned int)*it << ">";
-            else
-               os << *it;
-            break;
-         }
-         ++count;
-      }
-      os << "' (" << count << " bytes)" << std::endl;
-      return count;
-   }
-
-   // Dummy override for when log* streams are defined to nullptr
-   inline int
-   debugPrintInput (bool, unsigned char*, unsigned char*, bool = false)
-   { return 0; }
-}
-
 namespace zutty {
 
 #ifdef DEBUG
+
+   inline void
+   Vterm::traceFunction (const char* func)
+   {
+      logT << func << " [";
+      for (size_t k = 0; k < nInputOps; ++k) {
+         if (k)
+         {
+            vlog << ";";
+         }
+         vlog << inputOps [k];
+      }
+      vlog << "] \t"
+           << "p(" << posY << "," << posX << ")  d(" << nRows << "," << nCols
+           << ")  mgn[" << cf->marginTop << "," << cf->marginBottom
+           << ")  hmgn:" << horizMarginMode << " [" << hMargin << "," << nColsEff
+           << ")  cur=" << cur << "  head=" << cf->scrollHead
+           << std::endl;
+   }
+
    inline void
    Vterm::debugKey ()
    {
@@ -135,15 +60,15 @@ namespace zutty {
    }
 
    inline void
-   Vterm::debugStop ()
+   Vterm::debugBreak ()
    {
       if (!debugStep || --debugCnt > 0)
          return;
 
       debugCnt = debugStep;
       logT << "*** DEBUG STOP (step=" << debugStep << "), "
-           << readPos + 1 - lastStopPos << " bytes since last:\n        ";
-      debugPrintInput (logTcont, inputBuf + lastStopPos, inputBuf + readPos + 1);
+           << readPos + 1 - lastStopPos << " bytes since last:\n        "
+           << dumpBuffer (inputBuf + lastStopPos, inputBuf + readPos + 1);
       lastStopPos = readPos + 1;
 
       logT << "Issue 'kill -CONT " << getpid () << "' or 'fg' to continue."
@@ -156,9 +81,11 @@ namespace zutty {
       kill (getpid (), SIGSTOP);
    }
 
-   #define DEBUGSTOP debugStop()
+   #define DEBUG_BREAK debugBreak()
+   #define TRACE_FUN traceFunction(__FUNCTION__);
 #else
-   #define DEBUGSTOP
+   #define DEBUG_BREAK
+   #define TRACE_FUN
 #endif // DEBUG
 
    inline void
@@ -166,25 +93,26 @@ namespace zutty {
    {
       logE << "Unhandled input char '" << ch
            << "' (" << (unsigned int)ch << ") in state " << (int)inputState
-           << ". Escape sequence so far: ";
-      debugPrintInput (logEcont, inputBuf + lastEscBegin, inputBuf + readPos + 1);
+           << ". Escape sequence so far: "
+           << dumpBuffer (inputBuf + lastEscBegin, inputBuf + readPos + 1);
       setState (InputState::Normal);
    }
 
    inline void
    Vterm::traceNormalInput ()
    {
-   #ifdef LOG_TRACE
+   #ifdef DEBUG
       if (lastNormalBegin < readPos)
       {
-         std::ostringstream oss;
-         oss << "Inserted: ";
-         if (debugPrintInput (oss, inputBuf + lastNormalBegin,
-                              inputBuf + readPos, true))
-            logT << oss.str ();
+         auto dumpbufs = dumpBuffer (inputBuf + lastNormalBegin,
+                                     inputBuf + readPos);
+         if (dumpbufs.length ())
+         {
+            logT << "Inserted: " << dumpbufs;
+         }
       }
       lastNormalBegin = readPos + 1;
-   #endif
+   #endif // DEBUG
    }
 
    inline void
@@ -446,7 +374,7 @@ namespace zutty {
 
       if (newState == InputState::Normal)
       {
-         DEBUGSTOP;
+         DEBUG_BREAK;
          nInputOps = 0;
          inputOps [0] = 0;
          lastNormalBegin = readPos + 1;
@@ -462,9 +390,9 @@ namespace zutty {
    inline int
    Vterm::writePty (uint8_t ch, VtModifier modifiers)
    {
-      logP << "write (mod=" << (int)modifiers << "): ";
       auto uch = (unsigned char*)&ch;
-      debugPrintInput (logPcont, uch, uch + 1);
+      logT << "pty write (mod=" << (int)modifiers << "): "
+           << dumpBuffer (uch, uch + 1);
       if ((modifiers & VtModifier::alt) != VtModifier::none)
       {
          static uint8_t wbuf [2] = { '\e', '\0' };
@@ -481,8 +409,7 @@ namespace zutty {
                pbuf [3] = ch + 0x40;
                k = 4;
             }
-            logP << "pbuf: ";
-            debugPrintInput (logPcont, pbuf, pbuf + k);
+            logT << "pty pbuf: " << dumpBuffer (pbuf, pbuf + k);
             processInput (pbuf, k);
          }
          return write (ptyFd, wbuf, 2);
@@ -498,12 +425,12 @@ namespace zutty {
    inline int
    Vterm::writePty (const char* cstr)
    {
-      logP << "write: ";
       auto ucstr = (unsigned char*)cstr;
-      debugPrintInput (logPcont, ucstr, ucstr + strlen (cstr));
+      auto len = strlen (cstr);
+      logT << "pty write: " << dumpBuffer (ucstr, ucstr + len);
       if (localEcho)
-         processInput (ucstr, strlen (cstr));
-      return write (ptyFd, cstr, strlen (cstr));
+         processInput (ucstr, len);
+      return write (ptyFd, cstr, len);
    }
 
    inline void
@@ -511,8 +438,7 @@ namespace zutty {
    {
       ssize_t n = read (ptyFd, inputBuf, sizeof (inputBuf));
 
-      logP << "read: ";
-      debugPrintInput (logPcont, inputBuf, inputBuf + n);
+      logT << "pty read: " << dumpBuffer (inputBuf, inputBuf + n);
       processInput (inputBuf, n);
    }
 
@@ -765,11 +691,15 @@ namespace zutty {
    {
       TRACE_FUN;
 
+   #ifdef DEBUG
       logT << "Designate Character Set: destination '" << scsDst
            <<"', charset '";
       if (scsMod)
-         logTcont << scsMod;
-      logTcont << fin << "'" << std::endl;
+      {
+         vlog << scsMod;
+      }
+      vlog << fin << "'" << std::endl;
+   #endif
 
       uint8_t ix = 0;
       bool cs96 = false;

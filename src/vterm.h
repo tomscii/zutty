@@ -411,11 +411,12 @@ namespace zutty {
       MouseTrackingState mouseTrk;
 
       #ifdef DEBUG
+      void traceFunction (const char* func);
       // step debugger facilities
       int debugStep = 0;
       int debugCnt = 0;
       void debugKey ();
-      void debugStop ();
+      void debugBreak ();
       #endif // DEBUG
    };
 

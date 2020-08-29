@@ -44,6 +44,8 @@ namespace zutty {
       {"selection", XrmoptionSepArg,   nullptr, "primary",   "Selection target"},
       {"shell",     XrmoptionSepArg,   nullptr, "/bin/bash", "Shell program to run"},
       {"title",     XrmoptionSepArg,   nullptr, "Zutty",     "Window title"},
+      {"quiet",     XrmoptionNoArg,    "true",  "false",     "Silence logging output"},
+      {"verbose",   XrmoptionNoArg,    "true",  "false",     "Output info messages"},
       {"e",         XrmoptionSkipLine, nullptr, nullptr,     "Command line to run"},
    };
 
@@ -63,11 +65,14 @@ namespace zutty {
       Color bg;
       bool rv;
       bool altScrollMode;
+      bool quiet;
+      bool verbose;
 
       void initialize (int* argc, char** argv);
       void setDisplay (Display* dpy);
       void parse ();
    };
-   extern Options opts;
 
 } // namespace zutty
+
+extern zutty::Options opts;

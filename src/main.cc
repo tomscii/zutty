@@ -23,7 +23,6 @@
 #include "vterm.h"
 
 #include <cassert>
-#include <iostream>
 #include <langinfo.h>
 #include <memory>
 #include <poll.h>
@@ -35,7 +34,12 @@
 #include <unistd.h>
 
 using zutty::CharVdev;
+using zutty::MouseTrackingState;
+using zutty::MouseTrackingMode;
+using zutty::MouseTrackingEnc;
 using zutty::Vterm;
+using zutty::VtKey;
+using zutty::VtModifier;
 using zutty::Renderer;
 
 static const std::string fontpath = "/usr/share/fonts/X11/misc/";
@@ -45,7 +49,7 @@ static std::unique_ptr <zutty::Font> priFont = nullptr;
 static std::unique_ptr <zutty::Font> altFont = nullptr;
 static std::unique_ptr <Renderer> renderer = nullptr;
 static std::unique_ptr <Vterm> vt = nullptr;
-static std::unique_ptr <SelectionManager> selMgr = nullptr;
+static std::unique_ptr <zutty::SelectionManager> selMgr = nullptr;
 
 /*
  * Create an RGB, double-buffered X window.
@@ -85,7 +89,7 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
    root = RootWindow (x_dpy, scrnum);
 
    if (!eglChooseConfig (egl_dpy, attribs, &config, 1, &num_configs)) {
-      std::cerr << "Error: couldn't get an EGL visual config" << std::endl;
+      logE << "Couldn't get an EGL visual config" << std::endl;
       exit(1);
    }
 
@@ -93,7 +97,7 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
    assert (num_configs > 0);
 
    if (!eglGetConfigAttrib (egl_dpy, config, EGL_NATIVE_VISUAL_ID, &vid)) {
-      std::cerr << "Error: eglGetConfigAttrib() failed" << std::endl;
+      logE << "eglGetConfigAttrib() failed" << std::endl;
       exit (1);
    }
 
@@ -101,7 +105,7 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
    visTemplate.visualid = vid;
    visInfo = XGetVisualInfo (x_dpy, VisualIDMask, &visTemplate, &num_visuals);
    if (!visInfo) {
-      std::cerr << "Error: couldn't get X visual" << std::endl;
+      logE << "Couldn't get X visual" << std::endl;
       exit (1);
    }
 
@@ -131,7 +135,7 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
       char name [256];
       if (gethostname (name, sizeof (name)) < 0)
       {
-         std::cerr << "Error: couldn't get hostname" << std::endl;
+         logE << "Couldn't get hostname" << std::endl;
          exit (1);
       }
       name [sizeof (name) - 1] = '\0';
@@ -156,7 +160,7 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
 
    ctx = eglCreateContext (egl_dpy, config, EGL_NO_CONTEXT, ctx_attribs);
    if (!ctx) {
-      std::cerr << "Error: eglCreateContext failed" << std::endl;
+      logE << "eglCreateContext failed" << std::endl;
       exit (1);
    }
 
@@ -170,7 +174,7 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
    *surfRet = eglCreateWindowSurface (egl_dpy, config,
                                       (EGLNativeWindowType)win, nullptr);
    if (!*surfRet) {
-      std::cerr << "Error: eglCreateWindowSurface failed" << std::endl;
+      logE << "eglCreateWindowSurface failed" << std::endl;
       exit (1);
    }
 
@@ -338,10 +342,10 @@ onKeyPress (XEvent& event, XIC& xic, int pty_fd)
       Status status;
       nbytes = XmbLookupString (xic, &xkevt, buffer, avail, &ks, &status);
       if (status == XBufferOverflow) {
-         std::cerr << "KeyPress event: buffer size " << sizeof (buffer)
-                   << " is too small for XmbLookupString, would have needed "
-                   << " a buffer with " << nbytes + 1 << " bytes."
-                   << std::endl;
+         logE << "KeyPress event: buffer size " << sizeof (buffer)
+              << " is too small for XmbLookupString, would have needed "
+              << " a buffer with " << nbytes + 1 << " bytes."
+              << std::endl;
          return true;
       }
    }
@@ -547,6 +551,7 @@ mouseProtoSend (MouseTrackingEnc enc, int eventType, unsigned int modstate,
       break;
    case MouseTrackingEnc::UTF8:
       oss << "\e[M";
+      using zutty::Utf8Encoder;
       Utf8Encoder::pushUnicode (32 + cb, [&] (char ch) { oss << ch; });
       Utf8Encoder::pushUnicode (32 + cx, [&] (char ch) { oss << ch; });
       Utf8Encoder::pushUnicode (32 + cy, [&] (char ch) { oss << ch; });
@@ -744,20 +749,20 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed, bool& holdPtyIn)
       redraw = true;
       break;
    case ReparentNotify:
-      std::cout << "ReparentNotify" << std::endl;
+      logT << "ReparentNotify" << std::endl;
       redraw = true;
       break;
    case MappingNotify:
-      std::cout << "MappingNotify" << std::endl;
+      logT << "MappingNotify" << std::endl;
       break;
    case MapNotify:
-      std::cout << "MapNotify" << std::endl;
+      logT << "MapNotify" << std::endl;
       break;
    case UnmapNotify:
-      std::cout << "UnmapNotify" << std::endl;
+      logT << "UnmapNotify" << std::endl;
       break;
    case DestroyNotify:
-      std::cout << "DestroyNotify" << std::endl;
+      logT << "DestroyNotify" << std::endl;
       destroyed = true;
       return true;
    case KeyPress:
@@ -800,7 +805,7 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed, bool& holdPtyIn)
       selMgr->onSelectionRequest (event.xselectionrequest);
       break;
    default:
-      std::cout << "X event.type = " << event.type << std::endl;
+      logT << "X event.type = " << event.type << std::endl;
       break;
    }
 
@@ -815,8 +820,8 @@ static bool
 eventLoop (Display* dpy, Window win, XIC& xic, int pty_fd)
 {
    int x11_fd = XConnectionNumber (dpy);
-   std::cout << "x11_fd = " << x11_fd << std::endl;
-   std::cout << "pty_fd = " << pty_fd << std::endl;
+   logT << "x11_fd = " << x11_fd << std::endl;
+   logT << "pty_fd = " << pty_fd << std::endl;
 
    struct pollfd pollset[] = {
       {pty_fd, POLLIN, 0},
@@ -889,7 +894,7 @@ handleOsc (Display* dpy, Window win, int cmd, const std::string& arg)
    }
       break;
    default:
-      std::cout << "unhandled OSC: '" << cmd << ";" << arg << "'" << std::endl;
+      logU << "unhandled OSC: '" << cmd << ";" << arg << "'" << std::endl;
       break;
    }
 }
@@ -975,7 +980,7 @@ main (int argc, char* argv[])
 
    if (! XInitThreads ())
    {
-      std::cerr << "Error: couldn't initialize XLib for multithreaded use"
+      std::cout << "Error: couldn't initialize XLib for multithreaded use"
                 << std::endl;
       return -1;
    }
@@ -985,7 +990,7 @@ main (int argc, char* argv[])
    x_dpy = XOpenDisplay (opts.display);
    if (!x_dpy)
    {
-      std::cerr << "Error: couldn't open display " << opts.display << std::endl;
+      std::cout << "Error: couldn't open display " << opts.display << std::endl;
       return -1;
    }
    opts.setDisplay (x_dpy);
@@ -1011,27 +1016,27 @@ main (int argc, char* argv[])
    egl_dpy = eglGetDisplay ((EGLNativeDisplayType)x_dpy);
    if (!egl_dpy)
    {
-      std::cerr << "Error: eglGetDisplay() failed" << std::endl;
+      logE << "eglGetDisplay() failed" << std::endl;
       return -1;
    }
 
    if (!eglInitialize (egl_dpy, &egl_major, &egl_minor))
    {
-      std::cerr << "Error: eglInitialize() failed" << std::endl;
+      logE << "eglInitialize() failed" << std::endl;
       return -1;
    }
 
    modifiers = XSetLocaleModifiers ("@im=none");
    if (modifiers == nullptr)
    {
-      std::cerr << "Error: XSetLocaleModifiers() failed" << std::endl;
+      logE << "XSetLocaleModifiers() failed" << std::endl;
       return -1;
    }
 
    xim = XOpenIM (x_dpy, nullptr, nullptr, nullptr);
    if (xim == nullptr)
    {
-      std::cerr << "Warning: XOpenIM failed" << std::endl;
+      logW << "XOpenIM failed" << std::endl;
    }
 
    if (xim)
@@ -1039,7 +1044,7 @@ main (int argc, char* argv[])
       imvalret = XGetIMValues (xim, XNQueryInputStyle, &xim_styles, nullptr);
       if (imvalret != nullptr || xim_styles == nullptr)
       {
-         std::cerr << "No styles supported by input method" << std::endl;
+         logW << "No styles supported by input method" << std::endl;
       }
 
       if (xim_styles) {
@@ -1056,7 +1061,7 @@ main (int argc, char* argv[])
 
          if (xim_style == 0)
          {
-            std::cerr << "Insufficient input method support" << std::endl;
+            logW << "Insufficient input method support" << std::endl;
          }
          XFree (xim_styles);
       }
@@ -1073,23 +1078,25 @@ main (int argc, char* argv[])
 
    XMapWindow (x_dpy, win);
 
-   if (xim && xim_style) {
+   if (xim && xim_style)
+   {
       xic = XCreateIC (xim, XNInputStyle, xim_style,
                        XNClientWindow, win, XNFocusWindow, win,
                        nullptr);
 
-      if (xic == nullptr) {
-         std::cerr << "XCreateIC failed, compose key won't work" << std::endl;
+      if (xic == nullptr)
+      {
+         logW << "XCreateIC failed, compose key won't work" << std::endl;
       }
    }
 
    if (!eglMakeCurrent(egl_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT))
    {
-      std::cerr << "Error: eglMakeCurrent() failed" << std::endl;
+      logE << "eglMakeCurrent() failed" << std::endl;
       return -1;
    }
 
-   selMgr = std::make_unique <SelectionManager> (x_dpy, win);
+   selMgr = std::make_unique <zutty::SelectionManager> (x_dpy, win);
 
    renderer = std::make_unique <Renderer> (
       * priFont.get (),
@@ -1108,7 +1115,7 @@ main (int argc, char* argv[])
 
    vt = std::make_unique <Vterm> (priFont->getPx (), priFont->getPy (),
                                   win_width, win_height, pty_fd);
-   vt->setRefreshHandler ([] (const Frame& f) { renderer->update (f); });
+   vt->setRefreshHandler ([] (const zutty::Frame& f) { renderer->update (f); });
    vt->setOscHandler ([&] (int cmd, const std::string& arg)
                       { handleOsc (x_dpy, win, cmd, arg); });
 

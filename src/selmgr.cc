@@ -9,12 +9,11 @@
  * See the file LICENSE for the full license.
  */
 
+#include "log.h"
 #include "options.h"
 #include "selmgr.h"
 
 #include <X11/Xmu/Atoms.h>
-
-#include <iostream>
 
 namespace zutty {
 
@@ -30,7 +29,7 @@ namespace zutty {
       , selection (opts.selection)
       , target (XA_UTF8_STRING (dpy))
    {
-      std::cout << "SelectionManager: chunkSize=" << chunkSize << std::endl;
+      logT << "SelectionManager: chunkSize=" << chunkSize << std::endl;
    }
 
    void
@@ -67,12 +66,11 @@ namespace zutty {
    void
    SelectionManager::onPropertyNotify (XPropertyEvent& event)
    {
-    #if 0
-      std::cout << "SelectionManager::onPropertyNotify"
-                << " on '" << XGetAtomName (dpy, event.atom) << "' "
-                << (event.state == PropertyNewValue ? "(NewValue)" : "(Delete)")
-                << std::endl;
-    #endif
+      logT << "onPropertyNotify"
+           << " on '" << XGetAtomName (dpy, event.atom) << "' "
+           << (event.state == PropertyNewValue ? "(NewValue)" : "(Delete)")
+           << std::endl;
+
       if (state == State::WaitingForIncrAck &&
           event.atom == cliProp &&
           event.state == PropertyDelete)
@@ -81,16 +79,14 @@ namespace zutty {
          size_t len = std::min (chunkSize, content.length () - cliPos);
          if (len > 0)
          {
-            // transfer next chunk of data
-            std::cout << "sending next INCR chunk..." << std::endl;
+            logT << "Sending next INCR chunk..." << std::endl;
             XChangeProperty (dpy, cliWin, cliProp, target, 8, PropModeReplace,
                              (const unsigned char *) content.data () + cliPos,
                              len);
          }
          else
          {
-            // empty property signals end of transfer
-            std::cout << "signaling end of INCR transfer..." << std::endl;
+            logT << "Signaling end of INCR transfer..." << std::endl;
             XChangeProperty (dpy, cliWin, cliProp, target, 8, PropModeReplace,
                              nullptr, 0);
             state = State::Idle;
@@ -119,7 +115,7 @@ namespace zutty {
             XDeleteProperty (dpy, win, prop);
             state = State::Idle;
 
-            std::cout << "Received INCR end of transfer" << std::endl;
+            logT << "Received INCR end of transfer" << std::endl;
             pasteCallback (std::string ((char *) incoming.data (),
                                         incoming.size ()));
             incoming.clear ();
@@ -131,11 +127,11 @@ namespace zutty {
                              AnyPropertyType, &type, &propFormat, &propItems,
                              &propSize, &buffer);
 
-         std::cout << "Received INCR data size=" << propSize
-                   << " format=" << propFormat
-                   << " items=" << propItems
-                   << " bytes=" << (propFormat >> 3) * propItems
-                   << std::endl;
+         logT << "Received INCR data size=" << propSize
+              << " format=" << propFormat
+              << " items=" << propItems
+              << " bytes=" << (propFormat >> 3) * propItems
+              << std::endl;
          size_t len = (propFormat >> 3) * propItems;
          size_t pos = incoming.size ();
          incoming.resize (pos + len);
@@ -153,25 +149,25 @@ namespace zutty {
    void
    SelectionManager::onSelectionClear (XSelectionClearEvent& event)
    {
-      std::cout << "SelectionManager::onSelectionClear" << std::endl;
+      logT << "onSelectionClear" << std::endl;
       selOwned = false;
    }
 
    void
    SelectionManager::onSelectionNotify (XSelectionEvent& event)
    {
-      std::cout << "SelectionManager::onSelectionNotify" << std::endl;
+      logT << "onSelectionNotify" << std::endl;
 
       if (state != State::WaitingForSelNotify)
       {
-         std::cout << "Ignoring XSelectionEvent in state=" << (int)state
-                   << std::endl;
+         logW << "Ignoring XSelectionEvent in state=" << (int)state
+              << std::endl;
          return;
       }
 
       if (event.property == None) {
-         std::cout << "Error: Conversion to requested target '"
-                   << XGetAtomName (dpy, target) << "' failed." << std::endl;
+         logW << "Conversion to requested target '"
+              << XGetAtomName (dpy, target) << "' failed." << std::endl;
          state = State::Idle;
          return;
       }
@@ -186,8 +182,7 @@ namespace zutty {
       XFree (buffer);
 
       if (type == incr) {
-         // start INCR mechanism by deleting property
-         std::cout << "starting INCR by deleting property" << std::endl;
+         logT << "Starting INCR by deleting property" << std::endl;
          XDeleteProperty (dpy, win, prop);
          XFlush (dpy);
          state = State::ReadingIncr;
@@ -200,11 +195,11 @@ namespace zutty {
                           &propSize, &buffer);
       XDeleteProperty (dpy, win, prop);
 
-      std::cout << "Received data size=" << propSize
-                << " format=" << propFormat
-                << " items=" << propItems
-                << " bytes=" << (propFormat >> 3) * propItems
-                << std::endl;
+      logT << "Received data size=" << propSize
+           << " format=" << propFormat
+           << " items=" << propItems
+           << " bytes=" << (propFormat >> 3) * propItems
+           << std::endl;
       size_t len = (propFormat >> 3) * propItems;
       size_t pos = incoming.size ();
       incoming.resize (pos + len);
@@ -219,12 +214,12 @@ namespace zutty {
    void
    SelectionManager::onSelectionRequest (XSelectionRequestEvent& event)
    {
-      std::cout << "SelectionManager::onSelectionRequest" << std::endl;
+      logT << "onSelectionRequest" << std::endl;
 
       if (state != State::Idle)
       {
-         std::cout << "Ignoring XSelectionRequestEvent in state=" << (int)state
-                   << std::endl;
+         logW << "Ignoring XSelectionRequestEvent in state=" << (int)state
+              << std::endl;
          return;
       }
 
@@ -240,7 +235,7 @@ namespace zutty {
       }
       else if (chunkSize < content.size ()) // INCR response
       {
-         std::cout << "sending INCR response" << std::endl;
+         logT << "Sending INCR response" << std::endl;
          XChangeProperty (dpy, cliWin, cliProp, incr, 32, PropModeReplace,
                           nullptr, 0);
          XSelectInput (dpy, cliWin, PropertyChangeMask);
@@ -248,7 +243,7 @@ namespace zutty {
       }
       else // normal response (send all data)
       {
-         std::cout << "sending normal response" << std::endl;
+         logT << "Sending normal response" << std::endl;
          XChangeProperty (dpy, cliWin, cliProp, target, 8, PropModeReplace,
                           (const unsigned char *) content.data (),
                           content.size ());

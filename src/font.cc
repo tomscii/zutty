@@ -10,10 +10,11 @@
  */
 
 #include "font.h"
+#include "log.h"
 
 #include <algorithm>
 #include <cmath>
-#include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -58,25 +59,29 @@ namespace zutty {
 
       if (FT_Init_FreeType (&ft))
          throw std::runtime_error ("Could not initialize FreeType library");
-      std::cout << "Loading " << filename << " as "
-                << (overlay ? "overlay" : "primary") << std::endl;
+      logI << "Loading " << filename << " as "
+           << (overlay ? "overlay" : "primary") << std::endl;
       if (FT_New_Face (ft, filename.c_str (), 0, &face))
          throw std::runtime_error (std::string ("Failed to load font ") + filename);
 
-      std::cout << "Font family: " << face->family_name << std::endl
-                << "Font style: " << face->style_name << std::endl
-                << "Number of faces: " << face->num_faces << std::endl
-                << "Number of glyphs: " << face->num_glyphs << std::endl;
+      logT << "Font family: " << face->family_name
+           << "; Font style: " << face->style_name
+           << "; Number of faces: " << face->num_faces
+           << "; Number of glyphs: " << face->num_glyphs
+           << std::endl;
 
       if (face->num_fixed_sizes < 1)
          throw std::runtime_error (filename + ": no fixed sizes found; "
                                    "es2term requires a fixed font!");
 
-      std::cout << "Available sizes:";
-      for (int i = 0; i < face->num_fixed_sizes; ++i)
-         std::cout << " " << face->available_sizes[i].width
-                   << "x" << face->available_sizes[i].height;
-      std::cout << std::endl;
+      {
+         std::ostringstream oss;
+         oss << "Available sizes:";
+         for (int i = 0; i < face->num_fixed_sizes; ++i)
+            oss << " " << face->available_sizes[i].width
+                << "x" << face->available_sizes[i].height;
+         logT << oss.str () << std::endl;
+      }
 
       // Just use the first available size for now (FIXME)
       const auto& facesize = face->available_sizes[0];
@@ -97,7 +102,7 @@ namespace zutty {
          px = facesize.width;
          py = facesize.height;
       }
-      std::cout << "Loading size " << px << "x" << py << std::endl;
+      logI << "Loading size " << px << "x" << py << std::endl;
 
       if (FT_Set_Pixel_Sizes (face, px, py))
          throw std::runtime_error ("Could not set pixel sizes");
@@ -126,19 +131,19 @@ namespace zutty {
             else
                ++ny;
          }
-         std::cout << "Atlas texture geometry: " << nx << "x" << ny
-                   << " glyphs of " << px << "x" << py << " each, "
-                   << "yielding pixel size " << nx*px << "x" << ny*py << "."
-                   << std::endl;
-         std::cout << "Atlas holds space for " << nx*ny << " glyphs, "
-                   << n_glyphs << " will be used, empty: "
-                   << nx*ny - n_glyphs << " ("
-                   << 100.0 * (nx*ny - n_glyphs) / (nx*ny)
-                   << "%)" << std::endl;
+         logT << "Atlas texture geometry: " << nx << "x" << ny
+              << " glyphs of " << px << "x" << py << " each, "
+              << "yielding pixel size " << nx*px << "x" << ny*py << "."
+              << std::endl;
+         logT << "Atlas holds space for " << nx*ny << " glyphs, "
+              << n_glyphs << " will be used, empty: "
+              << nx*ny - n_glyphs << " ("
+              << 100.0 * (nx*ny - n_glyphs) / (nx*ny)
+              << "%)" << std::endl;
 
          size_t atlas_bytes = nx * px * ny * py;
-         std::cout << "Allocating " << atlas_bytes << " bytes for atlas buffer"
-                   << std::endl;
+         logT << "Allocating " << atlas_bytes << " bytes for atlas buffer"
+              << std::endl;
          atlasBuf.resize (atlas_bytes, 0);
       }
 
@@ -182,9 +187,9 @@ namespace zutty {
    {
       if (c > std::numeric_limits<uint16_t>::max ())
       {
-         std::cout << "loadFace: skipping code point " << c
-                   << " as it exceeds 16 bits storage limit."
-                   << std::endl;
+         logI << "loadFace: skipping code point " << c
+              << " as it exceeds 16 bits storage limit."
+              << std::endl;
       }
 
       if (FT_Load_Char (face, c, FT_LOAD_RENDER))

@@ -7,7 +7,7 @@ fi
 
 CHECK_EXE ../build/src/zutty
 
-export UUT_EXE="../build/src/zutty -geometry 80x24"
+export UUT_EXE="../build/src/zutty -geometry 80x24 -v"
 
 # set to non-empty to enable test paths that rely on VT220 support
 export SUPPORTS_VT220=yes

@@ -10,6 +10,7 @@
  */
 
 #include "charvdev.h"
+#include "log.h"
 #include "options.h"
 
 #include <algorithm>
@@ -174,11 +175,11 @@ void main ()
       glCompileShader (shader);
       glGetShaderiv (shader, GL_COMPILE_STATUS, &stat);
       if (!stat) {
-         char log[1000];
+         char errlog[1000];
          GLsizei len;
-         glGetShaderInfoLog (shader, 1000, &len, log);
-         std::cerr << "Error compiling " << name << " shader:\n"
-                   << log << std::endl;
+         glGetShaderInfoLog (shader, 1000, &len, errlog);
+         logE << "Compiling " << name << " shader:\n"
+              << errlog << std::endl;
          exit (1);
       }
       return shader;
@@ -191,11 +192,11 @@ void main ()
       glLinkProgram (program);
       glGetProgramiv (program, GL_LINK_STATUS, &stat);
       if (!stat) {
-         char log[1000];
+         char errlog[1000];
          GLsizei len;
-         glGetProgramInfoLog (program, 1000, &len, log);
-         std::cerr << "Error: linking " << name << " program:\n"
-                   << log << std::endl;
+         glGetProgramInfoLog (program, 1000, &len, errlog);
+         logE << "Linking " << name << " program:\n"
+              << errlog << std::endl;
          exit (1);
       }
    }
@@ -359,9 +360,9 @@ namespace zutty {
       nCols = (pxWidth - (2 * opts.border)) / priFont.getPx ();
       nRows = (pxHeight - (2 * opts.border)) / priFont.getPy ();
 
-      std::cout << "resize to " << pxWidth << " x " << pxHeight
-                << " pixels, " << nCols << " x " << nRows << " chars"
-                << std::endl;
+      logI << "Resize to " << pxWidth << " x " << pxHeight
+           << " pixels, " << nCols << " x " << nRows << " chars"
+           << std::endl;
 
       GLint viewWidth = nCols * priFont.getPx ();
       GLint viewHeight = nRows * priFont.getPy ();
@@ -488,15 +489,15 @@ namespace zutty {
       compU_selectRect = glGetUniformLocation (P_compute, "selectRect");
       compU_selectRectMode = glGetUniformLocation (P_compute, "selectRectMode");
 
-      std::cout << "compute program:"
-                << "\n  uniform glyphPixels at " << compU_glyphPixels
-                << "\n  uniform sizeChars at " << compU_sizeChars
-                << "\n  uniform cursorColor at " << compU_cursorColor
-                << "\n  uniform cursorPos at " << compU_cursorPos
-                << "\n  uniform cursorStyle at " << compU_cursorStyle
-                << "\n  uniform selectRect at " << compU_selectRect
-                << "\n  uniform selectRectMode at " << compU_selectRectMode
-                << std::endl;
+      logT << "compute program:"
+           << " uniform glyphPixels=" << compU_glyphPixels
+           << " sizeChars=" << compU_sizeChars
+           << " cursorColor=" << compU_cursorColor
+           << " cursorPos=" << compU_cursorPos
+           << " cursorStyle=" << compU_cursorStyle
+           << " selectRect=" << compU_selectRect
+           << " selectRectMode=" << compU_selectRectMode
+           << std::endl;
 
       P_draw = glCreateProgram ();
       glAttachShader (P_draw, S_fragment);
@@ -508,11 +509,11 @@ namespace zutty {
       A_vertexTexCoord = glGetAttribLocation (P_draw, "vertexTexCoord");
       drawU_viewPixels = glGetUniformLocation (P_draw, "viewPixels");
 
-      std::cout << "draw program:"
-                << "\n  attrib pos at " << A_pos
-                << "\n  attrib vertexTexCoord at " << A_vertexTexCoord
-                << "\n  uniform viewPixels at " << drawU_viewPixels
-                << std::endl;
+      logT << "draw program:"
+           << " attrib pos=" << A_pos
+           << " vertexTexCoord=" << A_vertexTexCoord
+           << " uniform viewPixels=" << drawU_viewPixels
+           << std::endl;
    }
 
 } // namespace zutty

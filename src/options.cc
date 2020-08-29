@@ -200,9 +200,9 @@ namespace {
 
 } // namespace
 
-namespace zutty {
+zutty::Options opts;
 
-   Options opts;
+namespace zutty {
 
    void
    Options::initialize (int* argc, char** argv)
@@ -244,6 +244,8 @@ namespace zutty {
          if (rv)
             std::swap (fg, bg);
          altScrollMode = getBool ("altScroll");
+         quiet = getBool ("quiet");
+         verbose = getBool ("verbose");
       }
       catch (const std::exception& e)
       {
