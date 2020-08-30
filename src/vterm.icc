@@ -594,6 +594,7 @@ namespace zutty {
       if (curPosViaCharPlacement && (posX == nColsEff || posX == nCols))
       {
          if (! autoWrapMode) return;
+         (* cf) [cur - 1].wrap = 1;
          inp_CR ();
          inp_LF ();
       }
@@ -1294,6 +1295,13 @@ namespace zutty {
       uint32_t len = nColsEff - posX;
       arg = std::min (arg, len);
       len -= arg;
+
+      if ((* cf) [cur + arg + len - 1].wrap)
+      {
+         // maintain wrap bit invariance at EOL
+         (* cf) [cur + arg + len - 1].wrap = 0;
+         (* cf) [cur + len - 1].wrap = 1;
+      }
       cf->moveCells (cur + arg, cur, len);
       eraseRange (cur, cur + arg);
       setState (InputState::Normal);

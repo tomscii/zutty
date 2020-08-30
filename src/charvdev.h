@@ -40,14 +40,15 @@ namespace zutty {
          uint8_t bold: 1;
          uint8_t underline: 1;
          uint8_t inverse: 1;
-         uint16_t _fill0: 13;
+         uint8_t wrap: 1;
+         uint16_t _fill0: 12;
          Color fg;
          uint8_t _fill1;
          Color bg;
          uint8_t _fill2;
 
          Cell ():
-            bold (0), underline (0), inverse (0),
+            bold (0), underline (0), inverse (0), wrap (0),
             fg (opts.fg), bg (opts.bg)
          {}
 

@@ -1137,17 +1137,30 @@ namespace zutty {
 
       using utf16str = std::vector <uint16_t>;
       std::vector <utf16str> lines;
+      bool wrap = false;
 
       // save lines from the selected range of the frame cell buffer
       auto addLine =
          [&] (uint16_t y, uint16_t x1, uint16_t x2)
          {
             utf16str line;
+            bool wrapBack = wrap;
+            wrap = false;
             for (uint16_t x = x1; x < x2; ++x)
+            {
                line.push_back (cf->getCell (y, x).uc_pt);
-            while (line.size () && line.back () == ' ')
+               if (x == nColsEff - 1 || x == nCols - 1)
+                  wrap = cf->getCell (y, x).wrap;
+            }
+
+            while (!wrap && line.size () && line.back () == ' ')
                line.pop_back (); // discard trailing whitespace
-            lines.push_back (line);
+
+            if (wrapBack && lines.size ())
+               lines.back ().insert (lines.back ().end (),
+                                     line.begin (), line.end ());
+            else
+               lines.push_back (line);
          };
 
       if (sel.br.y == nRows)
