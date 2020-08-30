@@ -71,6 +71,9 @@ namespace zutty {
       void initialize (int* argc, char** argv);
       void setDisplay (Display* dpy);
       void parse ();
+
+      void printVersion () const;
+      void printUsage () const;
    };
 
 } // namespace zutty

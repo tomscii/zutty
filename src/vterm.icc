@@ -1877,4 +1877,12 @@ namespace zutty {
       setState (InputState::Normal);
    }
 
+   inline void
+   Vterm::csi_XTWINOPS ()
+   {
+      TRACE_FUN;
+      // ignore
+      setState (InputState::Normal);
+   }
+
 } // namespace zutty

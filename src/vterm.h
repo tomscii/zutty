@@ -257,6 +257,7 @@ namespace zutty {
       void handle_DCS ();    // Device Control String
       void handle_OSC ();    // Operating System Command
       void csiq_DECSCL ();   // DEC Set Compatibility Level
+      void csi_XTWINOPS ();  // Xterm window operations
 
       uint16_t winPx;
       uint16_t winPy;

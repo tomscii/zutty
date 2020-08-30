@@ -1,6 +1,8 @@
 #! ./waf
 # encoding: utf-8
 
+import subprocess
+
 top = '.'
 out = 'build'
 
@@ -22,6 +24,14 @@ def options(opt):
     opt.recurse('src')
 
 def configure(cfg):
+    vsn_cmd = "git describe --tags --dirty 2>/dev/null || cat version.txt";
+    vsn = subprocess.check_output(vsn_cmd, shell=True).strip('\r\n')
+    with open("version.txt", 'w') as f: f.write(vsn + '\n')
+    cfg.msg('Zutty version', vsn)
+    cfg.env.append_value('CXXFLAGS', ['-DZUTTY_VERSION=\"' + vsn + '\"'])
+
+    cfg.msg('Debug build', "yes" if cfg.options.debug else "no")
+
     cfg.env.append_value('CXXFLAGS',
        ['-Wall',
         '-Wextra',
@@ -35,11 +45,9 @@ def configure(cfg):
 
     if cfg.options.debug:
         cfg.options.werror = False
-        cfg.env.append_value('CFLAGS', ['-DDEBUG'])
         cfg.env.append_value('CXXFLAGS', ['-DDEBUG'])
 
     if cfg.options.werror:
-        cfg.env.append_value('CFLAGS', ['-Werror'])
         cfg.env.append_value('CXXFLAGS', ['-Werror'])
 
     cfg.check_cfg(package='freetype2', args=['--cflags', '--libs'],

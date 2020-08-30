@@ -51,15 +51,11 @@ static std::unique_ptr <Renderer> renderer = nullptr;
 static std::unique_ptr <Vterm> vt = nullptr;
 static std::unique_ptr <zutty::SelectionManager> selMgr = nullptr;
 
-/*
- * Create an RGB, double-buffered X window.
- * Return the window and context handles.
- */
 static void
-make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
-               const char * name, int width, int height,
-               Window *winRet, EGLContext * ctxRet,
-               EGLSurface * surfRet)
+make_x_window (Display* x_dpy, EGLDisplay egl_dpy,
+               const char* name, int width, int height,
+               Window* o_win, EGLContext* o_ctx,
+               EGLSurface* o_surface)
 {
    static const EGLint attribs[] = {
       EGL_RED_SIZE, 8,
@@ -101,7 +97,7 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
       exit (1);
    }
 
-   /* The X window visual must match the EGL config */
+   // The X window visual must match the EGL config
    visTemplate.visualid = vid;
    visInfo = XGetVisualInfo (x_dpy, VisualIDMask, &visTemplate, &num_visuals);
    if (!visInfo) {
@@ -109,7 +105,7 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
       exit (1);
    }
 
-   /* window attributes */
+   // window attributes
    attr.background_pixel = 0;
    attr.border_pixel = 0;
    attr.colormap = XCreateColormap (x_dpy, root, visInfo->visual, AllocNone);
@@ -121,9 +117,16 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
    win = XCreateWindow (x_dpy, root, 0, 0, width, height,
                         0, visInfo->depth, InputOutput,
                         visInfo->visual, mask, &attr);
+   logI << "Window ID: " << win << " / 0x" << std::hex << win << std::dec
+        << std::endl;
+   if (setenv ("WINDOWID", std::to_string (win).c_str (), 1) < 0)
+   {
+      logE << "Can't setenv (WINDOWID)" << std::endl;
+      exit (1);
+   }
 
    {
-      /* set NET_WM_PID to the the process ID to link the window to the pid */
+      // set NET_WM_PID to the the process ID to link the window to the pid
       Atom _NET_WM_PID = XInternAtom (x_dpy, "_NET_WM_PID", false);
       pid_t pid = getpid ();
       XChangeProperty (x_dpy, win, _NET_WM_PID, XA_CARDINAL,
@@ -131,7 +134,7 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
    }
 
    {
-      /* set WM_CLIENT_MACHINE to the hostname */
+      // set WM_CLIENT_MACHINE to the hostname
       char name [256];
       if (gethostname (name, sizeof (name)) < 0)
       {
@@ -164,26 +167,26 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
       exit (1);
    }
 
-   /* test eglQueryContext() */
+   // test eglQueryContext()
    {
       EGLint val;
       eglQueryContext (egl_dpy, ctx, EGL_CONTEXT_CLIENT_VERSION, &val);
       assert (val == 2);
    }
 
-   *surfRet = eglCreateWindowSurface (egl_dpy, config,
-                                      (EGLNativeWindowType)win, nullptr);
-   if (!*surfRet) {
+   *o_surface = eglCreateWindowSurface (egl_dpy, config,
+                                        (EGLNativeWindowType)win, nullptr);
+   if (! *o_surface) {
       logE << "eglCreateWindowSurface failed" << std::endl;
       exit (1);
    }
 
-   /* sanity checks */
+   // sanity checks
    {
       EGLint val;
-      eglQuerySurface (egl_dpy, *surfRet, EGL_WIDTH, &val);
+      eglQuerySurface (egl_dpy, *o_surface, EGL_WIDTH, &val);
       assert (val == width);
-      eglQuerySurface (egl_dpy, *surfRet, EGL_HEIGHT, &val);
+      eglQuerySurface (egl_dpy, *o_surface, EGL_HEIGHT, &val);
       assert (val == height);
       assert (eglGetConfigAttrib (egl_dpy, config, EGL_SURFACE_TYPE, &val));
       assert (val & EGL_WINDOW_BIT);
@@ -191,8 +194,8 @@ make_x_window (Display * x_dpy, EGLDisplay egl_dpy,
 
    XFree (visInfo);
 
-   *winRet = win;
-   *ctxRet = ctx;
+   *o_win = win;
+   *o_ctx = ctx;
 }
 
 static void
@@ -255,7 +258,7 @@ validateShell (char* progPath)
 {
    resolveShell (progPath);
 
-   // validate against etries in /etc/shells
+   // validate against entries in /etc/shells
    char* permShell = getusershell ();
    while (permShell)
    {
@@ -293,6 +296,8 @@ startShell (const char* const argv[])
       if (tcsetattr (STDIN_FILENO, TCSANOW, &term) < 0)
          throw std::runtime_error ("tcsetattr");
 
+      // N.B.: DISPLAY and WINDOWID are inherited from parent
+      // environment (set elsewhere)
       if (setenv ("TERM", "xterm-256color", 1) < 0)
          throw std::runtime_error ("can't setenv (TERM)");
 
@@ -996,6 +1001,15 @@ main (int argc, char* argv[])
    opts.setDisplay (x_dpy);
 
    opts.parse ();
+
+   if (opts.verbose)
+      opts.printVersion ();
+
+   if (setenv ("ZUTTY_VERSION", ZUTTY_VERSION, 1) < 0)
+   {
+      logE << "Can't setenv (ZUTTY_VERSION)" << std::endl;
+      exit (1);
+   }
 
    char progPath [PATH_MAX];
    strncpy (progPath, opts.shell, PATH_MAX-1);

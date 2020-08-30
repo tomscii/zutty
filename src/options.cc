@@ -58,30 +58,6 @@ namespace {
          return rv;
       } ();
 
-   void
-   printUsage ()
-   {
-      std::cout << "zutty [-option ...] [shell]\n\n"
-                << "options:\n";
-      size_t maxw = 0;
-      for (const auto& e: optionsTable)
-         maxw = std::max (maxw, strlen (e.option));
-      for (const auto& e: optionsTable)
-      {
-         std::cout << "  -" << std::left << std::setw (maxw + 3) << e.option;
-         std::cout << e.helpDescr;
-         const char* xDefault = dpy
-                              ? XGetDefault (dpy, "Zutty", e.option)
-                              : nullptr;
-         if (xDefault)
-            std::cout << " (configured: " << xDefault << ")";
-         else if (e.hardDefault && e.parseType != XrmoptionNoArg)
-            std::cout << " (default: " << e.hardDefault << ")";
-         std::cout << "\n";
-      }
-      std::cout << std::endl;
-   }
-
    const char*
    get (const char* name, const char* fallback = nullptr)
    {
@@ -212,6 +188,7 @@ namespace zutty {
                        xrmOptionsTable.data (), xrmOptionsTable.size (),
                        "zutty", argc, argv);
       display = get ("display", getenv ("DISPLAY"));
+      setenv ("DISPLAY", display, 1);
    }
 
    void
@@ -253,6 +230,43 @@ namespace zutty {
                    << "Try -help for usage options." << std::endl;
          exit (-1);
       }
+   }
+
+   void
+   Options::printVersion () const
+   {
+      std::cout << "Zutty " ZUTTY_VERSION "\n"
+                << "Copyright (C) 2020 Tom Szilagyi\n\n"
+                << "This program comes with ABSOLUTELY NO WARRANTY.\n"
+                << "Zutty is free software, and you are welcome to redistribute it\n"
+                << "under the terms and conditions of the GNU GPL v3 (or later).\n"
+                << std::endl;
+   }
+
+   void
+   Options::printUsage () const
+   {
+      printVersion ();
+      std::cout << "Usage:\n"
+                << "  zutty [-option ...] [shell]\n\n"
+                << "Options:\n";
+      size_t maxw = 0;
+      for (const auto& e: optionsTable)
+         maxw = std::max (maxw, strlen (e.option));
+      for (const auto& e: optionsTable)
+      {
+         std::cout << "  -" << std::left << std::setw (maxw + 3) << e.option;
+         std::cout << e.helpDescr;
+         const char* xDefault = dpy
+                              ? XGetDefault (dpy, "Zutty", e.option)
+                              : nullptr;
+         if (xDefault)
+            std::cout << " (configured: " << xDefault << ")";
+         else if (e.hardDefault && e.parseType != XrmoptionNoArg)
+            std::cout << " (default: " << e.hardDefault << ")";
+         std::cout << "\n";
+      }
+      std::cout << std::endl;
    }
 
 } // namespace zutty

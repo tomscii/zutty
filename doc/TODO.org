@@ -5,11 +5,6 @@
 
 ** Cleanup & polish
 - keys C-1, C-Tab, A-Tab, C-BkSp, A-BkSp
-- environment setup
-  - set envvars (a'la rxvt)
-    - TERM, COLORTERM, COLORFGBG
-    - WINDOWID
-    - DISPLAY
 - valgrind, benchmark and perf optimization
 
 ** Documentation

@@ -866,6 +866,7 @@ namespace zutty {
             case 'n': csi_DSR (); break;
             case 'r': csi_STBM (); break;
             case 's': csi_SCOSC_SLRM (); break;
+            case 't': csi_XTWINOPS (); break;
             case 'u': csi_SCORC (); break;
             case '\'': setState (InputState::CSI_Quote); break;
             case '\"': setState (InputState::CSI_DblQuote); break;
