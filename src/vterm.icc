@@ -1810,7 +1810,8 @@ namespace zutty {
       if (arg == "$q\"p")
       {
          // DECSCL
-         writePty ("\eP1$r" DEVICE_ID "\e\\");
+         if (compatLevel == CompatibilityLevel::VT400)
+            writePty ("\eP1$r" DEVICE_ID "\e\\");
       }
       else
       {

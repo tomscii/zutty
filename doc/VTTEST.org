@@ -146,7 +146,9 @@ Adding support for this is not planned at this time.
 
 * 7. Test of VT52 mode
 
-TODO Do we need to support this?
+- [X] The screen should be cleared ...
+- [X] Character sets: normal and special graphics
+- [X] Response to IDENTIFY; Operating level awareness
 
 * 8. Test of VT102 features (Insert/Delete Char/Line)
 

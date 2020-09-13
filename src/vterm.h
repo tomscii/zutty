@@ -151,6 +151,8 @@ namespace zutty {
       {
          Normal,
          Escape,
+         Escape_VT52,
+         Esc_SPC,
          Esc_Hash,
          Esc_Pct,
          SelectCharset,
@@ -164,7 +166,9 @@ namespace zutty {
          DCS,
          DCS_Esc,
          OSC,
-         OSC_Esc
+         OSC_Esc,
+         VT52_CUP_Arg1,
+         VT52_CUP_Arg2
       };
 
       void setState (InputState inputState);

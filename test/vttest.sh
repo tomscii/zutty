@@ -217,6 +217,22 @@ function VT_6 {
     IN "0\r"
 }
 
+function VT_7 {
+    if [ -z ${SUPPORTS_VT52} ] ; then
+        return
+    fi
+
+    IN "7\r"
+    SNAP vt_07_01 d20fcd4b59595d467e3021c711ed1afe
+    IN "\r"
+    SNAP vt_07_02 abe1febaf84466943dad86bb0b0b98a8
+    IN "\r"
+    SNAP vt_07_03 5a1757347e8810d51ecfb5755d16b0de
+    IN "\r"
+    SNAP vt_07_04 d5247dd822b75c2846ada97a789f8c28
+    IN "\r"
+}
+
 function VT_8 {
     IN "8\r"
     SNAP vt_08_01 302124cb5528a8f2a021f3ee4a1161e1
@@ -1033,6 +1049,7 @@ VT_2
 VT_3
 VT_5
 VT_6
+VT_7
 VT_8
 VT_9
 VT_10

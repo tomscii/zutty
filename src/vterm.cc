@@ -705,7 +705,9 @@ namespace zutty {
             case '\x00': // ignore NUL
                break;
             case '\e':
-               setState (InputState::Escape);
+               setState (compatLevel == CompatibilityLevel::VT52
+                         ? InputState::Escape_VT52
+                         : InputState::Escape);
                inputOps [0] = 0;
                nInputOps = 1;
                lastEscBegin = readPos;
@@ -729,6 +731,59 @@ namespace zutty {
             default: inputGraphicChar (ch);
             }
             break;
+         case InputState::Escape_VT52:
+            switch (ch)
+            {
+            case '\x18': case '\x1a': // CAN and SUB interrupts ESC sequence
+               setState (InputState::Normal); break;
+            case '\e': // ESC restarts ESC sequence
+               inputOps [0] = 0;
+               nInputOps = 1;
+               lastEscBegin = readPos;
+               break;
+            case '=':
+               keypadMode = KeypadMode::Application;
+               setState (InputState::Normal);
+               break;
+            case '>':
+               keypadMode = KeypadMode::Normal;
+               setState (InputState::Normal);
+               break;
+            case '<':
+               compatLevel = CompatibilityLevel::VT100;
+               setState (InputState::Normal);
+               break;
+            case 'A': csi_CUU (); break;
+            case 'B': csi_CUD (); break;
+            case 'C': csi_CUF (); break;
+            case 'D': csi_CUB (); break;
+            case 'F':
+               charsetState = CharsetState {};
+               charsetState.g [charsetState.gl] = Charset::DecSpec;
+               setState (InputState::Normal);
+               break;
+            case 'G':
+               charsetState = CharsetState {};
+               setState (InputState::Normal);
+               break;
+            case 'H': csi_CUP (); break;
+            case 'I': esc_RI (); break;
+            case 'J': csi_ED (); break;
+            case 'K': csi_EL (); break;
+            case 'Y': setState (InputState::VT52_CUP_Arg1); break;
+            case 'Z': writePty ("\e/Z"); break;
+            default: unhandledInput (ch); break;
+            }
+            break;
+         case InputState::VT52_CUP_Arg1:
+            inputOps [0] = input [readPos] - 31;
+            setState (InputState::VT52_CUP_Arg2);
+            break;
+         case InputState::VT52_CUP_Arg2:
+            inputOps [1] = input [readPos] - 31;
+            nInputOps = 2;
+            csi_CUP ();
+            break;
          case InputState::Escape:
             switch (ch)
             {
@@ -739,6 +794,7 @@ namespace zutty {
                nInputOps = 1;
                lastEscBegin = readPos;
                break;
+            case ' ': setState (InputState::Esc_SPC); break;
             case '#': setState (InputState::Esc_Hash); break;
             case '%': setState (InputState::Esc_Pct); break;
             case '[': setState (InputState::CSI); break;
@@ -780,6 +836,32 @@ namespace zutty {
             case 'o': charsetState.gl = 3; setState (InputState::Normal); break;
             case '|': charsetState.gr = 3; setState (InputState::Normal); break;
             case '\\': setState (InputState::Normal); break; // ignore lone ST
+            default: unhandledInput (ch); break;
+            }
+            break;
+         case InputState::Esc_SPC:
+            switch (ch)
+            {
+            case 'F':
+               logU << "S7C1T: Send 7-bit controls" << std::endl;
+               setState (InputState::Normal);
+               break;
+            case 'G':
+               logU << "S8C1T: Send 8-bit controls" << std::endl;
+               setState (InputState::Normal);
+               break;
+            case 'L':
+               logU << "Set ANSI conformance level 1" << std::endl;
+               setState (InputState::Normal);
+               break;
+            case 'M':
+               logU << "Set ANSI conformance level 2" << std::endl;
+               setState (InputState::Normal);
+               break;
+            case 'N':
+               logU << "Set ANSI conformance level 3" << std::endl;
+               setState (InputState::Normal);
+               break;
             default: unhandledInput (ch); break;
             }
             break;

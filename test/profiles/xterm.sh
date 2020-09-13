@@ -9,6 +9,9 @@ CHECK_DEPS xterm
 
 export UUT_EXE="xterm -j -u8 -geometry 80x24"
 
+# set to non-empty to enable test paths that rely on VT52 support
+export SUPPORTS_VT52=yes
+
 # set to non-empty to enable test paths that rely on VT220 support
 export SUPPORTS_VT220=yes
 
