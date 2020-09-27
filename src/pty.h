@@ -11,29 +11,13 @@
 
 #pragma once
 
-#define _POSIX_C_SOURCE 200809L
-
-#if defined(SOLARIS) /* Solaris 10 */
-#define _XOPEN_SOURCE 600
-#else
-#define _XOPEN_SOURCE 700
-#endif
-
 #include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/termios.h>
-#if defined(MACOS) || !defined(TIOCGWINSZ)
-#include <sys/ioctl.h>
-#endif
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <string.h>
 #include <unistd.h>
 
-#include <errno.h>
-#include <stdarg.h>
+namespace zutty {
 
-pid_t pty_fork(int *, char *, int, const struct termios *,
-               const struct winsize *);
+   pid_t pty_fork (int& o_ptyFd, int cols, int rows);
+
+   void pty_resize (int ptyFd, int cols, int rows);
+
+} // namespace zutty

@@ -1,4 +1,3 @@
-#include "pty.h"
 /* This file is part of Zutty.
  * Copyright (C) 2020 Tom Szilagyi
  *
@@ -19,182 +18,147 @@
  *   http://www.apuebook.com/code3e.html
  */
 
-#define MAXLINE 4096 /* max line length */
+#include "log.h"
+#include "pty.h"
 
-/*
- * Print a message and return to caller.
- * Caller specifies "errnoflag".
- */
-static void
-err_doit(int errnoflag, int error, const char *fmt, va_list ap)
-{
-   char buf[MAXLINE];
+#define _POSIX_C_SOURCE 200809L
 
-   vsnprintf(buf, MAXLINE-1, fmt, ap);
-   if (errnoflag)
-      snprintf(buf+strlen(buf), MAXLINE-strlen(buf)-1, ": %s",
-               strerror(error));
-   strcat(buf, "\n");
-   fflush(stdout); /* in case stdout and stderr are the same */
-   fputs(buf, stderr);
-   fflush(NULL); /* flushes all stdio output streams */
-}
-
-/*
- * Fatal error related to a system call.
- * Print a message and terminate.
- */
-void
-err_sys(const char *fmt, ...)
-{
-   va_list ap;
-
-   va_start(ap, fmt);
-   err_doit(1, errno, fmt, ap);
-   va_end(ap);
-   exit(1);
-}
-
+#if defined(SOLARIS) /* Solaris 10 */
+#define _XOPEN_SOURCE 600
+#else
+#define _XOPEN_SOURCE 700
+#endif
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/termios.h>
+#include <termios.h>
+
+#if defined(MACOS) || !defined(TIOCGWINSZ)
+#include <sys/ioctl.h>
+#endif
+
 #if defined(SOLARIS)
 #include <stropts.h>
 #endif
-#include <termios.h>
 
-int
-ptym_open(char *pts_name, int pts_namesz)
-{
-   char *ptr;
-   int fdm, err;
+namespace zutty {
 
-   if ((fdm = posix_openpt(O_RDWR)) < 0)
-      return(-1);
-   if (grantpt(fdm) < 0) /* grant access to slave */
-      goto errout;
-   if (unlockpt(fdm) < 0) /* clear slave's lock flag */
-      goto errout;
-   if ((ptr = ptsname(fdm)) == NULL) /* get slave's name */
-      goto errout;
+   int
+   ptym_open (char* pts_name, int pts_namesz)
+   {
+      char* ptr;
+      int fdm;
 
-   /*
-    * Return name of slave.  Null terminate to handle
-    * case where strlen(ptr) > pts_namesz.
-    */
-   strncpy(pts_name, ptr, pts_namesz);
-   pts_name[pts_namesz - 1] = '\0';
-   return(fdm); /* return fd of master */
-errout:
-   err = errno;
-   close(fdm);
-   errno = err;
-   return(-1);
-}
+      if ((fdm = posix_openpt (O_RDWR)) < 0)
+         SYS_ERROR ("can't open master pty: posix_openpt()");
+      if (grantpt (fdm) < 0) // grant access to slave
+         SYS_ERROR ("can't open master pty: grantpt()");
+      if (unlockpt (fdm) < 0) // clear slave's lock flag
+         SYS_ERROR ("can't open master pty: unlockpt()");
+      if ((ptr = ptsname (fdm)) == nullptr) // get slave's name
+         SYS_ERROR ("can't open master pty: ptsname()");
 
-int
-ptys_open(char *pts_name)
-{
-   int fds;
-#if defined(SOLARIS)
-   int err, setup;
-#endif
-
-   if ((fds = open(pts_name, O_RDWR)) < 0)
-      return(-1);
-
-#if defined(SOLARIS)
-   /*
-    * Check if stream is already set up by autopush facility.
-    */
-   if ((setup = ioctl(fds, I_FIND, "ldterm")) < 0)
-      goto errout;
-
-   if (setup == 0) {
-      if (ioctl(fds, I_PUSH, "ptem") < 0)
-         goto errout;
-      if (ioctl(fds, I_PUSH, "ldterm") < 0)
-         goto errout;
-      if (ioctl(fds, I_PUSH, "ttcompat") < 0) {
-      errout:
-         err = errno;
-         close(fds);
-         errno = err;
-         return(-1);
-      }
-   }
-#endif
-   return(fds);
-}
-
-pid_t
-pty_fork(int *ptrfdm, char *slave_name, int slave_namesz,
-         const struct termios *slave_termios,
-         const struct winsize *slave_winsize)
-{
-   int fdm, fds;
-   pid_t pid;
-   char pts_name[20];
-
-   if ((fdm = ptym_open(pts_name, sizeof(pts_name))) < 0)
-      err_sys("can't open master pty: %s, error %d", pts_name, fdm);
-
-   if (slave_name != NULL) {
-      /*
-       * Return name of slave.  Null terminate to handle case
-       * where strlen(pts_name) > slave_namesz.
-       */
-      strncpy(slave_name, pts_name, slave_namesz);
-      slave_name[slave_namesz - 1] = '\0';
+      // Return slave name, null-terminated to handle strlen(ptr) > pts_namesz.
+      strncpy (pts_name, ptr, pts_namesz);
+      pts_name [pts_namesz - 1] = '\0';
+      return fdm;
    }
 
-   if ((pid = fork()) < 0) {
-      return(-1);
-   } else if (pid == 0) { /* child */
-      if (setsid() < 0)
-         err_sys("setsid error");
+   int
+   ptys_open (char* pts_name)
+   {
+      int fds = open (pts_name, O_RDWR);
+      if (fds < 0)
+         SYS_ERROR ("can't open slave pty: open()");
 
-      /*
-       * System V acquires controlling terminal on open().
-       */
-      if ((fds = ptys_open(pts_name)) < 0)
-         err_sys("can't open slave pty");
-      close(fdm); /* all done with master in child */
+   #if defined(SOLARIS)
+      // Check if stream is already set up by autopush facility.
+      int setup;
+      if ((setup = ioctl (fds, I_FIND, "ldterm")) < 0)
+         SYS_ERROR ("can't open slave pty: ioctl(I_FIND, ldterm)");
 
-#if defined(BSD)
-      /*
-       * TIOCSCTTY is the BSD way to acquire a controlling terminal.
-       */
-      if (ioctl(fds, TIOCSCTTY, (char *)0) < 0)
-         err_sys("TIOCSCTTY error");
-#endif
-      /*
-       * Set slave's termios and window size.
-       */
-      if (slave_termios != NULL) {
-         if (tcsetattr(fds, TCSANOW, slave_termios) < 0)
-            err_sys("tcsetattr error on slave pty");
+      if (setup == 0)
+      {
+         if (ioctl (fds, I_PUSH, "ptem") < 0)
+            SYS_ERROR ("can't open slave pty: ioctl(I_PUSH, ptem)");
+         if (ioctl (fds, I_PUSH, "ldterm") < 0)
+            SYS_ERROR ("can't open slave pty: ioctl(I_PUSH, ldterm)");
+         if (ioctl (fds, I_PUSH, "ttcompat") < 0)
+            SYS_ERROR ("can't open slave pty: ioctl(I_PUSH, ttcompat)");
       }
-      if (slave_winsize != NULL) {
-         if (ioctl(fds, TIOCSWINSZ, slave_winsize) < 0)
-            err_sys("TIOCSWINSZ error on slave pty");
-      }
-
-      /*
-       * Slave becomes stdin/stdout/stderr of child.
-       */
-      if (dup2(fds, STDIN_FILENO) != STDIN_FILENO)
-         err_sys("dup2 error to stdin");
-      if (dup2(fds, STDOUT_FILENO) != STDOUT_FILENO)
-         err_sys("dup2 error to stdout");
-      if (dup2(fds, STDERR_FILENO) != STDERR_FILENO)
-         err_sys("dup2 error to stderr");
-      if (fds != STDIN_FILENO && fds != STDOUT_FILENO &&
-          fds != STDERR_FILENO)
-         close(fds);
-      return(0); /* child returns 0 just like fork() */
-   } else { /* parent */
-      *ptrfdm = fdm; /* return fd of master */
-      return(pid); /* parent returns pid of child */
+   #endif
+      return fds;
    }
-}
+
+   pid_t
+   pty_fork (int& o_ptyFd, int cols, int rows)
+   {
+      pid_t pid;
+      char pts_name [20];
+      int fdm = ptym_open (pts_name, sizeof (pts_name));
+
+      if ((pid = fork ()) < 0)
+      {
+         return -1;
+      }
+      else if (pid == 0) // child process
+      {
+         if (setsid () < 0)
+            SYS_ERROR ("setsid");
+
+         // System V acquires controlling terminal on open ().
+         int fds = ptys_open (pts_name);
+
+         close (fdm); // all done with master in child
+
+      #if defined(BSD)
+         // TIOCSCTTY is the BSD way to acquire a controlling terminal.
+         if (ioctl (fds, TIOCSCTTY, nullptr) < 0)
+            SYS_ERROR ("TIOCSCTTY");
+      #endif
+
+         // Set the pty slave's window size.
+         pty_resize (fds, cols, rows);
+
+         // Slave becomes stdin/stdout/stderr of child.
+         if (dup2 (fds, STDIN_FILENO) != STDIN_FILENO)
+            SYS_ERROR ("dup2 to stdin");
+         if (dup2 (fds, STDOUT_FILENO) != STDOUT_FILENO)
+            SYS_ERROR ("dup2 to stdout");
+         if (dup2 (fds, STDERR_FILENO) != STDERR_FILENO)
+            SYS_ERROR ("dup2 to stderr");
+         if (fds != STDIN_FILENO && fds != STDOUT_FILENO && fds != STDERR_FILENO)
+            close (fds);
+
+         // Setup terminal attributes
+         struct termios term;
+         if (tcgetattr (STDIN_FILENO, &term) < 0)
+            SYS_ERROR ("tcgetattr");
+         term.c_iflag |= IUTF8;
+         if (tcsetattr (STDIN_FILENO, TCSANOW, &term) < 0)
+            SYS_ERROR ("tcsetattr");
+      }
+      else // parent process
+      {
+         o_ptyFd = fdm;
+      }
+      return pid;
+   }
+
+   void pty_resize (int ptyFd, int cols, int rows)
+   {
+      struct winsize wsize;
+      wsize.ws_col = cols;
+      wsize.ws_row = rows;
+      if (ioctl (ptyFd, TIOCSWINSZ, &wsize) < 0)
+         SYS_ERROR("TIOCSWINSZ on pty");
+   }
+
+} // namespace zutty

@@ -49,6 +49,29 @@ namespace zutty {
    #define logT      nullptr && std::cout
 #endif // DEBUG
 
+   inline void
+   printArgs ()
+   {
+      zlog << std::endl;
+   }
+
+   template <typename T, typename... Args>
+   inline void
+   printArgs (T arg, Args... args)
+   {
+      zlog << arg;
+      printArgs (args...);
+   }
+
+#define logS(...)    logE; printArgs(__VA_ARGS__)
+
+#define SYS_ERROR(...)                                                  \
+   do {                                                                 \
+      logS(__VA_ARGS__, ": ", strerror(errno), " (errno=", errno, ")"); \
+      exit(1);                                                          \
+   } while (0);
+
+
    inline std::string
    dumpBuffer (unsigned char* start, unsigned char* end)
    {

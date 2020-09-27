@@ -531,11 +531,7 @@ namespace zutty {
       normalizeCursorPos ();
       showCursor ();
 
-      struct winsize size;
-      size.ws_col = nCols;
-      size.ws_row = nRows;
-      if (ioctl (ptyFd, TIOCSWINSZ, &size) < 0)
-         throw std::runtime_error ("TIOCSWINSZ failed");
+      pty_resize (ptyFd, nCols, nRows);
    }
 
    int

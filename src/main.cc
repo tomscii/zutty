@@ -30,6 +30,7 @@
 #include <sstream>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -278,24 +279,17 @@ validateShell (char* progPath)
 static int
 startShell (const char* const argv[])
 {
-   int fdm;
+   int ptyFd;
    pid_t pid;
-   struct winsize size;
 
-   size.ws_col = opts.nCols;
-   size.ws_row = opts.nRows;
-   pid = pty_fork (&fdm, nullptr, 0, nullptr, &size);
+   pid = zutty::pty_fork (ptyFd, opts.nCols, opts.nRows);
 
-   if (pid < 0) {
+   if (pid < 0)
+   {
       throw std::runtime_error ("fork error");
-   } else if (pid == 0) { // child:
-      struct termios term;
-      if (tcgetattr (STDIN_FILENO, &term) < 0)
-         throw std::runtime_error ("tcgetattr");
-      term.c_iflag |= IUTF8;
-      if (tcsetattr (STDIN_FILENO, TCSANOW, &term) < 0)
-         throw std::runtime_error ("tcsetattr");
-
+   }
+   else if (pid == 0) // child:
+   {
       // N.B.: DISPLAY and WINDOWID are inherited from parent
       // environment (set elsewhere)
       if (setenv ("TERM", "xterm-256color", 1) < 0)
@@ -304,8 +298,12 @@ startShell (const char* const argv[])
       if (execvp (argv[0], (char * const *) argv) < 0)
          throw std::runtime_error (std::string ("can't execvp: ") + argv [0]);
    }
+   else // parent:
+   {
+      logT << "Shell subprocess started, pid: " << pid << std::endl;
+   }
 
-   return fdm;
+   return ptyFd;
 }
 
 static VtModifier
