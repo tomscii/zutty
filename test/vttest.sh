@@ -3,6 +3,16 @@
 cd $(dirname $0)
 source testbase.sh
 
+CHECK_DEPS vttest
+VttestReqVsn="VT100 test program, version 2.7 (20200610)"
+if [[ $(vttest -V) != $VttestReqVsn ]]
+then
+    echo "Error: vttest version mismatch"
+    echo "   Found version: $(vttest -V)"
+    echo "Required version: $VttestReqVsn"
+    exit 1
+fi
+
 function VT_1 {
     IN "1\r"
     SNAP vt_01_01 7d5405859f5e3c7e4048c4d91630a120

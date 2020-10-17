@@ -1,17 +1,13 @@
 #! ../waf
 # encoding: utf-8
 
-import sys
-
 def options(opt):
     opt.load('compiler_cxx')
 
 def configure(cfg):
     cfg.load('compiler_cxx')
-    cfg.env.append_value('LINKFLAGS',
-                         ['-lGLESv2', '-lEGL', '-lm', '-lpthread'])
 
 def build(bld):
     src = bld.path.ant_glob('*.cc')
     bld.program(features='cxx', source=src, target='zutty',
-                use=['FT', 'XMU'])
+                use=['EGL', 'FT', 'GLES', 'THREAD', 'XMU'])
