@@ -103,6 +103,21 @@ namespace {
    }
 
    void
+   convFontsize (uint8_t& outFontsize)
+   {
+      const char* opt = get ("fontsize");
+      if (!opt)
+         throw std::runtime_error ("-fontsize: missing value");
+
+      std::stringstream iss (opt);
+      int fs;
+      iss >> fs;
+      if (iss.fail () || fs < 1 || fs > 255)
+         throw std::runtime_error ("-fontsize: expected unsigned nonzero byte");
+      outFontsize = fs;
+   }
+
+   void
    convGeometry (uint16_t& outCols, uint16_t& outRows)
    {
       const char* opt = get ("geometry");
@@ -210,6 +225,8 @@ namespace zutty {
       {
          convBorder (border);
          fontname = get ("font");
+         fontpath = get ("fontpath");
+         convFontsize (fontsize);
          convGeometry (nCols, nRows);
          glinfo = getBool ("glinfo");
          shell = get ("shell");

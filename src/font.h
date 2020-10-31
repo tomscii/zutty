@@ -34,6 +34,8 @@ namespace zutty {
        * It is an error if the alternate font has different geometry.
        * Any code point not having a glyph in the alternate font will
        * have the glyph of the primary font (if any) in its atlas.
+       * Any code point not having a glyph in the primary font will be
+       * discarded.
        */
       explicit Font (const std::string& filename, const Font& priFont);
 
@@ -41,6 +43,7 @@ namespace zutty {
 
       uint16_t getPx () const { return px; };
       uint16_t getPy () const { return py; };
+      uint16_t getBaseline () const { return baseline; };
       uint16_t getNx () const { return nx; };
       uint16_t getNy () const { return ny; };
 
@@ -61,8 +64,10 @@ namespace zutty {
 
    private:
       std::string filename;
+      bool overlay;
       uint16_t px; // glyph width in pixels
       uint16_t py; // glyph height in pixels
+      uint16_t baseline; // number of pixels above baseline
       uint16_t nx; // number of glyphs in atlas texture per row
       uint16_t ny; // number of rows in atlas texture
       std::vector <uint8_t> atlasBuf; // loaded atlas data
@@ -78,9 +83,20 @@ namespace zutty {
        */
       uint16_t atlas_seq = 1;
 
-      void load (bool overlay = false);
+      int loadSkipCount = 0;
+
+      /* Load font from glyph bitmaps rasterized by FreeType.
+       * Store the bitmaps into an atlas bitmap stored in atlasBuf.
+       */
+      void load ();
+      void loadFixed (const FT_Face& face);
+      void loadScaled (const FT_Face& face);
       void loadFace (const FT_Face& face, FT_ULong c);
       void loadFace (const FT_Face& face, FT_ULong c, const AtlasPos& apos);
+
+      /* Fill the supportedCodes vector with the list of unicode points
+       * that have glyphs in the loaded font.
+       */
       void setupSupportedCodes ();
    };
 

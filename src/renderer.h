@@ -25,10 +25,9 @@ namespace zutty {
 
    class Renderer {
    public:
-      explicit Renderer (const Font& priFont,
-                         const Font& altFont,
-                         const std::function <void ()>& initDisplay,
-                         const std::function <void ()>& swapBuffers);
+      explicit Renderer (const std::function <void ()>& initDisplay,
+                         const std::function <void ()>& swapBuffers,
+                         const Fontpack* fontpk);
 
       ~Renderer ();
 
@@ -45,9 +44,8 @@ namespace zutty {
       std::mutex mx;
       std::thread thr;
 
-      void renderThread (const Font& priFont,
-                         const Font& altFont,
-                         const std::function <void ()>& initDisplay);
+      void renderThread (const std::function <void ()>& initDisplay,
+                         const Fontpack* fontpk);
    };
 
 } // namespace zutty

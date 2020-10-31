@@ -15,13 +15,11 @@
 
 namespace zutty {
 
-   Renderer::Renderer (const Font& priFont,
-                       const Font& altFont,
-                       const std::function <void ()>& initDisplay,
-                       const std::function <void ()>& swapBuffers_)
+   Renderer::Renderer (const std::function <void ()>& initDisplay,
+                       const std::function <void ()>& swapBuffers_,
+                       const Fontpack* fontpk)
       : swapBuffers {swapBuffers_}
-      , thr {&Renderer::renderThread, this,
-             priFont, altFont, initDisplay}
+      , thr (&Renderer::renderThread, this, initDisplay, fontpk)
    {
    }
 
@@ -46,13 +44,12 @@ namespace zutty {
    }
 
    void
-   Renderer::renderThread (const Font& priFont,
-                           const Font& altFont,
-                           const std::function <void ()>& initDisplay)
+   Renderer::renderThread (const std::function <void ()>& initDisplay,
+                           const Fontpack* fontpk)
    {
       initDisplay ();
 
-      charVdev = std::make_unique <CharVdev> (priFont, altFont);
+      charVdev = std::make_unique <CharVdev> (fontpk);
 
       Frame lastFrame;
 

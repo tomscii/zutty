@@ -37,6 +37,8 @@ namespace zutty {
       {"display",   XrmoptionSepArg,   nullptr, nullptr,     "Display to connect to"},
       {"fg",        XrmoptionSepArg,   nullptr, "ffffff",    "Foreground color"},
       {"font",      XrmoptionSepArg,   nullptr, "9x18",      "Font to use"},
+      {"fontsize",  XrmoptionSepArg,   nullptr, "16",        "Font size"},
+      {"fontpath",  XrmoptionSepArg,   nullptr, "/usr/share/fonts", "Font search path"},
       {"geometry",  XrmoptionSepArg,   nullptr, "80x24",     "Terminal size in chars"},
       {"glinfo",    XrmoptionNoArg,    "true",  "false",     "Print OpenGL information"},
       {"help",      XrmoptionNoArg,    "true",  "false",     "Print usage information"},
@@ -55,6 +57,8 @@ namespace zutty {
       uint16_t border;
       const char* display;
       const char* fontname;
+      const char* fontpath;
+      uint8_t fontsize;
       uint16_t nCols;
       uint16_t nRows;
       bool glinfo;

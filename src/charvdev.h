@@ -12,7 +12,7 @@
 #pragma once
 
 #include "base.h"
-#include "font.h"
+#include "fontpack.h"
 #include "gl.h"
 #include "options.h"
 #include "utf8.h"
@@ -26,8 +26,7 @@ namespace zutty {
    class CharVdev
    {
    public:
-      explicit CharVdev (const Font& priFont,
-                         const Font& altFont);
+      explicit CharVdev (const Fontpack* fontpk);
 
       ~CharVdev ();
 
@@ -38,17 +37,18 @@ namespace zutty {
       {
          uint16_t uc_pt = ' ';
          uint8_t bold: 1;
+         uint8_t italic: 1;
          uint8_t underline: 1;
          uint8_t inverse: 1;
          uint8_t wrap: 1;
-         uint16_t _fill0: 12;
+         uint16_t _fill0: 11;
          Color fg;
          uint8_t _fill1;
          Color bg;
          uint8_t _fill2;
 
          Cell ():
-            bold (0), underline (0), inverse (0), wrap (0),
+            bold (0), italic (0), underline (0), inverse (0), wrap (0),
             fg (opts.fg), bg (opts.bg)
          {}
 
@@ -110,8 +110,7 @@ namespace zutty {
       GLint compU_selectRect, compU_selectRectMode;
       GLint drawU_viewPixels;
 
-      const Font& priFont;
-      const Font& altFont;
+      const Fontpack& fontpk;
 
       Cell * cells = nullptr; // valid pointer if mapped, else nullptr
 

@@ -15,7 +15,7 @@
 #include <X11/keysym.h>
 
 #include "base64.h"
-#include "font.h"
+#include "fontpack.h"
 #include "options.h"
 #include "pty.h"
 #include "renderer.h"
@@ -35,6 +35,7 @@
 #include <unistd.h>
 
 using zutty::CharVdev;
+using zutty::Fontpack;
 using zutty::MouseTrackingState;
 using zutty::MouseTrackingMode;
 using zutty::MouseTrackingEnc;
@@ -43,11 +44,7 @@ using zutty::VtKey;
 using zutty::VtModifier;
 using zutty::Renderer;
 
-static const std::string fontpath = "/usr/share/fonts/X11/misc/";
-static const std::string fontext = ".pcf.gz";
-
-static std::unique_ptr <zutty::Font> priFont = nullptr;
-static std::unique_ptr <zutty::Font> altFont = nullptr;
+static std::unique_ptr <Fontpack> fontpk = nullptr;
 static std::unique_ptr <Renderer> renderer = nullptr;
 static std::unique_ptr <Vterm> vt = nullptr;
 static std::unique_ptr <zutty::SelectionManager> selMgr = nullptr;
@@ -575,8 +572,8 @@ mouseProtoSend (MouseTrackingEnc enc, int eventType, unsigned int modstate,
 static inline void
 mouseProtoConvCoords (int px, int py, uint16_t& out_cx, uint16_t& out_cy)
 {
-   out_cx = std::max (0, (px - opts.border - 1) / priFont->getPx ()) + 1;
-   out_cy = std::max (0, (py - opts.border - 1) / priFont->getPy ()) + 1;
+   out_cx = std::max (0, (px - opts.border - 1) / fontpk->getPx ()) + 1;
+   out_cy = std::max (0, (py - opts.border - 1) / fontpk->getPy ()) + 1;
 }
 
 static inline void
@@ -1079,11 +1076,10 @@ main (int argc, char* argv[])
       }
    }
 
-   priFont = std::make_unique <zutty::Font> (fontpath + opts.fontname + fontext);
-   altFont = std::make_unique <zutty::Font> (fontpath + opts.fontname + "B" + fontext,
-                                             * priFont.get ());
-   int win_width = 2 * opts.border + opts.nCols * priFont->getPx ();
-   int win_height = 2 * opts.border + opts.nRows * priFont->getPy ();
+   fontpk = std::make_unique <Fontpack> (opts.fontpath, opts.fontname);
+
+   int win_width = 2 * opts.border + opts.nCols * fontpk->getPx ();
+   int win_height = 2 * opts.border + opts.nRows * fontpk->getPy ();
 
    make_x_window (x_dpy, egl_dpy, opts.title, win_width, win_height,
                   &win, &egl_ctx, &egl_surf);
@@ -1111,8 +1107,6 @@ main (int argc, char* argv[])
    selMgr = std::make_unique <zutty::SelectionManager> (x_dpy, win);
 
    renderer = std::make_unique <Renderer> (
-      * priFont.get (),
-      * altFont.get (),
       [egl_dpy, egl_surf, egl_ctx] ()
       {
          if (!eglMakeCurrent (egl_dpy, egl_surf, egl_surf, egl_ctx))
@@ -1123,9 +1117,10 @@ main (int argc, char* argv[])
       [egl_dpy, egl_surf] ()
       {
          eglSwapBuffers (egl_dpy, egl_surf);
-      });
+      },
+      fontpk.get ());
 
-   vt = std::make_unique <Vterm> (priFont->getPx (), priFont->getPy (),
+   vt = std::make_unique <Vterm> (fontpk->getPx (), fontpk->getPy (),
                                   win_width, win_height, pty_fd);
    vt->setRefreshHandler ([] (const zutty::Frame& f) { renderer->update (f); });
    vt->setOscHandler ([&] (int cmd, const std::string& arg)

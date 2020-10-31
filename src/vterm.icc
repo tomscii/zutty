@@ -1592,6 +1592,7 @@ namespace zutty {
          case 0:
             attrs.uc_pt = ' ';
             attrs.bold = 0;
+            attrs.italic = 0;
             attrs.underline = 0;
             attrs.inverse = 0;
             reverseVideo = false;
@@ -1604,7 +1605,7 @@ namespace zutty {
             break;
          case 1: attrs.bold = 1; setFgFromPalIx (); break;
          case 2: attrs.bold = 0; setFgFromPalIx (); break;
-         case 3: /* italic on */ break;
+         case 3: attrs.italic = 1; break;
          case 4: attrs.underline = 1; break;
          case 5: /* blink on */ break;
          case 7:
@@ -1618,13 +1619,15 @@ namespace zutty {
             }
             break;
          case 8: logU << "attr.: concealed" << std::endl; break;
-         case 10: attrs.bold = 0;  setFgFromPalIx (); break;
-         case 11: case 12: case 13: case 14: case 15:
-         case 16: case 17: case 18: case 19:
-            attrs.bold = 1;  setFgFromPalIx ();
+         case 10: attrs.bold = 0; attrs.italic = 0; setFgFromPalIx (); break;
+         case 11: attrs.bold = 1; attrs.italic = 0; setFgFromPalIx (); break;
+         case 12: attrs.bold = 0; attrs.italic = 1; setFgFromPalIx (); break;
+         case 13: attrs.bold = 1; attrs.italic = 1; setFgFromPalIx (); break;
+         case 14: case 15: case 16: case 17: case 18: case 19:
+            attrs.bold = 0; attrs.italic = 0; setFgFromPalIx ();
             break;
          case 22: attrs.bold = 0; setFgFromPalIx (); break;
-         case 23: /* italic off */ break;
+         case 23: attrs.italic = 0; break;
          case 25: /* blink off */ break;
          case 24: attrs.underline = 0; break;
          case 27:

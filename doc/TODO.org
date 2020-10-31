@@ -1,7 +1,6 @@
 * Vt support
 
 ** Misc features
-- more general font support (test: SourceCodePro, GNU Unifont, etc.)
 
 ** Cleanup & polish
 - keys C-1, C-Tab, A-Tab, C-BkSp, A-BkSp

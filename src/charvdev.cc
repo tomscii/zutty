@@ -55,10 +55,10 @@ void main ()
       ivec2 (bitfieldExtract (cell.charData, 0, 8),  // Lowest byte
              bitfieldExtract (cell.charData, 8, 8)); // Next-lowest byte
 
-   // fontIdx == 0 -> Normal; 1 -> Bold
-   uint fontIdx = bitfieldExtract (cell.charData, 16, 1);
-   uint underline = bitfieldExtract (cell.charData, 17, 1);
-   uint inverse = bitfieldExtract (cell.charData, 18, 1);
+   // fontIdx == 0 -> Normal; 1 -> Bold; 2 -> Italic; 3 -> BoldItalic
+   uint fontIdx = bitfieldExtract (cell.charData, 16, 2);
+   uint underline = bitfieldExtract (cell.charData, 18, 1);
+   uint inverse = bitfieldExtract (cell.charData, 19, 1);
 
    ivec2 atlasPos = ivec2 (vec2 (256) * texelFetch (atlasMap, charCode, 0).zw);
 
@@ -218,6 +218,20 @@ void main ()
       glTexParameteri (type, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
    }
 
+   void
+   setupAtlasTexture (const zutty::Font& fnt, int idx)
+   {
+      glTexSubImage3D(GL_TEXTURE_2D_ARRAY,
+                      0,    // mipmap level, always zero
+                      0, 0, // X and Y offsets into texture area
+                      idx,  // layer index offset
+                      fnt.getPx () * fnt.getNx (),
+                      fnt.getPy () * fnt.getNy (),
+                      1,    // number of layers, i.e., fonts, loaded
+                      GL_RED, GL_UNSIGNED_BYTE, fnt.getAtlasData ());
+      glCheckError ();
+   }
+
    template <typename T> void
    setupStorageBuffer (GLuint index, GLuint& buffer, uint32_t n_items)
    {
@@ -235,10 +249,8 @@ void main ()
 
 namespace zutty {
 
-   CharVdev::CharVdev (const Font& priFont_,
-                       const Font& altFont_)
-      : priFont (priFont_)
-      , altFont (altFont_)
+   CharVdev::CharVdev (const Fontpack* fontpk_)
+      : fontpk (* fontpk_)
    {
       createShaders ();
 
@@ -275,36 +287,38 @@ namespace zutty {
        * Setup compute program
        */
       glUseProgram (P_compute);
-      glUniform2i (compU_glyphPixels, priFont.getPx (), priFont.getPy ());
+      glUniform2i (compU_glyphPixels, fontpk.getPx (), fontpk.getPy ());
       glUniform2i (compU_sizeChars, nCols, nRows);
 
       // Setup atlas texture
       setupTexture (GL_TEXTURE1, GL_TEXTURE_2D_ARRAY, T_atlas);
+      const Font& reg = fontpk.getRegular ();
       glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_R8,
-                     priFont.getPx () * priFont.getNx (),
-                     priFont.getPy () * priFont.getNy (),
-                     2);
+                     reg.getPx () * reg.getNx (),
+                     reg.getPy () * reg.getNy (),
+                     4); // number of layers
       glCheckError ();
 
-      glTexSubImage3D(GL_TEXTURE_2D_ARRAY,
-                      0,    // mipmap level, always zero
-                      0, 0, // X and Y offsets into texture area
-                      0,    // layer index offset
-                      priFont.getPx () * priFont.getNx (),
-                      priFont.getPy () * priFont.getNy (),
-                      1,    // number of layers, i.e., fonts, loaded
-                      GL_RED, GL_UNSIGNED_BYTE, priFont.getAtlasData ());
-      glCheckError ();
+      setupAtlasTexture (reg, 0);
 
-      glTexSubImage3D(GL_TEXTURE_2D_ARRAY,
-                      0,    // mipmap level, always zero
-                      0, 0, // X and Y offsets into texture area
-                      1,    // layer index offset
-                      priFont.getPx () * priFont.getNx (),
-                      priFont.getPy () * priFont.getNy (),
-                      1,    // number of layers, i.e., fonts, loaded
-                      GL_RED, GL_UNSIGNED_BYTE, altFont.getAtlasData ());
-      glCheckError ();
+      if (fontpk.hasBold ())
+         setupAtlasTexture (fontpk.getBold (), 1);
+      else
+         setupAtlasTexture (fontpk.getRegular (), 1);
+
+      if (fontpk.hasItalic ())
+         setupAtlasTexture (fontpk.getItalic (), 2);
+      else
+         setupAtlasTexture (fontpk.getRegular (), 2);
+
+      if (fontpk.hasBoldItalic ())
+         setupAtlasTexture (fontpk.getBoldItalic (), 3);
+      else if (fontpk.hasItalic ())
+         setupAtlasTexture (fontpk.getItalic (), 3);
+      else if (fontpk.hasBold ())
+         setupAtlasTexture (fontpk.getBold (), 3);
+      else
+         setupAtlasTexture (fontpk.getRegular (), 3);
 
       // Setup atlas mapping texture
       auto atlasMap = std::vector <uint8_t> ();
@@ -312,14 +326,14 @@ namespace zutty {
 
       // Pre-fill the mapping texture with references to "missing glyph"
       // and "replacement character" glyphs, if available in the font atlas.
-      const auto itEnd = priFont.getAtlasMap ().end ();
-      auto rcIt = priFont.getAtlasMap ().find (Unicode_Replacement_Character);
+      const auto itEnd = reg.getAtlasMap ().end ();
+      auto rcIt = reg.getAtlasMap ().find (Unicode_Replacement_Character);
       if (rcIt == itEnd)
-         rcIt = priFont.getAtlasMap ().find (' ');
+         rcIt = reg.getAtlasMap ().find (' ');
       assert (rcIt != itEnd);
-      auto mgIt = priFont.getAtlasMap ().find (Missing_Glyph_Marker);
+      auto mgIt = reg.getAtlasMap ().find (Missing_Glyph_Marker);
       if (mgIt == itEnd)
-         mgIt = priFont.getAtlasMap ().find (' ');
+         mgIt = reg.getAtlasMap ().find (' ');
       assert (mgIt != itEnd);
       for (int k = 0; k < 256 * 256; ++k)
       {
@@ -332,7 +346,7 @@ namespace zutty {
       }
 
       // Fill the mapping texture with supported characters
-      auto it = priFont.getAtlasMap ().begin ();
+      auto it = reg.getAtlasMap ().begin ();
       for (; it != itEnd; ++it)
       {
          atlasMap [2 * it->first] = it->second.x;
@@ -357,15 +371,15 @@ namespace zutty {
 
       pxWidth = pxWidth_;
       pxHeight = pxHeight_;
-      nCols = (pxWidth - (2 * opts.border)) / priFont.getPx ();
-      nRows = (pxHeight - (2 * opts.border)) / priFont.getPy ();
+      nCols = (pxWidth - (2 * opts.border)) / fontpk.getPx ();
+      nRows = (pxHeight - (2 * opts.border)) / fontpk.getPy ();
 
       logI << "Resize to " << pxWidth << " x " << pxHeight
            << " pixels, " << nCols << " x " << nRows << " chars"
            << std::endl;
 
-      GLint viewWidth = nCols * priFont.getPx ();
-      GLint viewHeight = nRows * priFont.getPy ();
+      GLint viewWidth = nCols * fontpk.getPx ();
+      GLint viewHeight = nRows * fontpk.getPy ();
       glViewport (opts.border, pxHeight - viewHeight - opts.border,
                   viewWidth, viewHeight);
 
