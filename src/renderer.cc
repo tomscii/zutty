@@ -65,12 +65,10 @@ namespace zutty {
          if (done)
             return;
 
-         if ((lastFrame.winPx != nextFrame.winPx) ||
-             (lastFrame.winPy != nextFrame.winPy))
-            charVdev->resize (nextFrame.winPx, nextFrame.winPy);
-
          lastFrame = nextFrame;
          lk.unlock ();
+
+         charVdev->resize (lastFrame.winPx, lastFrame.winPy);
 
          {
             CharVdev::Mapping m = charVdev->getMapping ();
