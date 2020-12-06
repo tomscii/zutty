@@ -27,11 +27,13 @@
 #include <memory>
 #include <poll.h>
 #include <pwd.h>
+#include <signal.h>
 #include <sstream>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 using zutty::CharVdev;
@@ -273,11 +275,29 @@ validateShell (char* progPath)
    unsetenv ("SHELL");
 }
 
+static void
+sighandler (int sig, siginfo_t* info, void* ucontext)
+{
+   if (sig == SIGCHLD)
+   {
+      waitpid (info->si_pid, nullptr, 0);
+   }
+}
+
 static int
 startShell (const char* const argv[])
 {
    int ptyFd;
    pid_t pid;
+
+   struct sigaction sa;
+   sa.sa_sigaction = sighandler;
+   sa.sa_flags = SA_SIGINFO | SA_RESTART | SA_NOCLDSTOP;
+   if (sigaction (SIGCHLD, &sa, nullptr) < 0)
+   {
+      using zutty::printArgs;
+      SYS_ERROR ("can't install SIGCHLD handler: sigaction()");
+   }
 
    pid = zutty::pty_fork (ptyFd, opts.nCols, opts.nRows);
 
