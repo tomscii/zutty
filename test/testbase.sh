@@ -118,6 +118,9 @@ else
     echo "Console pid: ${CON_PID} wid: ${CON_WID}"
 fi
 
+# Add path to installed dependencies, if any
+export PATH="$(pwd)/deps/bin":$PATH
+
 # execute UUT and store its pid
 ${UUT_EXE} >${UUT_LOG} 2>&1 &
 PID=$!
@@ -173,7 +176,8 @@ function IN {
     local in="$1"; shift
     str=$(echo "$in" | sed 's|\\r|\\D3\\{+Return}\\D3\\{-Return}|');
     check_uut
-    xvkbd -window ${WID} -no-jump-pointer -delay 50 -text "${str}\\D3" 2>&1 | \
+    LANG=C xvkbd -window ${WID} -no-jump-pointer -delay 50 \
+        -text "${str}\\D3" 2>&1 | \
         grep -v "Mode_switch not available as a modifier" | \
         grep -v "AltGr may not work correctly"
 }
@@ -183,7 +187,7 @@ function FOCUS_CONSOLE {
         # focus the console window
         # for some reason, a simple wmctrl -ia does not work;
         # it selects the window but keyboard focus is not active.
-        xvkbd -window ${CON_WID} -no-back-pointer \
+        LANG=C xvkbd -window ${CON_WID} -no-back-pointer \
               -text "\{+Control_L}\D1\{-Control_L}\D1" >/dev/null 2>&1
     fi
 }

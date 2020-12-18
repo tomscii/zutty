@@ -27,25 +27,6 @@ namespace zutty {
 #ifdef DEBUG
 
    inline void
-   Vterm::traceFunction (const char* func)
-   {
-      logT << func << " [";
-      for (size_t k = 0; k < nInputOps; ++k) {
-         if (k)
-         {
-            vlog << ";";
-         }
-         vlog << inputOps [k];
-      }
-      vlog << "] \t"
-           << "p(" << posY << "," << posX << ")  d(" << nRows << "," << nCols
-           << ")  mgn[" << cf->marginTop << "," << cf->marginBottom
-           << ")  hmgn:" << horizMarginMode << " [" << hMargin << "," << nColsEff
-           << ")  cur=" << cur << "  head=" << cf->scrollHead
-           << std::endl;
-   }
-
-   inline void
    Vterm::debugKey ()
    {
       switch (debugStep)
@@ -82,7 +63,24 @@ namespace zutty {
    }
 
    #define DEBUG_BREAK debugBreak()
-   #define TRACE_FUN traceFunction(__FUNCTION__);
+   #define TRACE_FUN                                                      \
+      do {                                                                \
+         logT << __FUNCTION__ << " [";                                    \
+      for (size_t k = 0; k < nInputOps; ++k) {                            \
+         if (k) {                                                         \
+            vlog << ";";                                                  \
+         }                                                                \
+         vlog << inputOps [k];                                            \
+      }                                                                   \
+      vlog << "] \t"                                                      \
+           << "p(" << posY << "," << posX << ")  "                        \
+           << "d(" << nRows << "," << nCols << ")  "                      \
+           << "mgn[" << cf->marginTop << "," << cf->marginBottom << ")  " \
+           << "hmgn:" << horizMarginMode                                  \
+           << " [" << hMargin << "," << nColsEff                          \
+           << ")  cur=" << cur << "  head=" << cf->scrollHead             \
+           << std::endl;                                                  \
+   } while (0)
 #else
    #define DEBUG_BREAK
    #define TRACE_FUN

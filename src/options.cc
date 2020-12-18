@@ -203,6 +203,8 @@ namespace zutty {
                        xrmOptionsTable.data (), xrmOptionsTable.size (),
                        "zutty", argc, argv);
       display = get ("display", getenv ("DISPLAY"));
+      if (!display)
+         throw std::runtime_error ("DISPLAY not set!");
       setenv ("DISPLAY", display, 1);
    }
 

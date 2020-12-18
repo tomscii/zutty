@@ -1,3 +1,5 @@
 .lock-waf*
 .waf*
 build/
+README.html
+doc/*.html

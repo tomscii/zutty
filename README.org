@@ -1,11 +1,13 @@
-* Zutty - Zero-cost Unicode Teletype
+#+TITLE: Zutty - Zero-cost Unicode Teletype
+#+OPTIONS: toc:nil num:nil val:nil html-style:nil H:3 ^:{}
 
 Zutty is a terminal emulator for the X Window System, functionally
-similar to several other X terminal emulators such as xterm, rxvt and
-countless others. It is also similar to other, newer, GPU-accelerated
-terminal emulators such as Alacritty and Kitty. What sets Zutty apart
-is its focus on extremely efficient rendering, enabling it to perform
-seamlessly in constrained environments where others struggle or fail.
+similar to several other X terminal emulators such as =xterm=, =rxvt=
+and countless others. It is also similar to other, much more modern,
+GPU-accelerated terminal emulators such as Alacritty and Kitty. What
+really sets Zutty apart is its radically simple, yet extremely
+efficient rendering implementation, enabling it to perform seamlessly
+in resource-constrained environments where others struggle or fail.
 At the same time, Zutty aims to implement a sufficiently complete
 feature set to make it useful for a wide range of users, and strives
 to conform to relevant (actual or de-facto) standards.
@@ -20,128 +22,164 @@ Zutty is released under the GNU General Public License (GPL) v3 or (at
 your option) any later version. Please refer to the file LICENSE for
 the full text of the license.
 
-The main idea behind Zutty is the implementation of character video
-memory via OpenGL ES 3.1. This video memory is just an array of cells
-backing all character grid locations, containing Unicode character
-codes plus color and other attributes. This memory area, allocated on
-the GPU, is mapped to make it directly writable by the application.
-This results in a very similar interface as to how one could write to
-the screen by directly poking at physical video memory starting at
-0xB8000 on the IBM PC. Zutty employs a "compute shader" running on the
-GPU to read this video memory and render output pixels.
+** Documentation
 
-** Features
+Core documentation (bundled with the Zutty sources):
+
+- [[./doc/USAGE.org][Usage guide]]: guide and reference for all users
+- [[./doc/HACKING.org][Development guide]]: internals, debugging, testing
+- [[./doc/KEYS.org][Key mapping sequences]]: reference on keyboard-induced sequences
+- [[./doc/VTTEST.org][Vttest results]]: documents the level of conformance against Vttest
+
+Articles about Zutty:
+
+- [[https://tomscii.sig7.se/2020/11/How-Zutty-works][How Zutty works]]: Rendering a terminal with an OpenGL Compute Shader
+
+** Current status
+
+Zutty started out as a concept to prove the feasibility of using a
+GLES Compute Shader to render a fixed-width text grid entirely in
+graphics hardware. From its modest beginnings as a technological Proof
+of Concept, Zutty has evolved considerably and is now perfectly
+capable of serving as the main terminal emulator for heavy users of
+the command line. In particular, this author employs Zutty to run a
+workload of =tmux=, =emacs= (=-nw=), =tig=, =mutt=, =htop=, and a
+bunch of other applications making extensive use of the terminal
+(including its mouse support), with some Zutty instances running for
+months at a time, on a very resource-constrained SBC (ab)used as a
+desktop.  The correctness, performance, and stability of Zutty is
+excellent, as one would rightly expect from something as fundamental
+as a terminal emulator.
+
+There is, however, a long list of ancillary features that Zutty does
+not presently implement. Completing these is more or less a matter of
+straightforward implementation work within the already existing
+architecture of Zutty, and work will be spent on these in proportion
+to popular user demand.
+
+** Notable features
+
+*** Radically simple, uniquely performant rendering technology
+
+The main idea behind Zutty is the implementation of "raw" character
+video memory via OpenGL ES 3.1. This video memory is just an array of
+cells backing all character grid locations, with each cell containing
+Unicode character codes plus color and other visual attributes. This
+memory area, allocated on the GPU, is mapped to make it directly
+writable by the application.  This results in a conceptually similar
+interface as to how one could write to the screen by directly poking
+at physical video memory starting at 0xB8000 on the IBM PC. Zutty
+employs an OpenGL "Compute Shader" running on the GPU to read this
+video memory and render output pixels.
+
+Zutty requires OpenGL ES 3.1 because this is precisely the lowest
+version with support for the Compute Shader, the enabling technology
+behind Zutty. We have chosen OpenGL ES over OpenGL to widen the range
+of supported hardware platforms, primarily towards small, low-cost
+Single Board Computers.  These boards are commonly built around an ARM
+SoC with a graphics core supporting OpenGL ES, but not "desktop"
+OpenGL. Zutty is the first GPU-accelerated terminal for such low-cost
+platforms.
+
+*** Correct (and fairly complete) VT emulation
+
+Zutty substantially emulates the "commonly used" subsets of the
+protocols of VT52, VT100, VT102, VT220, VT320, VT420 and VT520
+terminals (originally manufactured by DEC) as well as some more modern
+additions defined by the de-facto standard =xterm= implementation.
+
+We take great care to ensure that Zutty passes the subset of VTTEST
+screens that we care about (this amounts to the overwhelming majority
+of tests concerned with actual screen rendering). We have an automated
+regression testing setup to run VTTEST in Zutty and verify that the
+output is a pixel-perfect match of the pre-approved video output. You
+can thus expect the terminal output to be /correct/ -- be it driven by
+tmux, emacs (with org-mode, helm, magit, etc.) or whatever else. Zutty
+handles several corner cases (escape sequences) which, sadly enough,
+several popular terminal emulators do not correctly support. Zutty
+also boasts mouse support (substantially modeled after xterm) to make
+the user experience of many terminal applications more interactive.
+
+In a perfect world, this should not have to be listed as such a
+prominent feature, but unfortunately, it is rather the exception
+than the norm among widely used terminal emulators (especially the
+more modern ones).
 
 *** Font handling
 
-We support a primary and optionally an alternate variant of the same
-font, which will be used to render characters marked with the 'bold'
-attribute. The bold font might not have all the glyphs of the
-primary - in this case we fall back to rendering the glyph from the
-primary font atlas.
-
-**** Recommended fonts
-
-The author of Zutty prefers the so-called "misc fixed" fonts that were
-designed in the '80s in an era of much inferior computer displays.
-These were the original fonts designed to be used with the
-then-nascent X Window System, and their availability is universal.
-There is a convenient range of sizes, several fonts have bold variants
-and support thousands of international characters and symbols outside
-ASCII. Zutty will work best with any of misc-fixed 6x13, 7x13, 7x14,
-8x13, 9x15 and 9x18 (there are more, but these have a bold-face
-alternate).
+Zutty supports both fixed size (bitmap) and scaled (TTF, OTF) fonts.
+Up to four variants of a font are supported (Regular, Bold, Italic /
+Oblique, plus BoldItalic) with automatic, sensible fallbacks in case
+any of these is missing. Zutty tries to locate the font files itself
+under a configured font search path, and loads them on its own
+(without any support from the windowing system).
 
 *** True color support
-*** Synchronous and asynchronous scrolling
-*** Double-size mode
 
-This might be useful for HiDPI displays and as an escape hatch for
-those presenting their screen to an audience.
+In each grid cell in the virtual video memory emulated via OpenGL,
+three bytes are reserved for the foreground color as well as the
+background color. As such, Zutty natively supports true color (24
+million colors) on each cell's foreground and background, completely
+independent of each other and all other cells.
 
-*** X-clipboard / primary selection / copy-paste support
+*** Traditional X-clipboard / primary selection / copy-paste support
 
-This is closely modeled after Xterm's functionality in this area.
-Zutty adds the ability to select rectangular areas (useful if the
-terminal is vertically split in e.g., emacs or tmux). Toggle with
-space key while a selection adjustment is in progress (left or right
-mouse button is held down).
+Zutty supports the traditional method of "copy-paste" based on the X
+Selection API, and is accessible via the same GUI mechanisms that
+long-time =xterm= users are familiar with. Zutty can be configured to
+use whichever selection target you prefer (it defaults to the PRIMARY
+selection, but you might want to use CLIPBOARD instead).
 
-- btn_left down: clear selection and set start of new one here
+Zutty faithfully replicates what =xterm= has provided for a very long
+time: starting selections with the left button, adjusting them with
+the right button, and cycling between snap-to-char/word/line with
+double clicks. Compared with =xterm=, one notable difference is a
+built-in, simpler rule for word boundaries (as opposed to
+user-adjustable definitions of character classes).
 
-- movement while btn_left down: maintain selection between orig and
-  point
+Paste the selection into the terminal via middle click or
+Shift-Insert, like in =xterm=.
 
-- btn_left up: end selection here (if same as start pos, no
-  selection); set mark to current pos; set selection text from
-  highlighted area
+Just as with =xterm=, terminal programs might enable one of the
+supported "mouse protocols" to provide mouse interaction on their user
+interfaces; in such cases, press and hold the Shift key while
+performing the clicks and drags of the selection that you want to
+perform (both while copying and pasting). Holding Shift will cut
+through to the Zutty mouse handler instead of sending those mouse
+events to the terminal program via the mouse protocol. So, regardless
+of the program running in the terminal, you can always access the
+built-in copy-paste support in Zutty; but you can also use whatever
+mouse support your program has.
 
-- btn_right down: if there is a current selection, choose the start or
-  end depending on which is nearer; make that end of the selection
-  jump to point. If there is no selection, create a new selection
-   between mark and point.
+In addition, Zutty adds a unique feature for real power users of the
+terminal: rectangular selection. This is extremely useful if working
+with a vertically split terminal (think =emacs= or =tmux=). Simply
+toggle between "regular" and "rectangular" selection mode with the
+Space key while a selection adjustment is in progress (left or right
+mouse button is held down). For your convenience, this setting
+persists over individual selections made, throughout the lifetime of a
+running Zutty terminal.
 
-- movement while btn_right down: maintain selection
+*** Small, clean codebase
 
-- btn_right up: stop following point with chosen selection endpoint,
-  set selection text from highlighted area
-
-- selectSnapTo is inherited from earlier if started with right click
-
-- double-click: select word; triple-click: select line.
-  multi-click is determined by time from mouse-up to mouse-down, the
-  button might be held down for an extended period, and the pointer
-  might move in between!
-
-- switch to rectangular selection on Space while a selection area
-  adjustment is in progress. In rectangular mode, effective snapTo
-  mode is always Char, but the original snapTo setting is preserved in
-  case the selection is toggled back to regular line-oriented mode.
-  Rectangular selection mode toggle is preserved even across different
-  selections.
-
-- on scroll or output changing the highlighted area: remove
-  highlighting (but continue to serve primary selection)
-
-- scroll with highlighted area intact: move highlight w/scroll area
-
-- terminal updates are held while mouse button left or right is down
-  (without spinning the cpu!)
-
-- Selection interface via OSC command sequences
-
-- btn_middle up, shift+Ins: request (if not the owner) and paste
-  selection content
-
-- support bracketed paste mode
-
-*** Shell resolution algorithm
-
-The algorithm to determine the shell program to run closely resembles
-Xterm behaviour and follows these steps:
-
-0. Start with the [shell] argument (the last argument given after all
-   valid options, if present).
-1. Try to construct an absolute path taking $PATH into account;
-   this includes resolving relative paths and trying elements of the
-   list of $PATH entries until it resolves to an existing file.
-2. Fall back on $SHELL, then the user's /etc/passwd shell entry
-3. Use /bin/sh as a last resort
-4. Validate the outcome of the above steps against the permitted shell
-   entries found in /etc/shells; clear $SHELL if the program is not
-   listed as a valid shell.
-
-Note that in case a [shell] argument is *not* given, the "zutty.shell"
-resource is consulted; if that is not set, the built-in default of
-/bin/bash is used.
+The radical simplicity of our rendering technology allows for a
+straightforward virtual terminal implementation that happens to be
+extremely performant despite the lack of any fancy optimizations on
+the source code level.  This also allows the codebase of Zutty to be
+very small (well under ten thousand lines, including comments and
+empty lines) and highly readable. Therefore, Zutty lends itself
+towards educational use and as a vehicle for hacking on terminals. If
+you've always wanted to learn how a terminal emulator works from the
+inside out, consider studying the Zutty codebase (and associated
+documentation)!
 
 ** Omissions and limitations
 
 There are things that Zutty does not implement compared to other, more
-commonly used X terminal emulators (xterm being the gold standard of
+commonly used X terminal emulators (=xterm= being the gold standard of
 completeness here). The below list gives an overview of what is
-missing.  Most of them are thought as being out of scope for Zutty,
-but some are marked as possibly being implemented in the future.
+missing.  Some of them are considered out of scope for Zutty, but some
+are marked as possibly being implemented in the future.
 
 - Zutty currently does not support scroll-back. It is easy and
   straightforward to use programs such as =screen= or =tmux= if you
@@ -158,10 +196,10 @@ but some are marked as possibly being implemented in the future.
   sequences to enable them are well implemented though, so users of
   any modern Linux environment should never run into trouble.
 
-- Zutty is Unicode based, but it is a terminal emulator, not a general
-  purpose Unicode program. Therefore it does not aim to implement the
-  whole breadth and depth of glyph and language support that Unicode
-  defines.  Currently not supported:
+- Zutty is Unicode-based, but it is a terminal emulator, not an
+  all-purpose Unicode program. Therefore it does not aim to implement
+  the whole breadth and depth of glyph and language support that
+  Unicode defines.  Currently not supported:
   - Characters with a code point above 0xFFFF (that is, outside of the
     Basic Multilingual Pane);
   - Bidirectional (right-to-left) text;
@@ -177,9 +215,9 @@ but some are marked as possibly being implemented in the future.
 - Rectangular area operations (introduced by the DEC VT400 series) are
   not supported. However, this set of features is optional and the
   terminal's self-identification message clearly states the absence of
-  it, so conforming client applications should not run into any
-  trouble. No fundamental technical reasons here other than the lack
-  of pressing need.
+  this support, so conforming client applications should not run into
+  any trouble. No fundamental technical reasons here other than the
+  lack of pressing need.
 
 - The mouse protocol implementation aims to be complete with the
   exception of highlight tracking mode that is not implemented. Mouse
@@ -189,89 +227,9 @@ but some are marked as possibly being implemented in the future.
   the conventional five (three buttons plus scroll wheel up/down) are
   discarded.
 
-** Textures
-
-*** Output image texture
-
-Dimensions: according to the character grid size (window size, less
-fraction-of-char border area at the bottom and right edges). This
-texture is rendered onto the viewport area using a quad. All the work
-of computing the terminal window content is done by the compute shader
-that sets color values of individual pixels in this texture.
-
-*** Glyph atlas texture
-
-Dimensions: auto-computed based on the number of glyphs in the font
-and the glyph dimensions, to produce a pixel size as close to square
-as possible.
-
-The maximum amount of characters rasterized from a font is 64k, and
-both dimensions (in character positions) will fit into a single byte
-(we determine the atlas dimensions to guarantee this).
-
-Encoding: 1 byte per texel, gray-scale (0 = black, 255 = white)
-
-The atlas texture is stored as a 2D array with one layer for each font
-face loaded. The mapping from unicode code point to atlas grid
-location is the same across fonts, and is determined by the primary
-font (loaded into texture array index 0). Each subsequent layer starts
-out as a copy of the primary atlas layer, with glyphs successively
-overwritten for each defined code point in the alternate font. This
-means that when referencing an alternate font, the shader does not
-have to care about whether the alternate font has a glyph for the
-given code point -- if nothing else, the primary font's glyph will be
-present.
-
-*** Unicode to Atlas position mapping texture
-
-This is a 256x256 2D texture that maps all 16-bit unicode code points
-to an atlas grid position. It is initialized with the GL data type
-GL_LUMINANCE_ALPHA (two channels), from an array with two 8-bit
-integers per texel (8 bits for either atlas grid coordinate).
-
-This allows direct lookups for any 16 bit Unicode code point in the
-shader and allows the simulated character video memory to take unicode
-code points, simplifying the client.
-
-If the value stored for atlas (row,col) is (0,0), that means there is
-no glyph for that code point in the font. As a measure of convenience,
-the font loader ensures that this is a blank glyph.
-
-** Shader Storage Buffer objects
-
-*** Input "character video memory"
-
-An array of Cell structures, with total length according to the
-terminal size (rows x cols in characters). This array constitutes the
-character video memory as seen by the client, and can be manipulated
-directly through a client-side mapping of the SSBO.
-
-The values stored for each Cell:
-- unicode code point
-- attributes: font face, inverse video, underline, blink
-- foreground color
-- background color
-
-Each cell takes up 12 bytes, with 3 bytes currently unused (available
-for future extensions).
-
-** Synchronization
-
-The main event loop multiplexes on
-- the pty master fd;
-- the fd of the X connection socket.
-
-Multiplexer timeouts are calculated according to the next screen
-redraw, if one is already scheduled.
-
-We want to support both synchronous and asynchronous scrolling.
-Synchronous: we make sure that everything will be drawn before it gets
-overwritten (cannot scroll more than one screen per refresh).
-Asynchronous: process as many updates as possible between each
-refresh, which occurs with a maximum rate equal to the display's
-refresh rate.
-
-** TODO
-
-How does the vsync work?
-EGL_KHR_wait_sync ?
+- Blinking in general (blinking text driven by the SGR attribute 5,
+  and blinking cursor mode turned on/off by VT100 "private" set/reset
+  mode escape sequences) are not (yet) supported. Certain more
+  esoteric text attributes, such as the "concealed" bit, are also not
+  implemented. This is purely due to lack of bandwidth, and will most
+  likely be added in the future.

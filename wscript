@@ -22,6 +22,8 @@ def options(opt):
     opt.add_option('--no-werror', action='store_false', default=True,
                    dest='werror', help='Treat warnings as errors')
 
+    opt.load('compiler_cxx')
+
     opt.recurse('src')
 
 def configure(cfg):
@@ -31,6 +33,8 @@ def configure(cfg):
     cfg.env.append_value('CXXFLAGS', ['-DZUTTY_VERSION=\"' + vsn + '\"'])
 
     cfg.msg('Debug build', "yes" if cfg.options.debug else "no")
+
+    cfg.load('compiler_cxx')
 
     cfg.env.append_value('CXXFLAGS',
        ['-Wall',
@@ -69,6 +73,9 @@ def configure(cfg):
 
     cfg.check_cfg(package='xmu', args=['--cflags', '--libs'],
                   uselib_store='XMU')
+
+    cfg.check(header_name='EGL/egl.h', features='cxx')
+    cfg.check(header_name='GLES3/gl31.h', features='cxx')
 
     cfg.recurse('src')
 

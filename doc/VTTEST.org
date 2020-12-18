@@ -6,6 +6,19 @@ Version of test program:
 
 Section numbering reflects Vttest menu options.
 
+Note that auto-verification against regressions in the test results is
+done by the automated test harness (shell scripts below =test/=).
+However, not everything listed here is verified automatically as part
+of those tests (e.g., no scripted tests exist for xterm mouse protocol
+support). Also, just because we do a regression test (validating the
+screen image against a predetermined hash) does not mean that the
+output is perfect -- several instances are noted below with small
+differences mostly from (as of yet) unimplemented features. We still
+include these in the regression test suite, to notice breaking changes
+that alter the terminal output in unforeseen ways. In case Zutty is
+changed to produce output that is "more correct", the test tools have
+support to update the validation hash.
+
 Legend:
 - [ ] TODO / Needs fixing / non-perfect result
 - [X] Perfect result (less any detail for which support is not being
@@ -247,6 +260,6 @@ range (a-t). This is bug-compatible with Xterm!
 ** 11.8. XTERM special features
 
 - [X] 3. Set window title
-- [ ] 5. Mouse features
+- [X] 5. Mouse features
 - [X] 7. Alternate-Screen features
 

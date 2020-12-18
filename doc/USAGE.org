@@ -1,0 +1,473 @@
+#+TITLE: Zutty usage guide
+#+OPTIONS: num:nil val:nil html-style:nil H:3 ^:{}
+
+This document is aimed at all levels of users: experts and non-experts
+alike.
+
+* Installation
+
+You will probably need to install Zutty from source. This is not as
+scary as it might seem, because Zutty has very few dependencies and is
+a relatively small program.
+
+** 1. Install build dependencies
+
+On a recent (stable or testing) Debian, or a Debian-derivative such as
+Ubuntu, the following command will make sure everything you need to
+build Zutty is in place.
+
+: sudo apt-get install \
+:    build-essential pkg-config python3 \
+:    libegl-dev libfreetype-dev libgles-dev libxmu-dev
+
+** 2. Obtain the source
+
+Clone the source from git:
+: git clone https://github.com/tomszilagyi/zutty.git
+: cd zutty
+
+Alternatively, to download a compressed tarball of a certain release
+version, go to https://github.com/tomszilagyi/zutty/releases, download
+the tarball you want (we recommend the latest one), and uncompress it.
+Further steps assume that your working directory is within the
+uncompressed directory, so =cd= into it!
+
+** 3. Configure the source
+
+You are supposed to be inside the repository (or release) directory
+structure, i.e., the =zutty= directory created above should be your
+working directory. Issue this command:
+
+: ./waf configure
+
+You should see some output with a confirmation of the Zutty version
+you are going to build, and whether you are creating a Debug build (it
+should say "no" at this point; read the [[./HACKING.org][Development guide]] if you are
+interested in debugging Zutty).
+
+You should also see checks for the presence of the build
+dependencies. If anything is missing, the configure script will
+terminate with an error. Otherwise, the configure output will finish
+with a line like this:
+
+: 'configure' finished successfully (0.373s)
+
+In case you will want to install the =zutty= executable to somewhere
+other than =/usr/local/bin=, use the =--prefix= option to specify the
+installation prefix (the default is =/usr/local=). For example, I
+often install stuff for my user account only, in which case I would
+issue =./waf configure --prefix=/home/tom/root= so that later on,
+=zutty= would end up installed as =/home/tom/root/bin/zutty=.
+
+If you would like to learn more, =./waf --help= lists a reference of
+every option you can use.
+
+** 4. Compile the source
+
+Just type:
+
+: ./waf
+
+Alternatively, if you want to specify the number of jobs to run in
+parallel, issue =./waf -j 4= (substitute your number of CPU cores in
+place of 4).
+
+The compilation messages should be self-explanatory (assuming you do
+not run into C++ error messages -- decoding those is an art form in its
+own right). A successful compile ends with a line like this:
+
+: 'build' finished successfully (23.524s)
+
+At this point, the =zutty= executable is complete and ready to be run
+at =build/src/zutty= and you might want to launch it just to see if it
+works. You can run it without arguments to start it up with defaults,
+or add =-h= (or =-help=) to learn about available options. (Don't
+worry, those will be covered in detail below.)
+
+** 5. Install Zutty
+
+For regular use, it is best to copy the =zutty= executable to a
+system-wide directory for binaries where it will be found as part of
+the default executable search path. This makes it easier to launch and
+also decouples it from any local changes. You can manually copy the
+executable built in the previous step, but it might be easier to use
+the built-in install step in the =waf= script. Running it with =sudo=
+will ensure that it is able to write to protected system-wide
+locations:
+
+: sudo ./waf install
+
+Note that your ability to run the above command (with =sudo=) is
+contingent on the presence of =sudo=, the setup of your user account
+with respect to sudo, etc. If it does not work, please search the web
+or ask your friendly local guru. Also, if you have specified an
+install location that is actually yours (like the one I showed above)
+then of course there is no point in using =sudo=.
+
+At the end, you should see something like this:
+
+: 'install' finished successfully (0.135s)
+
+Congratulations, you are now ready to start using Zutty as your
+terminal!
+
+* Configuration
+
+=zutty= has a set of configuration options, all of which have:
+- a command line option;
+- an X resource database (Xrdb) key;
+- a sensible hard default.
+
+For each option, the above list defines the order of preference.  That
+is, the command line can be used to define a setting in a transient
+way; Xrdb entries may be used to persistently alter the default value
+for an option; and lastly, without any input from the user, =zutty=
+should still have a workable default.
+
+To view the list of options, issue =zutty -h= (short for =-help=):
+
+: Usage:
+:   zutty [-option ...] [shell]
+:
+: Options:
+:   -altScroll   Alternate scroll mode
+:   -bg          Background color (default: 000000)
+:   -border      Border width in pixels (default: 2)
+:   -display     Display to connect to
+:   -fg          Foreground color (default: ffffff)
+:   -font        Font to use (default: 9x18)
+:   -fontsize    Font size (default: 16)
+:   -fontpath    Font search path (default: /usr/share/fonts)
+:   -geometry    Terminal size in chars (default: 80x24)
+:   -glinfo      Print OpenGL information
+:   -help        Print usage information
+:   -rv          Reverse video
+:   -selection   Selection target (default: primary)
+:   -shell       Shell program to run (default: /bin/bash)
+:   -title       Window title (default: Zutty)
+:   -quiet       Silence logging output
+:   -verbose     Output info messages
+:   -e           Command line to run
+
+All options can be abbreviated as long as they are non-ambiguous, so
+it's fine to write =-d= short for =-display=, =-gl= for =-glinfo=,
+=-fontp= for =-fontpath=, =-t= for =-title=, =-q= for =-quiet=, etc.
+
+Boolean options (=-altScroll=, =-glinfo=, =-help=, =-rv=, =-quiet=,
+=-verbose=) do not expect an argument; the presence of these options
+amounts to a setting of "true". Other options expect exactly one
+argument, with the exception of =-e=, which must be the last option,
+to be followed by the command line to run.
+
+The options are further documented below, grouped into sections by
+topic. To set up a persistent configuration (altered defaults), see
+the next section [[Persistent configuration]].
+
+** Basic configuration and mode switches
+
+:   -altScroll   Alternate scroll mode [boolean]
+
+If enabled, scroll up and down events (generated by the mouse scroll
+wheel) are converted to virtual up- and down-arrow keypresses. This
+might prove to be a convenient method of moving up/down one at a
+time in programs where one usually navigates with the keyboard arrows.
+
+:   -display     Display to connect to
+
+The X display to connect to. By default, the value of the environment
+variable DISPLAY is used.
+
+:   -glinfo      Print OpenGL information [boolean]
+
+If enabled, Zutty will query and log some GL variables on program
+startup. These include EGL_VERSION, EGL_VENDOR, EGL_EXTENSIONS, as
+well as GL_RENDERER, GL_VERSION, GL_VENDOR, GL_EXTENSIONS, and numeric
+limits on the Compute Shader implementation. This is mostly a
+debugging aid. The output is not affected by any verbosity changes
+made via =-v= / =-q=.
+
+:   -help        Print usage information [boolean]
+
+Print the help message containing the list of options documented here,
+and quit.
+
+:   -selection   Selection target (default: primary)
+
+Set the X Selection to use as the target of copy (and the source of
+paste) operations. There are three options: =primary=, =secondary= and
+=clipboard=. Only the first character of the argument is used (='p'=,
+='s'=, ='c'=) to discriminate between these.
+
+:   -shell       Shell program to run (default: /bin/bash)
+
+Specify the shell program to run in the terminal. As a bit of special
+syntax, this option can be passed both as a regular option (=-shell
+bash= anywhere among other options), or just the shell itself (=bash=)
+at the end of the command line, mutually exclusive with using the =-e=
+option. If both forms are present, the last item on the command line
+will take precedence over the value supplied after =-shell=.
+
+The algorithm to determine the actual shell program to spawn closely
+resembles Xterm behaviour and follows these steps:
+
+0. Start with the =shell= value (the last argument given after all
+   valid options, if present, or the value supplied after =-shell=).
+1. Try to construct an absolute path taking =$PATH= into account;
+   this includes resolving relative paths and trying elements of the
+   list of =$PATH= entries until it resolves to an existing file.
+2. Fall back on =$SHELL=, then the user's =/etc/passwd= shell entry,
+   if the above did not result in any candidate.
+3. Use =/bin/sh= as a last resort.
+4. Validate the outcome of the above steps against the permitted shell
+   entries found in =/etc/shells=; proceed, but clear =$SHELL= from
+   the spawned program's environment if the program is not listed as a
+   valid shell.
+
+In accordance with the general precedence of configuration lookups, in
+case a =shell= argument is *not* given, the =zutty.shell= resource is
+consulted; if that is not set, the built-in default of =/bin/bash= is
+assumed as the result of step 0 (and then steps 1-4 carried out as
+above).
+
+:   -e           Command line to run
+
+This option specifies the command line (program and arguments) to be
+run in the Zutty terminal window. It also sets the window title to the
+basename of the program to be executed.
+
+Note that this must be the last option on the command line, as
+everything after it will be passed verbatim to the spawned child
+process.
+
+:   -quiet       Silence logging output [boolean]
+:   -verbose     Output info messages [boolean]
+
+These options control the verbosity of log output emitted by
+Zutty. You will only observe the effects of these if you run Zutty
+itself from another terminal (as opposed to some launcher that
+discards the program's output). In that case, you will notice output
+that looks like this:
+
+: I [font.cc: 54] Loading /usr/share/fonts/X11/misc/9x18.pcf.gz as primary
+: I [font.cc:198] Glyph size 9x18
+: ...
+: I [main.cc:118] Window ID: 48234498 / 0x2e00002
+: I [charvdev.cc:377] Resize to 935 x 771 pixels, 103 x 42 chars
+
+The first letter is an indication of the log level or "severity"; =E=
+means Error, =W= stands for Warning, =I= is Info and =T= is Trace.
+Trace will only be output if you compile Zutty into a debug build; see
+the [[./HACKING.org][Development guide]] for details. Next, the origin of the log message
+is shown in square brackets, indicating the source code location
+(filename and line number) where the message was printed. Then comes
+the actual message.
+
+By default (if neither =-quiet= nor =-verbose= is given), Zutty will
+print errors and warnings, but not info messages. If =-verbose= is
+given, info messages are also printed. On the other hand, if =-quiet=
+is given, nothing is printed. If both options are given, =-quiet=
+wins.
+
+** General appearance
+
+:   -geometry    Terminal size in chars (default: 80x24)
+
+This option defines the desired initial size of the terminal as
+measured in characters. (The pixel size of the window will be a
+function of this plus the font geometry, and cannot be specified
+directly.)
+
+This is just a request to the window manager; =zutty= will accept and
+work with whatever final window size it gets. Setting this will in no
+way interfere with your ability to resize =zutty= once it is up and
+running.
+
+:   -bg          Background color (default: 000000)
+:   -fg          Foreground color (default: ffffff)
+
+These options accept a hexadecimal RRGGBB color specification, similar
+to how you can define a color in many other places, e.g., CSS.
+Both lower- and uppercase hexadecimals (a-f, A-F) are accepted, but
+note that names (e.g., "red" instead of "ff0000") are *not* supported.
+
+:   -rv          Reverse video [boolean]
+
+Using this option will swap the effective foreground and background
+color, specified either via =-fg= and =-bg=, or the corresponding
+resources, or the defaults. It will *not* swap the meaning of color
+codes and such; if a program explicitly specifies the color green, it
+will be rendered green with and without =-rv=.
+
+:   -border      Border width in pixels (default: 2)
+
+Specify the border width, specifically, the border that is part of the
+client area of the Zutty window and not part of any window decoration
+itself (this is equivalent to what Xterm calls internal border width).
+
+:   -title       Window title (default: Zutty)
+
+Set the title of the Zutty window. This might be overridden by usage
+of the =-e= option (setting the title to the basename of the program
+to be run), or at any later time by escape sequences output by the
+shell (or any program executed by it).
+
+** Font selection
+
+Zutty employs a simple but powerful model of font selection. Font
+files are located under a search path and loaded by Zutty itself
+(bypassing any infrastructure such as a font server, etc). In
+principle, any font that is supported by the Freetype font library can
+be used; in practice, only monospace fonts make sense. Both fixed size
+(bitmap) fonts and scaled (vectorized) fonts are supported.
+
+You specify the font to use by its name, which will be part of the
+actual filename(s) that store the font. Multiple variants of the font
+will be sought after: Zutty will try to find a Regular, a Bold, an
+Italic and a Bold Italic variant of the font you specify. It is not an
+error if these do not exist, as long as the primary variant (Regular)
+is found.
+
+:   -font        Font to use (default: 9x18)
+
+This option specifies the font name to use. The name supplied will
+form the basis of a case-insensitive search under the font search
+path. The search will try to locate a set of files under the same
+subdirectory, starting with the supplied name and ending with the same
+extension that is one of the recognized font file extensions. If such
+a set of files is found, the full filenames (the parts after the
+specified font name) will be used to assign the files to each variant
+sought after.
+
+For example, the default font is =9x18=. This is one of the "misc
+fixed" fonts. After seeing that the font name is "9x18", Zutty will
+search under the font path =/usr/share/fonts= for files starting with
+"9x18". It will find =9x18.pcf.gz= and =9x18B.pcf.gz=, both under
+=/usr/share/fonts/X11/misc=. Based on the filenames, Zutty will
+recognize the first file as the regular variant, and the second file
+as the bold variant. Other variants are absent; use of text attributes
+that depend on them will result in sensible fallbacks.
+
+As a second example, we will load a scaled font called Liberation Mono
+by supplying =-font LiberationMono= (or =-font liberationmono=) to
+Zutty. This will result in several files found, all under
+=/usr/share/fonts/truetype/liberation=: =LiberationMono-Regular.ttf=,
+=LiberationMono-Bold.ttf=, =LiberationMono-Italic.ttf= and
+=LiberationMono-BoldItalic.ttf=. These files will be loaded as the
+respective variants of the chosen font.
+
+:   -fontsize    Font size (default: 16)
+
+For scaled fonts, such as Liberation Mono above, this setting controls
+the height, measured in pixels, to rasterize the glyphs to. The actual
+character grid size will almost always be more, due to the fact that
+typefaces have some spacing around the actual glyphs.
+
+The specified size, if within one pixel of the size of a bitmap
+strike, will result in picking that strike (pre-rasterized version)
+from a scaled font with strikes. If there are no strikes, or the
+specified size is too far from any pre-rasterized sizes, Zutty falls
+back to rendering the outline at the requested size.
+
+In case of a fixed size font with multiple bitmap sizes, the size
+closest to the configured size will be selected.
+
+:   -fontpath    Font search path (default: /usr/share/fonts)
+
+This option specifies the root of the directory structure where font
+files will be searched. It is seldom necessary to change this, but
+might be useful to try some new font you downloaded from the Internet
+(and have not yet installed to a system-wide location).
+
+*** Recommended fonts
+
+The author of Zutty prefers the so-called "misc fixed" fonts that were
+created in the '80s in an era of much inferior computer displays.
+These are the original fonts designed to be used with the X Window
+System, and their availability is universal -- you probably have them
+already installed. These fonts are highly optimized for readability at
+low resolutions. There is a convenient range of sizes, several fonts
+have bold variants and support thousands of international characters
+and symbols outside ASCII. Zutty will work best with any of misc-fixed
+6x13, 7x13, 7x14, 8x13, 9x15 and 9x18 (there are more, but the ones
+listed have a bold-face variant as well).
+
+If you prefer scalable fonts (e.g., because you have a high-resolution
+HiDPI display or prefer LARGE glyphs with a more modern look), Zutty
+works well with freely available scaled terminal fonts such as
+Anonymous Pro, Deja Vu Sans Mono, Free Mono, Hack, Inconsolata,
+Liberation Mono, Source Code Pro, and possibly many more.
+
+On Debian (and derived) distributions, the following list of package
+names might serve as a useful starting point to obtain some usable
+fonts. For each package, install it and pass the specified name(s) to
+=-font= to check them out:
+
+- =xfonts-base=: 6x13, 7x13, 7x14, 8x13, 9x15, 9x18
+- =fonts-dejavu-core=: DejaVuSansMono
+- =fonts-liberation=: LiberationMono
+- =fonts-freefont-ttf=: FreeMono
+- =fonts-hack-otf=: Hack
+- =fonts-inconsolata=: Inconsolata
+- =ttf-anonymous-pro=: "Anonymous Pro"
+
+Note that the quotation marks are required when passing an argument
+value with a space, e.g.: =zutty -font "Anonymous Pro"=
+
+* Persistent configuration
+
+The configuration options documented in the previous chapter
+[[Configuration]] can be assigned altered defaults by adding entries to
+the X resource database. Refer to the previous chapter for the list
+and semantics of all options; here we show how to add entries for them
+to your X resource database (Xrdb).
+
+Open the file =.Xresources= in your home directory, or create it if
+you do not have one. Use the following snippet as a starting point;
+feel free to remove any lines with options you do not want to change
+from the hard default, and add lines for any further options you do
+want to change.
+
+: Zutty.title:                   Zero Cost TTY
+: Zutty.geometry:                120x45
+: Zutty.altScroll:               true
+: Zutty.selection:               clipboard
+: Zutty.font:                    SourceCodePro
+: Zutty.fontsize:                18
+: Zutty.fontpath:                /home/tom/doc/fonts
+: Zutty.fg:                      00ff80
+: Zutty.bg:                      203040
+
+As you can see, the general pattern is simple: one setting per line,
+starting with a key that looks like =Zutty.<option-name>=, a colon,
+and the desired value in a second column. The option names are exactly
+as documented in the previous chapter.
+
+Note that no quoting is necessary around string values containing a
+space, and that the value =true= is explicit unlike on the command
+line.
+
+Once you are satisfied with your settings, save your =~/.Xresources=
+and run the command =xrdb -merge ~/.Xresources= to instruct Xrdb to
+merge the new settings from your file to the in-memory resource
+database. Alternatively, just restart your X session (log out and back
+in to your graphics desktop).
+
+The configured values will show up in the output of =zutty -h=, to
+confirm that your settings have taken effect. For example, if you were
+following along, you should now see
+
+:   -title       Window title (configured: Zero Cost TTY)
+
+instead of the original version that read
+
+:   -title       Window title (default: Zutty)
+
+Removing a configuration is a bit tricky. Even if you remove a setting
+from =~/.Xresources= and merge that into Xrdb, the previous setting
+will still persist in-memory until you restart your X session. To get
+around this, you might issue =xrdb -remove Zutty.title= (change
+=title= to the name of the option you want to reset to its default).
+
+Now that you have a tailored baseline of how you expect Zutty to start
+up without any explicit options, remember that you can still override
+any of these on the command line!

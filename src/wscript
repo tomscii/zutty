@@ -2,10 +2,10 @@
 # encoding: utf-8
 
 def options(opt):
-    opt.load('compiler_cxx')
+    pass
 
 def configure(cfg):
-    cfg.load('compiler_cxx')
+    pass
 
 def build(bld):
     src = bld.path.ant_glob('*.cc')

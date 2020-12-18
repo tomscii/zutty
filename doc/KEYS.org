@@ -1,5 +1,5 @@
 #+TITLE: Zutty key mapping sequences
-#+OPTIONS: toc:nil num:nil val:nil html-style:nil H:1 ^:{}
+#+OPTIONS: toc:nil num:nil val:nil html-style:nil H:3 ^:{}
 
 This is a summary of the character sequences Zutty emits in response
 to various special keys, and how this mapping depends on the state of

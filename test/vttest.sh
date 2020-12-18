@@ -3,13 +3,21 @@
 cd $(dirname $0)
 source testbase.sh
 
-CHECK_DEPS vttest
+CHECK_DEPS vttest setxkbmap
 VttestReqVsn="VT100 test program, version 2.7 (20200610)"
 if [[ $(vttest -V) != $VttestReqVsn ]]
 then
-    echo "Error: vttest version mismatch"
+    printf "${RED}Error: vttest version mismatch${DFLT}\n"
     echo "   Found version: $(vttest -V)"
     echo "Required version: $VttestReqVsn"
+    printf "${YELLOW}Please run test/deps/install_vttest.sh${DFLT}\n"
+    exit 1
+fi
+
+LangReq="en_US.UTF-8"
+if [[ $LANG != $LangReq ]]
+then
+    echo "Error: need LANG set to $LangReq, found $LANG"
     exit 1
 fi
 
@@ -66,32 +74,32 @@ function VT_2 {
 function VT_3_VT220 {
     IN "3\r"
     IN "8\r" # Test VT100 Character Sets
-    SNAP vt_03_01 66c2029c0a00dfded0fc906c80080b15
+    SNAP vt_03_08 66c2029c0a00dfded0fc906c80080b15
     IN "\r"
     IN "9\r" # Test Shift In/Shift Out (SI/SO)
-    SNAP vt_03_02 83414f4055237b7c902bfe52bfc4c239
+    SNAP vt_03_09 83414f4055237b7c902bfe52bfc4c239
     IN "\r"
     IN "7\r" # Specify G3
     IN "2\r" # -> DEC Special Graphics and Line Drawing
     IN "10\r" # Test VT220 Locking Shifts
-    SNAP vt_03_03 5b5791a7fa5befcfac152f345e400548
+    SNAP vt_03_10_01 5b5791a7fa5befcfac152f345e400548
     IN "\r"
     IN "11\r" # Test VT220 Single Shifts
-    SNAP vt_03_04 2c1866cbe7c54aa2530b62d766c93d1e
+    SNAP vt_03_11_01 2c1866cbe7c54aa2530b62d766c93d1e
     IN "\r"
-    SNAP vt_03_05 ca17bcc12a61dd1d39b85da9613f4755
+    SNAP vt_03_11_02 ca17bcc12a61dd1d39b85da9613f4755
     IN "\r"
     IN "6\r" # Specify G2
     IN "4\r" # -> DEC Supplemental Graphic
     IN "7\r" # Specify G3
     IN "5\r" # -> DEC Technical
     IN "10\r" # Test VT220 Locking Shifts
-    SNAP vt_03_06 0d13ce0a8dae591836cbdd62b7f8a871
+    SNAP vt_03_10_02 0d13ce0a8dae591836cbdd62b7f8a871
     IN "\r"
     IN "11\r" # Test VT220 Single Shifts
-    SNAP vt_03_07 141ca65fcf6652d191eeb0ca495f7622
+    SNAP vt_03_11_03 141ca65fcf6652d191eeb0ca495f7622
     IN "\r"
-    SNAP vt_03_08 7bbf27873c5b2cfc3387a8b189f329fd
+    SNAP vt_03_11_04 7bbf27873c5b2cfc3387a8b189f329fd
     IN "\r"
     IN "0\r"
 }
@@ -121,17 +129,17 @@ function VT_5 {
     IN "~!@#$%^&*()_+{}:\"<>?|"
     IN "abcdefghijklmnopqrstuvwxyz"
     IN "ABCDEFGHIJKLMNOPQRSTUVWXYZ\r"
-    SNAP vt_05_01 5a440969e504e0eb973250b46bcc1faa
+    SNAP vt_05_03 5a440969e504e0eb973250b46bcc1faa
     IN "\r"
     IN "4\r" # Cursor Keys
     IN "\{Up}\D1\{Down}\D1\{Right}\D1\{Left}\D1"
-    SNAP vt_05_02 e957806fd23c055a18fadf0ce5cd615d
+    SNAP vt_05_04_01 e957806fd23c055a18fadf0ce5cd615d
     IN "\t\D1"
     IN "\{Up}\D1\{Down}\D1\{Right}\D1\{Left}\D1"
-    SNAP vt_05_03 2c3cef495d2185c9d6187cf8c63637fe
+    SNAP vt_05_04_02 2c3cef495d2185c9d6187cf8c63637fe
     IN "\t\D1"
     IN "\{Up}\D1\{Down}\D1\{Right}\D1\{Left}\D1"
-    SNAP vt_05_04 efc54badc0daf8730e26e15272a4ecde
+    SNAP vt_05_04_03 efc54badc0daf8730e26e15272a4ecde
     IN "\t\D1"
     IN "\r"
 
@@ -140,48 +148,48 @@ function VT_5 {
     IN "\{KP_0}\D1\{KP_1}\D1\{KP_2}\D1\{KP_3}\D1\{KP_4}"
     IN "\{KP_5}\D1\{KP_6}\D1\{KP_7}\D1\{KP_8}\D1\{KP_9}"
     IN "\{KP_Subtract}\D1\{KP_Separator}\D1\{KP_Decimal}\D1\{KP_Enter}"
-    SNAP vt_05_05 314fbc833efac9c7910e65820b395bfc
+    SNAP vt_05_05_01 314fbc833efac9c7910e65820b395bfc
     IN "\t\D1"
     IN "\{KP_F1}\D1\{KP_F2}\D1\{KP_F3}\D1\{KP_F4}"
     IN "\{KP_0}\D1\{KP_1}\D1\{KP_2}\D1\{KP_3}\D1\{KP_4}"
     IN "\{KP_5}\D1\{KP_6}\D1\{KP_7}\D1\{KP_8}\D1\{KP_9}"
     IN "\{KP_Subtract}\D1\{KP_Separator}\D1\{KP_Decimal}\D1\{KP_Enter}"
-    SNAP vt_05_06 c3952de0a8b7fe42e70eacce9eda7d8e
+    SNAP vt_05_05_02 c3952de0a8b7fe42e70eacce9eda7d8e
     IN "\t\D1"
     IN "\{KP_F1}\D1\{KP_F2}\D1\{KP_F3}\D1\{KP_F4}"
     IN "\{KP_0}\D1\{KP_1}\D1\{KP_2}\D1\{KP_3}\D1\{KP_4}"
     IN "\{KP_5}\D1\{KP_6}\D1\{KP_7}\D1\{KP_8}\D1\{KP_9}"
     IN "\{KP_Subtract}\D1\{KP_Separator}\D1\{KP_Decimal}\D1\{KP_Enter}"
-    SNAP vt_05_07 2b64d110de25d733106835d50cf1a4fb
+    SNAP vt_05_05_03 2b64d110de25d733106835d50cf1a4fb
     IN "\t\D1"
     IN "\{KP_F1}\D1\{KP_F2}\D1\{KP_F3}\D1\{KP_F4}"
     IN "\{KP_0}\D1\{KP_1}\D1\{KP_2}\D1\{KP_3}\D1\{KP_4}"
     IN "\{KP_5}\D1\{KP_6}\D1\{KP_7}\D1\{KP_8}\D1\{KP_9}"
     IN "\{KP_Subtract}\D1\{KP_Separator}\D1\{KP_Decimal}\D1\{KP_Enter}"
-    SNAP vt_05_08 9a636fd488ee7ae96ebb88d34042c71f
+    SNAP vt_05_05_04 9a636fd488ee7ae96ebb88d34042c71f
     IN "\t\D1"
     IN "\r"
 
     if [ ! -z ${SUPPORTS_VT220} ] ; then
         IN "6\r" # Editing Keypad
         IN "\{Insert}\D1\{Delete}\D1\{Page_Up}\D1\{Page_Down}"
-        SNAP vt_05_09 21d4c41d6206706b6d860b201ee50c44
+        SNAP vt_05_06_01 21d4c41d6206706b6d860b201ee50c44
         IN "\t\D1"
         IN "\{Insert}\D1\{Delete}\D1\{Page_Up}\D1\{Page_Down}"
-        SNAP vt_05_10 f3ca89d8a3b56975a8625ff78168121d
+        SNAP vt_05_06_02 f3ca89d8a3b56975a8625ff78168121d
         IN "\t\D1"
         IN "\{Insert}\D1\{Delete}\D1\{Page_Up}\D1\{Page_Down}"
-        SNAP vt_05_11 9126f222d2035d8e7eb3880e603f0b44
+        SNAP vt_05_06_03 9126f222d2035d8e7eb3880e603f0b44
         IN "\r"
 
         IN "7\r" # Function Keys
         IN "\{F1}\D1\{F2}\D1\{F3}\D1\{F4}\D1\{F5}\D1\{F6}\D1\{F7}\D1\{F8}"
         IN "\{F9}\D1\{F10}\D1\{F11}\D1\{F12}\D1\{F13}\D1\{F14}"
-        SNAP vt_05_12 29ab475286f9d341d6630d45e4f8fa3b
+        SNAP vt_05_07_01 29ab475286f9d341d6630d45e4f8fa3b
         IN "\t\D1"
         IN "\{F1}\D1\{F2}\D1\{F3}\D1\{F4}\D1\{F5}\D1\{F6}\D1\{F7}\D1\{F8}"
         IN "\{F9}\D1\{F10}\D1\{F11}\D1\{F12}\D1\{F13}\D1\{F14}"
-        SNAP vt_05_13 c7f20649a0572537a1b852e6e25b1d85
+        SNAP vt_05_07_02 c7f20649a0572537a1b852e6e25b1d85
         IN "\t\D1"
         IN "\r"
     fi
@@ -192,7 +200,7 @@ function VT_5 {
     IN "\Cp\Cp\Cq\Cq\Cr\Cr\Cs\Cs\Ct\Ct\Cu\Cu\Cv\Cv\Cw\Cw"
     IN "\Cx\Cx\Cy\Cy\Cz\Cz\C[\C[\C_\C_\C]\C]\C^\C^\C\\\\\C\\\\"
     IN "\b"
-    SNAP vt_05_14 5953ac54f1579f61d6da7e31019850ac
+    SNAP vt_05_09 5953ac54f1579f61d6da7e31019850ac
     IN "\r"
     IN "0\r"
  }
@@ -302,33 +310,33 @@ function VT_9 {
     IN "\r"
 
     IN "6\r"
-    SNAP vt_09_06 b1b0cf9a3a271b973f45bef0c3d1e131
+    SNAP vt_09_06_01 b1b0cf9a3a271b973f45bef0c3d1e131
     IN "\r"
-    SNAP vt_09_07 b381c349d9fa01d2936f706f201cc610
+    SNAP vt_09_06_02 b381c349d9fa01d2936f706f201cc610
     IN "\r"
 
     IN "7\r"
-    SNAP vt_09_08 51bf13b813e87d4155662e06ecc0de08
+    SNAP vt_09_07 51bf13b813e87d4155662e06ecc0de08
     IN "\r"
 
     IN "8\r"
-    SNAP vt_09_09 9fca11a9039826c24b72299ccdc3d180
+    SNAP vt_09_08_01 9fca11a9039826c24b72299ccdc3d180
     IN "\r"
-    SNAP vt_09_10 457d330e227aa7f60d311649e25f22fe
+    SNAP vt_09_08_02 457d330e227aa7f60d311649e25f22fe
     IN "\r"
-    SNAP vt_09_11 ca52af254a085661e0ef216425fabd6e
+    SNAP vt_09_08_03 ca52af254a085661e0ef216425fabd6e
     IN "\r"
-    SNAP vt_09_12 3fd7f67d53167870ff1863c3d1292cf1
+    SNAP vt_09_08_04 3fd7f67d53167870ff1863c3d1292cf1
     IN "\r"
-    SNAP vt_09_13 9c2339a8e5c633ab9ae95c95996bbf1b
+    SNAP vt_09_08_05 9c2339a8e5c633ab9ae95c95996bbf1b
     IN "\r"
-    SNAP vt_09_14 f59018efc0091842eb6637df701107c1
+    SNAP vt_09_08_06 f59018efc0091842eb6637df701107c1
     IN "\r"
 
     IN "9\r"
-    SNAP vt_09_15 8e3e5228b695e039b4cbafb63e2e8d6e
+    SNAP vt_09_09_01 8e3e5228b695e039b4cbafb63e2e8d6e
     IN "\r"
-    SNAP vt_09_16 8e3e5228b695e039b4cbafb63e2e8d6e
+    SNAP vt_09_09_02 8e3e5228b695e039b4cbafb63e2e8d6e
     IN "\r"
 
     IN "0\r"
@@ -344,7 +352,7 @@ function VT_10 {
 
     IN "3\r"
     IN "\r"
-    SNAP vt_10_02 8843a44eb8e00983582732da2ac1fdd6
+    SNAP vt_10_03 8843a44eb8e00983582732da2ac1fdd6
     IN "\r"
 
     IN "0\r"
@@ -357,15 +365,15 @@ function VT_11 {
     IN "2\r" # VT220 Screen-Display Tests
     IN "1\r" # Test Send/Receive Mode
     IN "Subidubidoo\D1Subidubidoo\D1"
-    SNAP vt_11_1_2_1 1a9a69e29be97d820182522ece721a13
+    SNAP vt_11_01_02_01 1a9a69e29be97d820182522ece721a13
     IN "\r"
     IN "2\r" # Test Visible/Invisible Cursor
-    SNAP vt_11_1_2_2_01 15a8b8f28a10ff3091690bd083f78ceb
+    SNAP vt_11_01_02_02_01 15a8b8f28a10ff3091690bd083f78ceb
     IN "\r"
-    SNAP vt_11_1_2_2_02 d29c49e9be5012964ba486b66f196fe8
+    SNAP vt_11_01_02_02_02 d29c49e9be5012964ba486b66f196fe8
     IN "\r"
     IN "3\r" # Test Erase Char (ECH)
-    SNAP vt_11_1_2_3 c823f2c76af91d992dccb9d3bd6448c8
+    SNAP vt_11_01_02_03 c823f2c76af91d992dccb9d3bd6448c8
     IN "\r"
     IN "0\r"
     IN "0\r"
@@ -373,10 +381,10 @@ function VT_11 {
     IN "2\r" # VT320 Tests
     IN "2\r" # Test cursor-movement
     IN "1\r" # Test Pan Down (SU)
-    SNAP vt_11_2_2_1 62764215a24fe1f90e81c9678d79735a
+    SNAP vt_11_02_02_01 62764215a24fe1f90e81c9678d79735a
     IN "\r"
     IN "2\r" # Test Pan Up (SD)
-    SNAP vt_11_2_2_2 f23ba052fae3349bb1be427194674827
+    SNAP vt_11_02_02_02 f23ba052fae3349bb1be427194674827
     IN "\r"
     IN "0\r"
     IN "0\r"
@@ -385,283 +393,283 @@ function VT_11 {
     IN "2\r" # Test cursor-movement
     IN "6\r" # Color test-regions
     IN "7\r" # Test Back Index (BI)
-    SNAP vt_11_3_2_7_01 c73df47f269b196208f120f6b9050e98
+    SNAP vt_11_03_02_07_01 c73df47f269b196208f120f6b9050e98
     IN "\r"
     IN "8\r" # Test Forward Index (FI)
-    SNAP vt_11_3_2_8_01 b6b573c3c52c7eba0894599dbb8b0518
+    SNAP vt_11_03_02_08_01 b6b573c3c52c7eba0894599dbb8b0518
     IN "\r"
     IN "9\r" # Test cursor movement within margins
-    SNAP vt_11_3_2_9_01 0a9ec15345713e9bfbd92bf2c829dede
+    SNAP vt_11_03_02_09_01 0a9ec15345713e9bfbd92bf2c829dede
     IN "\r"
     IN "10\r" # Test other movement within margins
-    SNAP vt_11_3_2_10_01 64fedbd3b2c2b4d2ec84c3d426d5e9cf
+    SNAP vt_11_03_02_10_01 64fedbd3b2c2b4d2ec84c3d426d5e9cf
     IN "\r"
     IN "4\r" # Top/Bottom margins are set to top half of screen
     IN "7\r" # Test Back Index (BI)
-    SNAP vt_11_3_2_7_02 1f5aea6b05413e37b5d91f553fdbfb3c
+    SNAP vt_11_03_02_07_02 1f5aea6b05413e37b5d91f553fdbfb3c
     IN "\r"
     IN "8\r" # Test Forward Index (FI)
-    SNAP vt_11_3_2_8_02 a995ec9bcbb38e81cfd23db4140064a3
+    SNAP vt_11_03_02_08_02 a995ec9bcbb38e81cfd23db4140064a3
     IN "\r"
     IN "9\r" # Test cursor movement within margins
-    SNAP vt_11_3_2_9_02 176271c0268dc1d144ed68e649488dcd
+    SNAP vt_11_03_02_09_02 176271c0268dc1d144ed68e649488dcd
     IN "\r"
     IN "10\r" # Test other movement within margins
-    SNAP vt_11_3_2_10_02 b0ff797bbb49a6b199279303ac3be783
+    SNAP vt_11_03_02_10_02 b0ff797bbb49a6b199279303ac3be783
     IN "\r"
     IN "4\r" # Top/Bottom margins are set to bottom half of screen
     IN "7\r" # Test Back Index (BI)
-    SNAP vt_11_3_2_7_03 82f14ccd50d2fa0bf9af3d4803b14955
+    SNAP vt_11_03_02_07_03 82f14ccd50d2fa0bf9af3d4803b14955
     IN "\r"
     IN "8\r" # Test Forward Index (FI)
-    SNAP vt_11_3_2_8_03 48d4ab0e4d9fd186dd01c0e8f6a2711d
+    SNAP vt_11_03_02_08_03 48d4ab0e4d9fd186dd01c0e8f6a2711d
     IN "\r"
     IN "9\r" # Test cursor movement within margins
-    SNAP vt_11_3_2_9_03 36c1e1e6c87399b5df587163640dba47
+    SNAP vt_11_03_02_09_03 36c1e1e6c87399b5df587163640dba47
     IN "\r"
     IN "10\r" # Test other movement within margins
-    SNAP vt_11_3_2_10_03 01aa82172bf7658f632a02277899bf78
+    SNAP vt_11_03_02_10_03 01aa82172bf7658f632a02277899bf78
     IN "\r"
     IN "4\r" # Top/Bottom margins are set to middle half of screen
     IN "7\r" # Test Back Index (BI)
-    SNAP vt_11_3_2_7_04 d67bed18602417f1a12f37542e666210
+    SNAP vt_11_03_02_07_04 d67bed18602417f1a12f37542e666210
     IN "\r"
     IN "8\r" # Test Forward Index (FI)
-    SNAP vt_11_3_2_8_04 b9a5fcccd079411375fe1b953ff3cbb0
+    SNAP vt_11_03_02_08_04 b9a5fcccd079411375fe1b953ff3cbb0
     IN "\r"
     IN "9\r" # Test cursor movement within margins
-    SNAP vt_11_3_2_9_04 8da318aa9008052775859caa426c8574
+    SNAP vt_11_03_02_09_04 8da318aa9008052775859caa426c8574
     IN "\r"
     IN "10\r" # Test other movement within margins
-    SNAP vt_11_3_2_10_04 709198649248b78ce16e77560f8ef7ae
+    SNAP vt_11_03_02_10_04 709198649248b78ce16e77560f8ef7ae
     IN "\r"
     IN "4\r" # Top/Bottom margins are reset
     IN "3\r" # Enable DECLRMM (left/right mode)
     IN "5\r" # Left/Right margins are set to left half of screen
     IN "7\r" # Test Back Index (BI)
-    SNAP vt_11_3_2_7_05 f4733b367ad0d92cf68499b56d1a0967
+    SNAP vt_11_03_02_07_05 f4733b367ad0d92cf68499b56d1a0967
     IN "\r"
     IN "8\r" # Test Forward Index (FI)
-    SNAP vt_11_3_2_8_05 71464ccf5d191e957612c9676cb774ef
+    SNAP vt_11_03_02_08_05 71464ccf5d191e957612c9676cb774ef
     IN "\r"
     IN "9\r" # Test cursor movement within margins
-    SNAP vt_11_3_2_9_05 7a8aaaa6e9633b134d3c325bad26aa8b
+    SNAP vt_11_03_02_09_05 7a8aaaa6e9633b134d3c325bad26aa8b
     IN "\r"
     IN "10\r" # Test other movement within margins
-    SNAP vt_11_3_2_10_05 bb1b2f465352bc1be5e47250c447a331
+    SNAP vt_11_03_02_10_05 bb1b2f465352bc1be5e47250c447a331
     IN "\r"
     IN "5\r" # Left/Right margins are set to right half of screen
     IN "7\r" # Test Back Index (BI)
-    SNAP vt_11_3_2_7_06 b55ae9eb3ab0e96b02ee40e796aa5ae2
+    SNAP vt_11_03_02_07_06 b55ae9eb3ab0e96b02ee40e796aa5ae2
     IN "\r"
     IN "8\r" # Test Forward Index (FI)
-    SNAP vt_11_3_2_8_06 5b08d36cfe69faa62d546a5560e88e91
+    SNAP vt_11_03_02_08_06 5b08d36cfe69faa62d546a5560e88e91
     IN "\r"
     IN "9\r" # Test cursor movement within margins
-    SNAP vt_11_3_2_9_06 fb66ea22e6c9684e2b0ddb88f95e2547
+    SNAP vt_11_03_02_09_06 fb66ea22e6c9684e2b0ddb88f95e2547
     IN "\r"
     IN "10\r" # Test other movement within margins
-    SNAP vt_11_3_2_10_06 d57bcc097ad7229f71855682ee7bba22
+    SNAP vt_11_03_02_10_06 d57bcc097ad7229f71855682ee7bba22
     IN "\r"
     IN "5\r" # Left/Right margins are set to middle half of screen
     IN "7\r" # Test Back Index (BI)
-    SNAP vt_11_3_2_7_07 968eef03ef9fcc8b41ea1f513455a538
+    SNAP vt_11_03_02_07_07 968eef03ef9fcc8b41ea1f513455a538
     IN "\r"
     IN "8\r" # Test Forward Index (FI)
-    SNAP vt_11_3_2_8_07 4a0d1cea14942f839e331b1cd444f82d
+    SNAP vt_11_03_02_08_07 4a0d1cea14942f839e331b1cd444f82d
     IN "\r"
     IN "9\r" # Test cursor movement within margins
-    SNAP vt_11_3_2_9_07 d6b8514303928a596f8593719bae7af8
+    SNAP vt_11_03_02_09_07 d6b8514303928a596f8593719bae7af8
     IN "\r"
     IN "10\r" # Test other movement within margins
-    SNAP vt_11_3_2_10_07 9b5dd2a33f79a98fea7fa6cbf46bafb9
+    SNAP vt_11_03_02_10_07 9b5dd2a33f79a98fea7fa6cbf46bafb9
     IN "\r"
     IN "0\r"
 
     IN "3\r" # VT420 Editing Sequences
     IN "5\r" # Color test-regions
     IN "9\r" # Test insert/delete column (DECIC, DECDC)
-    SNAP vt_11_3_3_09_01a 14bbfcab4696f19b634c71f00f7e7b60
+    SNAP vt_11_03_03_09_01a 14bbfcab4696f19b634c71f00f7e7b60
     IN "\r"
-    SNAP vt_11_3_3_09_01b 22adba4322e3b2fa323496e80b477643
+    SNAP vt_11_03_03_09_01b 22adba4322e3b2fa323496e80b477643
     IN "\r"
     IN "10\r\r" # Test vertical scrolling (IND, RI)
-    SNAP vt_11_3_3_10_01a 9a310e01d6d5b0bf494d7d88d730f1c0
+    SNAP vt_11_03_03_10_01a 9a310e01d6d5b0bf494d7d88d730f1c0
     IN "\r\r"
-    SNAP vt_11_3_3_10_01b 35d423164fe2acb6d6a3d0dcfb4e1965
+    SNAP vt_11_03_03_10_01b 35d423164fe2acb6d6a3d0dcfb4e1965
     IN "\r"
     IN "11\r\r" # Test insert/delete line (IL, DL)
-    SNAP vt_11_3_3_11_01a 35d423164fe2acb6d6a3d0dcfb4e1965
+    SNAP vt_11_03_03_11_01a 35d423164fe2acb6d6a3d0dcfb4e1965
     IN "\r\r"
-    SNAP vt_11_3_3_11_01b 9a310e01d6d5b0bf494d7d88d730f1c0
+    SNAP vt_11_03_03_11_01b 9a310e01d6d5b0bf494d7d88d730f1c0
     IN "\r"
     IN "12\r" # Test insert/delete char (ICH, DCH)
-    SNAP vt_11_3_3_12_01a 84db4a39b09ef3b22aedf07ffa3b604b
+    SNAP vt_11_03_03_12_01a 84db4a39b09ef3b22aedf07ffa3b604b
     IN "\r"
-    SNAP vt_11_3_3_12_01b b5d951243eb3d5ca83cd855bcae150f5
+    SNAP vt_11_03_03_12_01b b5d951243eb3d5ca83cd855bcae150f5
     IN "\r"
     IN "13\r" # Test ASCII formatting (BS, CR, TAB)
-    SNAP vt_11_3_3_13_01 ad7fc21351dfe257154578e42d37b1f3
+    SNAP vt_11_03_03_13_01 ad7fc21351dfe257154578e42d37b1f3
     IN "\r"
     IN "3\r" # Top/Bottom margins are set to top half of screen
     IN "9\r" # Test insert/delete column (DECIC, DECDC)
-    SNAP vt_11_3_3_09_02a 7574137aa9b9c9b5fe0931369d94db97
+    SNAP vt_11_03_03_09_02a 7574137aa9b9c9b5fe0931369d94db97
     IN "\r"
-    SNAP vt_11_3_3_09_02b 77faad730a97e04ceaf1be6d721bffb2
+    SNAP vt_11_03_03_09_02b 77faad730a97e04ceaf1be6d721bffb2
     IN "\r"
     IN "10\r\r" # Test vertical scrolling (IND, RI)
-    SNAP vt_11_3_3_10_02a 93419dff4f7104eb2708fa2065de5690
+    SNAP vt_11_03_03_10_02a 93419dff4f7104eb2708fa2065de5690
     IN "\r\r"
-    SNAP vt_11_3_3_10_02b e485499fc8051d91514570407ab57a94
+    SNAP vt_11_03_03_10_02b e485499fc8051d91514570407ab57a94
     IN "\r"
     IN "11\r\r" # Test insert/delete line (IL, DL)
-    SNAP vt_11_3_3_11_02a 20d6d5f3f7d97ad101893770b4038ae7
+    SNAP vt_11_03_03_11_02a 20d6d5f3f7d97ad101893770b4038ae7
     IN "\r\r"
-    SNAP vt_11_3_3_11_02b b099fb20c8f42149f431e33058bc4b1e
+    SNAP vt_11_03_03_11_02b b099fb20c8f42149f431e33058bc4b1e
     IN "\r"
     IN "12\r" # Test insert/delete char (ICH, DCH)
     echo "N.B.: Same bug in Xterm!"
-    SNAP vt_11_3_3_12_02a 7992fc76ed99837bee083070a9a812ee
+    SNAP vt_11_03_03_12_02a 7992fc76ed99837bee083070a9a812ee
     IN "\r"
     echo "N.B.: Same bug in XTerm!"
-    SNAP vt_11_3_3_12_02b 5114e8b2c4911412edafc3477aa24b70
+    SNAP vt_11_03_03_12_02b 5114e8b2c4911412edafc3477aa24b70
     IN "\r"
     IN "13\r" # Test ASCII formatting (BS, CR, TAB)
-    SNAP vt_11_3_3_13_02 c33aec43990b0a4021648259f659deaf
+    SNAP vt_11_03_03_13_02 c33aec43990b0a4021648259f659deaf
     IN "\r"
     IN "3\r" # Top/Bottom margins are set to bottom half of screen
     IN "9\r" # Test insert/delete column (DECIC, DECDC)
-    SNAP vt_11_3_3_09_03a 99f5f02dd644dd755adbd255c3a46c18
+    SNAP vt_11_03_03_09_03a 99f5f02dd644dd755adbd255c3a46c18
     IN "\r"
-    SNAP vt_11_3_3_09_03b fddf91000e0e50d8ece09d87649d063d
+    SNAP vt_11_03_03_09_03b fddf91000e0e50d8ece09d87649d063d
     IN "\r"
     IN "10\r\r" # Test vertical scrolling (IND, RI)
-    SNAP vt_11_3_3_10_03a 75d7b3c2dcdc4d1b5a0036a5fdce573e
+    SNAP vt_11_03_03_10_03a 75d7b3c2dcdc4d1b5a0036a5fdce573e
     IN "\r\r"
-    SNAP vt_11_3_3_10_03b a158e865ca72fee44d219e38cd1ae71b
+    SNAP vt_11_03_03_10_03b a158e865ca72fee44d219e38cd1ae71b
     IN "\r"
     IN "11\r\r" # Test insert/delete line (IL, DL)
-    SNAP vt_11_3_3_11_03a 53fc3c83787c24fe0867ba5717eed6d3
+    SNAP vt_11_03_03_11_03a 53fc3c83787c24fe0867ba5717eed6d3
     IN "\r\r"
-    SNAP vt_11_3_3_11_03b 3dfd44706afc5f6c1eda3af0cafed082
+    SNAP vt_11_03_03_11_03b 3dfd44706afc5f6c1eda3af0cafed082
     IN "\r"
     IN "12\r" # Test insert/delete char (ICH, DCH)
-    SNAP vt_11_3_3_12_03a cca8fd61608865e1edead1420cccb894
+    SNAP vt_11_03_03_12_03a cca8fd61608865e1edead1420cccb894
     IN "\r"
-    SNAP vt_11_3_3_12_03b e53798c199bc8c4f0f140934972b90ca
+    SNAP vt_11_03_03_12_03b e53798c199bc8c4f0f140934972b90ca
     IN "\r"
     IN "13\r" # Test ASCII formatting (BS, CR, TAB)
-    SNAP vt_11_3_3_13_03 3d99e0a735ec7b24382e9b8d811479ea
+    SNAP vt_11_03_03_13_03 3d99e0a735ec7b24382e9b8d811479ea
     IN "\r"
     IN "3\r" # Top/Bottom margins are set to middle half of screen
     IN "9\r" # Test insert/delete column (DECIC, DECDC)
-    SNAP vt_11_3_3_09_04a 2b2000586bba2c903b3235fdfbea6d08
+    SNAP vt_11_03_03_09_04a 2b2000586bba2c903b3235fdfbea6d08
     IN "\r"
-    SNAP vt_11_3_3_09_04b 183959b69a6dbc6f916dc156d7388b26
+    SNAP vt_11_03_03_09_04b 183959b69a6dbc6f916dc156d7388b26
     IN "\r"
     IN "10\r\r" # Test vertical scrolling (IND, RI)
-    SNAP vt_11_3_3_10_04a e89fde9af7a3d9497b9df5547caddba5
+    SNAP vt_11_03_03_10_04a e89fde9af7a3d9497b9df5547caddba5
     IN "\r\r"
-    SNAP vt_11_3_3_10_04b 0460e562c77325fedb10cc0547927906
+    SNAP vt_11_03_03_10_04b 0460e562c77325fedb10cc0547927906
     IN "\r"
     IN "11\r\r" # Test insert/delete line (IL, DL)
-    SNAP vt_11_3_3_11_04a d6dd3caba4eff9130dbfc3ab27a04a58
+    SNAP vt_11_03_03_11_04a d6dd3caba4eff9130dbfc3ab27a04a58
     IN "\r\r"
-    SNAP vt_11_3_3_11_04b e5516846b232b14b90d4fb7b7f526eac
+    SNAP vt_11_03_03_11_04b e5516846b232b14b90d4fb7b7f526eac
     IN "\r"
     IN "12\r" # Test insert/delete char (ICH, DCH)
     echo "N.B.: Same bug in Xterm!"
-    SNAP vt_11_3_3_12_04a ce043bd68d2b96101d2ed61af275f39a
+    SNAP vt_11_03_03_12_04a ce043bd68d2b96101d2ed61af275f39a
     IN "\r"
     echo "N.B.: Same bug in Xterm!"
-    SNAP vt_11_3_3_12_04b 9c65d98b94b345613730e41b399fe87f
+    SNAP vt_11_03_03_12_04b 9c65d98b94b345613730e41b399fe87f
     IN "\r"
     IN "13\r" # Test ASCII formatting (BS, CR, TAB)
-    SNAP vt_11_3_3_13_04 6926417da2a660a1f9243c709d41f268
+    SNAP vt_11_03_03_13_04 6926417da2a660a1f9243c709d41f268
     IN "\r"
     IN "3\r" # Top/Bottom margins are reset
     IN "2\r" # Enable DECLRMM (left/right mode)
     IN "4\r" # Left/Right margins are set to left half of screen
     IN "9\r" # Test insert/delete column (DECIC, DECDC)
-    SNAP vt_11_3_3_09_05a b6c7b64efeb2c4bb2366610ca3f96dbd
+    SNAP vt_11_03_03_09_05a b6c7b64efeb2c4bb2366610ca3f96dbd
     IN "\r"
-    SNAP vt_11_3_3_09_05b bd808658e99213cceffc99697d7e4153
+    SNAP vt_11_03_03_09_05b bd808658e99213cceffc99697d7e4153
     IN "\r"
     IN "10\r\r" # Test vertical scrolling (IND, RI)
-    SNAP vt_11_3_3_10_05a 33bfb1ec1703b75108b61f7a4d71ee5b
+    SNAP vt_11_03_03_10_05a 33bfb1ec1703b75108b61f7a4d71ee5b
     IN "\r\r"
-    SNAP vt_11_3_3_10_05b b0ae034833228f898954ab951e3bbeea
+    SNAP vt_11_03_03_10_05b b0ae034833228f898954ab951e3bbeea
     IN "\r"
     IN "11\r\r" # Test insert/delete line (IL, DL)
     echo "N.B.: Bug in vttest, extra line scroll!"
-    SNAP vt_11_3_3_11_05a 2b3826f46745abcb490c9cd5296f6d4f
+    SNAP vt_11_03_03_11_05a 2b3826f46745abcb490c9cd5296f6d4f
     IN "\r\r"
-    SNAP vt_11_3_3_11_05b a076afeb72458eb8505a3555b108bc18
+    SNAP vt_11_03_03_11_05b a076afeb72458eb8505a3555b108bc18
     IN "\r"
     IN "12\r" # Test insert/delete char (ICH, DCH)
-    SNAP vt_11_3_3_12_05a 57c4499b67374737b3b643f433142af6
+    SNAP vt_11_03_03_12_05a 57c4499b67374737b3b643f433142af6
     IN "\r"
-    SNAP vt_11_3_3_12_05b ed1a9e38f21071506f19f82752326930
+    SNAP vt_11_03_03_12_05b ed1a9e38f21071506f19f82752326930
     IN "\r"
     IN "13\r" # Test ASCII formatting (BS, CR, TAB)
-    SNAP vt_11_3_3_13_05 d9157c0da7b2dfe8a7531cf40436ac1d
+    SNAP vt_11_03_03_13_05 d9157c0da7b2dfe8a7531cf40436ac1d
     IN "\r"
     IN "4\r" # Left/Right margins are set to right half of screen
     IN "9\r" # Test insert/delete column (DECIC, DECDC)
-    SNAP vt_11_3_3_09_06a c5f83e9dca026fd2366c3beca415f47b
+    SNAP vt_11_03_03_09_06a c5f83e9dca026fd2366c3beca415f47b
     IN "\r"
-    SNAP vt_11_3_3_09_06b 02dd71b281004a2333abc0d47d1f2965
+    SNAP vt_11_03_03_09_06b 02dd71b281004a2333abc0d47d1f2965
     IN "\r"
     IN "10\r\r" # Test vertical scrolling (IND, RI)
-    SNAP vt_11_3_3_10_06a df58da35fd49a0efdda76bb644dda213
+    SNAP vt_11_03_03_10_06a df58da35fd49a0efdda76bb644dda213
     IN "\r\r"
-    SNAP vt_11_3_3_10_06b 0e9e493a6ea7fe4a4dbb8e68be09b084
+    SNAP vt_11_03_03_10_06b 0e9e493a6ea7fe4a4dbb8e68be09b084
     IN "\r"
     IN "11\r\r" # Test insert/delete line (IL, DL)
     echo "N.B.: Bug in vttest, extra line scroll!"
-    SNAP vt_11_3_3_11_06a fa7903f3cf6b236c8b6e3d3bd4f4a881
+    SNAP vt_11_03_03_11_06a fa7903f3cf6b236c8b6e3d3bd4f4a881
     IN "\r\r"
-    SNAP vt_11_3_3_11_06b 3e567cec673863215fb9cba66f495de1
+    SNAP vt_11_03_03_11_06b 3e567cec673863215fb9cba66f495de1
     IN "\r"
     IN "12\r" # Test insert/delete char (ICH, DCH)
-    SNAP vt_11_3_3_12_06a 2bd35dd458506cdab1199792bda5b861
+    SNAP vt_11_03_03_12_06a 2bd35dd458506cdab1199792bda5b861
     IN "\r"
-    SNAP vt_11_3_3_12_06b e24b7d57ea33ed7b71312d5ad9588487
+    SNAP vt_11_03_03_12_06b e24b7d57ea33ed7b71312d5ad9588487
     IN "\r"
     IN "13\r" # Test ASCII formatting (BS, CR, TAB)
-    SNAP vt_11_3_3_13_06 0ac7759b643f4878becf594eb55cc100
+    SNAP vt_11_03_03_13_06 0ac7759b643f4878becf594eb55cc100
     IN "\r"
     IN "4\r" # Left/Right margins are set to middle half of screen
     IN "9\r" # Test insert/delete column (DECIC, DECDC)
-    SNAP vt_11_3_3_09_07a afc872967688bead9a83368e5747f57f
+    SNAP vt_11_03_03_09_07a afc872967688bead9a83368e5747f57f
     IN "\r"
-    SNAP vt_11_3_3_09_07b bebe1dfe44102b01cfadf51f35dcfc5e
+    SNAP vt_11_03_03_09_07b bebe1dfe44102b01cfadf51f35dcfc5e
     IN "\r"
     IN "10\r\r" # Test vertical scrolling (IND, RI)
-    SNAP vt_11_3_3_10_07a 46e6867ed643642614a6bba671181e08
+    SNAP vt_11_03_03_10_07a 46e6867ed643642614a6bba671181e08
     IN "\r\r"
-    SNAP vt_11_3_3_10_07b 2c1a82bfdc314387a5076016b11eed13
+    SNAP vt_11_03_03_10_07b 2c1a82bfdc314387a5076016b11eed13
     IN "\r"
     IN "11\r\r" # Test insert/delete line (IL, DL)
     echo "N.B.: Bug in vttest, extra line scroll!"
-    SNAP vt_11_3_3_11_07a 415f8ee48b45c8a307626d6f52b9c8d0
+    SNAP vt_11_03_03_11_07a 415f8ee48b45c8a307626d6f52b9c8d0
     IN "\r\r"
-    SNAP vt_11_3_3_11_07b d6a126d5244b127928549d0457335eb7
+    SNAP vt_11_03_03_11_07b d6a126d5244b127928549d0457335eb7
     IN "\r"
     IN "12\r" # Test insert/delete char (ICH, DCH)
-    SNAP vt_11_3_3_12_07a 816eb609f41c6694d4799c0f259d6662
+    SNAP vt_11_03_03_12_07a 816eb609f41c6694d4799c0f259d6662
     IN "\r"
-    SNAP vt_11_3_3_12_07b 78ca06ffabfd7fb914840f8d3904a19c
+    SNAP vt_11_03_03_12_07b 78ca06ffabfd7fb914840f8d3904a19c
     IN "\r"
     IN "13\r" # Test ASCII formatting (BS, CR, TAB)
-    SNAP vt_11_3_3_13_07 9622e6ff07a4abda08f1f12203c58a14
+    SNAP vt_11_03_03_13_07 9622e6ff07a4abda08f1f12203c58a14
     IN "\r"
     IN "0\r"
 
     IN "4\r" # VT420 Keyboard-Control Tests
     IN "1\r" # Test Backarrow Key (DECBKM)
     IN "\b\D3\b"
-    SNAP vt_11_3_4_1 716027ee9e70d37505ddc82460dcdd1c
+    SNAP vt_11_03_04_01 716027ee9e70d37505ddc82460dcdd1c
     IN "\r"
     IN "0\r"
     IN "0\r"
@@ -670,207 +678,207 @@ function VT_11 {
     IN "2\r" # VT520 cursor-movement
     IN "6\r" # Color test-regions
     IN "7\r" # Test Character-Position-Absolute (HPA)
-    SNAP vt_11_4_2_7_01 f8d112a4b8e5b323341a1e86e10f6ded
+    SNAP vt_11_04_02_07_01 f8d112a4b8e5b323341a1e86e10f6ded
     IN "\r"
     IN "8\r" # Test Cursor-Back-Tab (CBT)
-    SNAP vt_11_4_2_8_01 9c5747ba41d02335eab245717101aabc
+    SNAP vt_11_04_02_08_01 9c5747ba41d02335eab245717101aabc
     IN "\r"
     IN "9\r" # Test Cursor-Character-Absolute (CHA)
-    SNAP vt_11_4_2_9_01 054e3b2c1f74e66d75cf2efa83d85927
+    SNAP vt_11_04_02_09_01 054e3b2c1f74e66d75cf2efa83d85927
     IN "\r"
     IN "10\r" # Test Cursor-Horizontal-Index (CHT)
-    SNAP vt_11_4_2_10_01 05f365f663773ca29db9cc2fa8af130f
+    SNAP vt_11_04_02_10_01 05f365f663773ca29db9cc2fa8af130f
     IN "\r"
     IN "11\r" # Test Horizontal-Position-Relative (HPR)
-    SNAP vt_11_4_2_11_01 12d9217894f587c73f5c2c699244c8ee
+    SNAP vt_11_04_02_11_01 12d9217894f587c73f5c2c699244c8ee
     IN "\r"
     IN "12\r" # Test Line-Position-Absolute (VPA)
-    SNAP vt_11_4_2_12_01 9f81b832ebb15f6ae26a4e2ebca7254d
+    SNAP vt_11_04_02_12_01 9f81b832ebb15f6ae26a4e2ebca7254d
     IN "\r"
     IN "13\r" # Test Next-Line (CNL)
-    SNAP vt_11_4_2_13_01 7aa0d70e2b4e7678fb234c8c419169db
+    SNAP vt_11_04_02_13_01 7aa0d70e2b4e7678fb234c8c419169db
     IN "\r"
     IN "14\r" # Test Previous-Line (CPL)
-    SNAP vt_11_4_2_14_01 c3dadd63adee7028ea9defe1ea73198a
+    SNAP vt_11_04_02_14_01 c3dadd63adee7028ea9defe1ea73198a
     IN "\r"
     IN "15\r" # Test Vertical-Position-Relative (VPR)
-    SNAP vt_11_4_2_15_01 09fb397a4d5f89351ea9c520ffc0907f
+    SNAP vt_11_04_02_15_01 09fb397a4d5f89351ea9c520ffc0907f
     IN "\r"
     IN "4\r" # Top/Bottom margins are set to top half of screen
     IN "7\r" # Test Character-Position-Absolute (HPA)
-    SNAP vt_11_4_2_7_02 12fd48c0bdbdf660b162822447c1c855
+    SNAP vt_11_04_02_07_02 12fd48c0bdbdf660b162822447c1c855
     IN "\r"
     IN "8\r" # Test Cursor-Back-Tab (CBT)
-    SNAP vt_11_4_2_8_02 8a3cf937d076f123ba9a51ae7adc2194
+    SNAP vt_11_04_02_08_02 8a3cf937d076f123ba9a51ae7adc2194
     IN "\r"
     IN "9\r" # Test Cursor-Character-Absolute (CHA)
-    SNAP vt_11_4_2_9_02 0fb535bd9c272ecc4743cae6805cd2db
+    SNAP vt_11_04_02_09_02 0fb535bd9c272ecc4743cae6805cd2db
     IN "\r"
     IN "10\r" # Test Cursor-Horizontal-Index (CHT)
-    SNAP vt_11_4_2_10_02 95d9c1e68ee9e167bb85be907d14c05c
+    SNAP vt_11_04_02_10_02 95d9c1e68ee9e167bb85be907d14c05c
     IN "\r"
     IN "11\r" # Test Horizontal-Position-Relative (HPR)
-    SNAP vt_11_4_2_11_02 bb18c0bb03559fdafeeb0ceb979dcc11
+    SNAP vt_11_04_02_11_02 bb18c0bb03559fdafeeb0ceb979dcc11
     IN "\r"
     IN "12\r" # Test Line-Position-Absolute (VPA)
-    SNAP vt_11_4_2_12_02 764857cde6ec7769a401f8226b4b1c54
+    SNAP vt_11_04_02_12_02 764857cde6ec7769a401f8226b4b1c54
     IN "\r"
     IN "13\r" # Test Next-Line (CNL)
-    SNAP vt_11_4_2_13_02 48f56c298f45fb8379a9c6b9e9d0e49c
+    SNAP vt_11_04_02_13_02 48f56c298f45fb8379a9c6b9e9d0e49c
     IN "\r"
     IN "14\r" # Test Previous-Line (CPL)
-    SNAP vt_11_4_2_14_02 c34f23ef8074af0820361381700b6a93
+    SNAP vt_11_04_02_14_02 c34f23ef8074af0820361381700b6a93
     IN "\r"
     IN "15\r" # Test Vertical-Position-Relative (VPR)
-    SNAP vt_11_4_2_15_02 829b988147b2b1d3e11fe73a9064c5c3
+    SNAP vt_11_04_02_15_02 829b988147b2b1d3e11fe73a9064c5c3
     IN "\r"
     IN "4\r" # Top/Bottom margins are set to bottom half of screen
     IN "7\r" # Test Character-Position-Absolute (HPA)
-    SNAP vt_11_4_2_7_03 5d916d32819e9e76f4cf4803d2ffa018
+    SNAP vt_11_04_02_07_03 5d916d32819e9e76f4cf4803d2ffa018
     IN "\r"
     IN "8\r" # Test Cursor-Back-Tab (CBT)
-    SNAP vt_11_4_2_8_03 761fcdb51653ec885984448ea5e1763a
+    SNAP vt_11_04_02_08_03 761fcdb51653ec885984448ea5e1763a
     IN "\r"
     IN "9\r" # Test Cursor-Character-Absolute (CHA)
-    SNAP vt_11_4_2_9_03 3b40ecfecd7e1e3ef829cb47e232fb5e
+    SNAP vt_11_04_02_09_03 3b40ecfecd7e1e3ef829cb47e232fb5e
     IN "\r"
     IN "10\r" # Test Cursor-Horizontal-Index (CHT)
-    SNAP vt_11_4_2_10_03 79c7c6e6e91eedbba99ac26070d14fe5
+    SNAP vt_11_04_02_10_03 79c7c6e6e91eedbba99ac26070d14fe5
     IN "\r"
     IN "11\r" # Test Horizontal-Position-Relative (HPR)
-    SNAP vt_11_4_2_11_03 8f647267f7b5b072019d7587b875ff76
+    SNAP vt_11_04_02_11_03 8f647267f7b5b072019d7587b875ff76
     IN "\r"
     IN "12\r" # Test Line-Position-Absolute (VPA)
-    SNAP vt_11_4_2_12_03 738083af59a22bcff0a6db3ed0e030f1
+    SNAP vt_11_04_02_12_03 738083af59a22bcff0a6db3ed0e030f1
     IN "\r"
     IN "13\r" # Test Next-Line (CNL)
-    SNAP vt_11_4_2_13_03 f603244cee5d7c87e5ea1f3540066122
+    SNAP vt_11_04_02_13_03 f603244cee5d7c87e5ea1f3540066122
     IN "\r"
     IN "14\r" # Test Previous-Line (CPL)
-    SNAP vt_11_4_2_14_03 3c44a061629fc40f48f21623c30a81f7
+    SNAP vt_11_04_02_14_03 3c44a061629fc40f48f21623c30a81f7
     IN "\r"
     IN "15\r" # Test Vertical-Position-Relative (VPR)
-    SNAP vt_11_4_2_15_03 ae54e95fe7647920ea7d7545078788c2
+    SNAP vt_11_04_02_15_03 ae54e95fe7647920ea7d7545078788c2
     IN "\r"
     IN "4\r" # Top/Bottom margins are set to middle half of screen
     IN "7\r" # Test Character-Position-Absolute (HPA)
-    SNAP vt_11_4_2_7_04 76bac3175ffe96834bb366502f4077db
+    SNAP vt_11_04_02_07_04 76bac3175ffe96834bb366502f4077db
     IN "\r"
     IN "8\r" # Test Cursor-Back-Tab (CBT)
-    SNAP vt_11_4_2_8_04 21bde13d638ac58664e7d7f902165c85
+    SNAP vt_11_04_02_08_04 21bde13d638ac58664e7d7f902165c85
     IN "\r"
     IN "9\r" # Test Cursor-Character-Absolute (CHA)
-    SNAP vt_11_4_2_9_04 b4d276df63b6a8cf6a1edf16504dd3a7
+    SNAP vt_11_04_02_09_04 b4d276df63b6a8cf6a1edf16504dd3a7
     IN "\r"
     IN "10\r" # Test Cursor-Horizontal-Index (CHT)
-    SNAP vt_11_4_2_10_04 d41000aa84285f4ea08308a35a5ed973
+    SNAP vt_11_04_02_10_04 d41000aa84285f4ea08308a35a5ed973
     IN "\r"
     IN "11\r" # Test Horizontal-Position-Relative (HPR)
-    SNAP vt_11_4_2_11_04 3bed021e02e7ffa4830839acd1c4d0fd
+    SNAP vt_11_04_02_11_04 3bed021e02e7ffa4830839acd1c4d0fd
     IN "\r"
     IN "12\r" # Test Line-Position-Absolute (VPA)
-    SNAP vt_11_4_2_12_04 c0227f3aea2ca1d9317e58e980dcbdb6
+    SNAP vt_11_04_02_12_04 c0227f3aea2ca1d9317e58e980dcbdb6
     IN "\r"
     IN "13\r" # Test Next-Line (CNL)
-    SNAP vt_11_4_2_13_04 c41886ebaffb2593805baf85cfd13882
+    SNAP vt_11_04_02_13_04 c41886ebaffb2593805baf85cfd13882
     IN "\r"
     IN "14\r" # Test Previous-Line (CPL)
-    SNAP vt_11_4_2_14_04 6528a29ec10de921d43aa5e0efc0553c
+    SNAP vt_11_04_02_14_04 6528a29ec10de921d43aa5e0efc0553c
     IN "\r"
     IN "15\r" # Test Vertical-Position-Relative (VPR)
-    SNAP vt_11_4_2_15_04 5329ca8525fb86006a1b376a68fe81da
+    SNAP vt_11_04_02_15_04 5329ca8525fb86006a1b376a68fe81da
     IN "\r"
     IN "4\r" # Top/Bottom margins are reset
     IN "3\r" # Enable DECLRMM (left/right mode)
     IN "5\r" # Left/right margins are set to left half of screen
     IN "7\r" # Test Character-Position-Absolute (HPA)
-    SNAP vt_11_4_2_7_05 da57d0d4a995fc57e0e82f26890e558a
+    SNAP vt_11_04_02_07_05 da57d0d4a995fc57e0e82f26890e558a
     IN "\r"
     IN "8\r" # Test Cursor-Back-Tab (CBT)
-    SNAP vt_11_4_2_8_05 af722e4cce2d81bb27aa10c688dc8e29
+    SNAP vt_11_04_02_08_05 af722e4cce2d81bb27aa10c688dc8e29
     IN "\r"
     IN "9\r" # Test Cursor-Character-Absolute (CHA)
-    SNAP vt_11_4_2_9_05 94dab29595fc3d8d70d359fae4f5b76d
+    SNAP vt_11_04_02_09_05 94dab29595fc3d8d70d359fae4f5b76d
     IN "\r"
     IN "10\r" # Test Cursor-Horizontal-Index (CHT)
-    SNAP vt_11_4_2_10_05 8e2bc2cad2120d9467818971e4ea0e91
+    SNAP vt_11_04_02_10_05 8e2bc2cad2120d9467818971e4ea0e91
     IN "\r"
     IN "11\r" # Test Horizontal-Position-Relative (HPR)
-    SNAP vt_11_4_2_11_05 9cbace667c9d5be1950205eb18711b61
+    SNAP vt_11_04_02_11_05 9cbace667c9d5be1950205eb18711b61
     IN "\r"
     IN "12\r" # Test Line-Position-Absolute (VPA)
-    SNAP vt_11_4_2_12_05 d1bb1ef4f230c6736246251215fe3b26
+    SNAP vt_11_04_02_12_05 d1bb1ef4f230c6736246251215fe3b26
     IN "\r"
     IN "13\r" # Test Next-Line (CNL)
-    SNAP vt_11_4_2_13_05 5b9c63f652adb71b4466d1bbeebfe000
+    SNAP vt_11_04_02_13_05 5b9c63f652adb71b4466d1bbeebfe000
     IN "\r"
     IN "14\r" # Test Previous-Line (CPL)
-    SNAP vt_11_4_2_14_05 fa4b2a60c62b5f559633b328e00dc677
+    SNAP vt_11_04_02_14_05 fa4b2a60c62b5f559633b328e00dc677
     IN "\r"
     IN "15\r" # Test Vertical-Position-Relative (VPR)
-    SNAP vt_11_4_2_15_05 e515a977ad7f30cddba916cea8802764
+    SNAP vt_11_04_02_15_05 e515a977ad7f30cddba916cea8802764
     IN "\r"
     IN "5\r" # Left/right margins are set to right half of screen
     IN "7\r" # Test Character-Position-Absolute (HPA)
-    SNAP vt_11_4_2_7_06 57f6fc1342052b4f151e87d4bc90f9e7
+    SNAP vt_11_04_02_07_06 57f6fc1342052b4f151e87d4bc90f9e7
     IN "\r"
     IN "8\r" # Test Cursor-Back-Tab (CBT)
-    SNAP vt_11_4_2_8_06 9142b815b833a5cd05fe5b5e6f45e54b
+    SNAP vt_11_04_02_08_06 9142b815b833a5cd05fe5b5e6f45e54b
     IN "\r"
     IN "9\r" # Test Cursor-Character-Absolute (CHA)
-    SNAP vt_11_4_2_9_06 8aa64c9033fd2e4ab29a87b5da0b261a
+    SNAP vt_11_04_02_09_06 8aa64c9033fd2e4ab29a87b5da0b261a
     IN "\r"
     IN "10\r" # Test Cursor-Horizontal-Index (CHT)
-    SNAP vt_11_4_2_10_06 bf078d72d06cc310f7b51fc653aa26ad
+    SNAP vt_11_04_02_10_06 bf078d72d06cc310f7b51fc653aa26ad
     IN "\r"
     IN "11\r" # Test Horizontal-Position-Relative (HPR)
-    SNAP vt_11_4_2_11_06 79339821a7dd4db3fa9f035f4244493f
+    SNAP vt_11_04_02_11_06 79339821a7dd4db3fa9f035f4244493f
     IN "\r"
     IN "12\r" # Test Line-Position-Absolute (VPA)
-    SNAP vt_11_4_2_12_06 637b9c630787ed2b36c1ddb2e0e04fa7
+    SNAP vt_11_04_02_12_06 637b9c630787ed2b36c1ddb2e0e04fa7
     IN "\r"
     IN "13\r" # Test Next-Line (CNL)
-    SNAP vt_11_4_2_13_06 d0fd73b732ba36b01f235a934249535f
+    SNAP vt_11_04_02_13_06 d0fd73b732ba36b01f235a934249535f
     IN "\r"
     IN "14\r" # Test Previous-Line (CPL)
-    SNAP vt_11_4_2_14_06 d64cd1331a249b5426cefaa1063bcfbf
+    SNAP vt_11_04_02_14_06 d64cd1331a249b5426cefaa1063bcfbf
     IN "\r"
     IN "15\r" # Test Vertical-Position-Relative (VPR)
-    SNAP vt_11_4_2_15_06 06ec75a35ab7ad36f4666b80fbfe5ee6
+    SNAP vt_11_04_02_15_06 06ec75a35ab7ad36f4666b80fbfe5ee6
     IN "\r"
     IN "5\r" # Left/right margins are set to middle half of screen
     IN "7\r" # Test Character-Position-Absolute (HPA)
-    SNAP vt_11_4_2_7_07 6c62fdaf3664c0483d748b4593ab7c4d
+    SNAP vt_11_04_02_07_07 6c62fdaf3664c0483d748b4593ab7c4d
     IN "\r"
     IN "8\r" # Test Cursor-Back-Tab (CBT)
-    SNAP vt_11_4_2_8_07 caa1776d46320fcef28a15170df455e0
+    SNAP vt_11_04_02_08_07 caa1776d46320fcef28a15170df455e0
     IN "\r"
     IN "9\r" # Test Cursor-Character-Absolute (CHA)
-    SNAP vt_11_4_2_9_07 75bed4faf3bf1c506f3fed606eb82a2b
+    SNAP vt_11_04_02_09_07 75bed4faf3bf1c506f3fed606eb82a2b
     IN "\r"
     IN "10\r" # Test Cursor-Horizontal-Index (CHT)
-    SNAP vt_11_4_2_10_07 86cb1e9ef93f3dbe6c2bba602cd5e638
+    SNAP vt_11_04_02_10_07 86cb1e9ef93f3dbe6c2bba602cd5e638
     IN "\r"
     IN "11\r" # Test Horizontal-Position-Relative (HPR)
-    SNAP vt_11_4_2_11_07 6d260bb190de2dea4f72e41b35695247
+    SNAP vt_11_04_02_11_07 6d260bb190de2dea4f72e41b35695247
     IN "\r"
     IN "12\r" # Test Line-Position-Absolute (VPA)
-    SNAP vt_11_4_2_12_07 12b7cc61450b86c8254ad068287b8e14
+    SNAP vt_11_04_02_12_07 12b7cc61450b86c8254ad068287b8e14
     IN "\r"
     IN "13\r" # Test Next-Line (CNL)
-    SNAP vt_11_4_2_13_07 c61325eab90d37fef34f5a343198d144
+    SNAP vt_11_04_02_13_07 c61325eab90d37fef34f5a343198d144
     IN "\r"
     IN "14\r" # Test Previous-Line (CPL)
-    SNAP vt_11_4_2_14_07 edaa6652a7f6037e36b62875c48ee16c
+    SNAP vt_11_04_02_14_07 edaa6652a7f6037e36b62875c48ee16c
     IN "\r"
     IN "15\r" # Test Vertical-Position-Relative (VPR)
-    SNAP vt_11_4_2_15_07 5b46dff0c40888bacc199415074f0fa0
+    SNAP vt_11_04_02_15_07 5b46dff0c40888bacc199415074f0fa0
     IN "\r"
     IN "0\r"
     IN "0\r"
 
     # At this point we restart vttest, to avoid bumping into
-    # a bug that produces a flawed input sequence for vt_11_6_4
+    # a bug that produces a flawed input sequence for vt_11_06_04
     # resulting in wrong output (regardless of terminal emulator).
     echo "Restarting vttest to work-around bug in 11.6.4 ..."
     IN "0\r"
@@ -880,150 +888,150 @@ function VT_11 {
 
     IN "6\r" # ISO 6429 colors
     IN "2\r" # Display color test-pattern
-    SNAP vt_11_6_2 85594a0e6c9227455e8854005befbcde
+    SNAP vt_11_06_02 85594a0e6c9227455e8854005befbcde
     IN "\r"
     IN "3\r" # Test SGR-0 color reset
-    SNAP vt_11_6_3 5a99f807644c8cc00b0486aed5e870b1
+    SNAP vt_11_06_03 5a99f807644c8cc00b0486aed5e870b1
     IN "\r"
     IN "4\r" # Test BCE-style clear line/display (ED, EL)
-    SNAP vt_11_6_4_01 22fe2cbc8dd1eda36739922437856fe9
+    SNAP vt_11_06_04_01 22fe2cbc8dd1eda36739922437856fe9
     IN "\r"
-    SNAP vt_11_6_4_02 ac9e38462210e4728468df4ee7cdf7b8
+    SNAP vt_11_06_04_02 ac9e38462210e4728468df4ee7cdf7b8
     IN "\r"
     IN "5\r" # Test BCE-style clear line/display (ECH, Indexing)
-    SNAP vt_11_6_5_01 22fe2cbc8dd1eda36739922437856fe9
+    SNAP vt_11_06_05_01 22fe2cbc8dd1eda36739922437856fe9
     IN "\r"
-    SNAP vt_11_6_5_02 ac9e38462210e4728468df4ee7cdf7b8
+    SNAP vt_11_06_05_02 ac9e38462210e4728468df4ee7cdf7b8
     IN "\r"
     IN "6\r" # Test VT102-style features with BCE
     IN "1\r" # Test of cursor movements
-    SNAP vt_11_6_6_1_01 f77d06d60409e1205d88346cc86a24b3
+    SNAP vt_11_06_06_01_01 f77d06d60409e1205d88346cc86a24b3
     IN "\r"
-    SNAP vt_11_6_6_1_02 e8a834b92c86b4353d350ec49de0ca15
+    SNAP vt_11_06_06_01_02 e8a834b92c86b4353d350ec49de0ca15
     IN "\r"
-    SNAP vt_11_6_6_1_03 1cd235a4760ff659fd0d2d3cbc4ed83d
+    SNAP vt_11_06_06_01_03 1cd235a4760ff659fd0d2d3cbc4ed83d
     IN "\r"
-    SNAP vt_11_6_6_1_04 1cd235a4760ff659fd0d2d3cbc4ed83d
+    SNAP vt_11_06_06_01_04 1cd235a4760ff659fd0d2d3cbc4ed83d
     IN "\r"
-    SNAP vt_11_6_6_1_05 5c4e9b105d39ce5d8bb6c176926bbfdf
+    SNAP vt_11_06_06_01_05 5c4e9b105d39ce5d8bb6c176926bbfdf
     IN "\r"
     IN "2\r" # Test of screen features
-    SNAP vt_11_6_6_2_01 eeae32bd506c31f532a6bef8f3067cb5
+    SNAP vt_11_06_06_02_01 eeae32bd506c31f532a6bef8f3067cb5
     IN "\r"
-    SNAP vt_11_6_6_2_02 6687007defc04563d895ed65e54fa9f8
+    SNAP vt_11_06_06_02_02 6687007defc04563d895ed65e54fa9f8
     IN "\r"
-    SNAP vt_11_6_6_2_03 dc29e96f285c34b7ed71f5e4d9870cfb
+    SNAP vt_11_06_06_02_03 dc29e96f285c34b7ed71f5e4d9870cfb
     IN "\r"
-    SNAP vt_11_6_6_2_04 20772c7d162284cd32bc20ee92d35714
+    SNAP vt_11_06_06_02_04 20772c7d162284cd32bc20ee92d35714
     IN "\r"
-    SNAP vt_11_6_6_2_05 dbb1b8e9da54130803e939541c814426
+    SNAP vt_11_06_06_02_05 dbb1b8e9da54130803e939541c814426
     IN "\r"
-    SNAP vt_11_6_6_2_06 acbe8949539945595a4b47cdbc6de8ac
+    SNAP vt_11_06_06_02_06 acbe8949539945595a4b47cdbc6de8ac
     IN "\r"
-    SNAP vt_11_6_6_2_07 0c83792b11d0b0241159691cb366a028
+    SNAP vt_11_06_06_02_07 0c83792b11d0b0241159691cb366a028
     IN "\r"
-    SNAP vt_11_6_6_2_08 826ed49f750b1f71a140eebb8e0f271d
+    SNAP vt_11_06_06_02_08 826ed49f750b1f71a140eebb8e0f271d
     IN "\r"
-    SNAP vt_11_6_6_2_09 f456d874dd1e7c661ed7985ef1246103
+    SNAP vt_11_06_06_02_09 f456d874dd1e7c661ed7985ef1246103
     IN "\r"
-    SNAP vt_11_6_6_2_10 f665543ab609f0728e1e9b7246a76538
+    SNAP vt_11_06_06_02_10 f665543ab609f0728e1e9b7246a76538
     IN "\r"
-    SNAP vt_11_6_6_2_11 683802dedc9930ed882db4cc84586e36
+    SNAP vt_11_06_06_02_11 683802dedc9930ed882db4cc84586e36
     IN "\r"
-    SNAP vt_11_6_6_2_12 812117018b72507433c390cfab02fef8
+    SNAP vt_11_06_06_02_12 812117018b72507433c390cfab02fef8
     IN "\r"
-    SNAP vt_11_6_6_2_13 f8b963bf967baf3292bc01054fc8e661
+    SNAP vt_11_06_06_02_13 f8b963bf967baf3292bc01054fc8e661
     IN "\r"
-    SNAP vt_11_6_6_2_14 62905438e5f2c97f6db25bd8c8e0e967
+    SNAP vt_11_06_06_02_14 62905438e5f2c97f6db25bd8c8e0e967
     IN "\r"
     IN "3\r" # Test Insert/Delete Char/Line
-    SNAP vt_11_6_6_3_01 a720f1ca9686a8ca0bc602e5f5d442b4
+    SNAP vt_11_06_06_03_01 a720f1ca9686a8ca0bc602e5f5d442b4
     IN "\r"
-    SNAP vt_11_6_6_3_02 66b84bff6848198560db7aaae24898a5
+    SNAP vt_11_06_06_03_02 66b84bff6848198560db7aaae24898a5
     IN "\r"
-    SNAP vt_11_6_6_3_03 2eb806c510d2eb41ede0325aa395ca82
+    SNAP vt_11_06_06_03_03 2eb806c510d2eb41ede0325aa395ca82
     IN "\r"
-    SNAP vt_11_6_6_3_04 bf5cf13734be6771da6f97c85240a454
+    SNAP vt_11_06_06_03_04 bf5cf13734be6771da6f97c85240a454
     IN "\r"
-    SNAP vt_11_6_6_3_05 d3421c8efaa692b4fa4de707733dccec
+    SNAP vt_11_06_06_03_05 d3421c8efaa692b4fa4de707733dccec
     IN "\r"
-    SNAP vt_11_6_6_3_06 1f299a2b8c776fac036044c6580d25e5
+    SNAP vt_11_06_06_03_06 1f299a2b8c776fac036044c6580d25e5
     IN "\r"
-    SNAP vt_11_6_6_3_07 cca679be8fb1427c77342e76e6f1a4ce
+    SNAP vt_11_06_06_03_07 cca679be8fb1427c77342e76e6f1a4ce
     IN "\r"
-    SNAP vt_11_6_6_3_08 8e1d6dd5e121e38339d44a80c9e5e630
+    SNAP vt_11_06_06_03_08 8e1d6dd5e121e38339d44a80c9e5e630
     IN "\r"
-    SNAP vt_11_6_6_3_09 3e148ed184c023c865814ccba8872603
+    SNAP vt_11_06_06_03_09 3e148ed184c023c865814ccba8872603
     IN "\r"
-    SNAP vt_11_6_6_3_10 bcf4c4f8fb5ebb94ca02432430ba168f
+    SNAP vt_11_06_06_03_10 bcf4c4f8fb5ebb94ca02432430ba168f
     IN "\r"
-    SNAP vt_11_6_6_3_11 adcfdbba8c6eddbca0c6a43a8231d597
+    SNAP vt_11_06_06_03_11 adcfdbba8c6eddbca0c6a43a8231d597
     IN "\r"
-    SNAP vt_11_6_6_3_12 17cf05d4f95051b80420ca8d3270227f
+    SNAP vt_11_06_06_03_12 17cf05d4f95051b80420ca8d3270227f
     IN "\r"
-    SNAP vt_11_6_6_3_13 936f0d5d8b42a50c771eee4d61541a3a
+    SNAP vt_11_06_06_03_13 936f0d5d8b42a50c771eee4d61541a3a
     IN "\r"
-    SNAP vt_11_6_6_3_14 33277858b7d75ec99ee2a485e3910485
+    SNAP vt_11_06_06_03_14 33277858b7d75ec99ee2a485e3910485
     IN "\r"
-    SNAP vt_11_6_6_3_15 c8f2fe9a22b5757c901efa915f88f37c
+    SNAP vt_11_06_06_03_15 c8f2fe9a22b5757c901efa915f88f37c
     IN "\r"
-    SNAP vt_11_6_6_3_16 3e148ed184c023c865814ccba8872603
+    SNAP vt_11_06_06_03_16 3e148ed184c023c865814ccba8872603
     IN "\r"
     IN "0\r"
     IN "7\r" # Miscellaneous ISO-6429 (ECMA-48) Tests
     IN "2\r" # Test Repeat (REP)
-    SNAP vt_11_6_7_2 e56b90739094f098d55e7f1b8493a65d
+    SNAP vt_11_06_07_02 e56b90739094f098d55e7f1b8493a65d
     IN "\r"
     IN "3\r" # Test Scroll-Down (SD)
-    SNAP vt_11_6_7_3 5046d8de1f748cb15621a80250cd773d
+    SNAP vt_11_06_07_03 5046d8de1f748cb15621a80250cd773d
     IN "\r"
     IN "4\r" # Test Scroll-Left (SL)
-    SNAP vt_11_6_7_4 006bae0f2ce5c2ca6ff872a09f782c4a
+    SNAP vt_11_06_07_04 006bae0f2ce5c2ca6ff872a09f782c4a
     IN "\r"
     IN "5\r" # Test Scroll-Right (SR)
-    SNAP vt_11_6_7_5 e5f136a489a9637322e63b6f90e667db
+    SNAP vt_11_06_07_05 e5f136a489a9637322e63b6f90e667db
     IN "\r"
     IN "6\r" # Test Scroll-Up (SU)
-    SNAP vt_11_6_7_6 081bb881dbe2832ea0aba9341c1a7833
+    SNAP vt_11_06_07_06 081bb881dbe2832ea0aba9341c1a7833
     IN "\r"
     IN "0\r"
     IN "8\r" # Test screen features with BCE
-    SNAP vt_11_6_8_01 0c83792b11d0b0241159691cb366a028
+    SNAP vt_11_06_08_01 0c83792b11d0b0241159691cb366a028
     IN "\r"
-    SNAP vt_11_6_8_02 826ed49f750b1f71a140eebb8e0f271d
+    SNAP vt_11_06_08_02 826ed49f750b1f71a140eebb8e0f271d
     IN "\r"
-    SNAP vt_11_6_8_03 f456d874dd1e7c661ed7985ef1246103
+    SNAP vt_11_06_08_03 f456d874dd1e7c661ed7985ef1246103
     IN "\r"
-    SNAP vt_11_6_8_04 f665543ab609f0728e1e9b7246a76538
+    SNAP vt_11_06_08_04 f665543ab609f0728e1e9b7246a76538
     IN "\r"
-    SNAP vt_11_6_8_05 ca444d80b2cf846cbe97860393f2241d
+    SNAP vt_11_06_08_05 ca444d80b2cf846cbe97860393f2241d
     IN "\r"
-    SNAP vt_11_6_8_06 823e23a6bec24a28aac652c68452b114
+    SNAP vt_11_06_08_06 823e23a6bec24a28aac652c68452b114
     IN "\r"
     IN "9\r" # Test screen features with ISO 6429 SGR 22-27 codes
-    SNAP vt_11_6_9_01 2dbaeaf36781a3d537d5c386a98ce691
+    SNAP vt_11_06_09_01 2dbaeaf36781a3d537d5c386a98ce691
     IN "\r"
-    SNAP vt_11_6_9_02 59367d828a5eb71628fe7d87c0a67a3a
+    SNAP vt_11_06_09_02 59367d828a5eb71628fe7d87c0a67a3a
     IN "\r"
-    SNAP vt_11_6_9_03 2dbaeaf36781a3d537d5c386a98ce691
+    SNAP vt_11_06_09_03 2dbaeaf36781a3d537d5c386a98ce691
     IN "\r"
     IN "0\r"
 
     IN "7\r" # Miscellaneous ISO-6429 (ECMA-48) Tests
     IN "2\r" # Test Repeat (REP)
-    SNAP vt_11_7_2 b9e4018e9830bce69133fd2c62e46032
+    SNAP vt_11_07_02 b9e4018e9830bce69133fd2c62e46032
     IN "\r"
     IN "3\r" # Test Scroll-Down (SD)
-    SNAP vt_11_7_3 e2d11e6b2704eb8e583436675408f33f
+    SNAP vt_11_07_03 e2d11e6b2704eb8e583436675408f33f
     IN "\r"
     IN "4\r" # Test Scroll-Left (SL)
-    SNAP vt_11_7_4 0ef10be2a79f548bed58df62e8eac433
+    SNAP vt_11_07_04 0ef10be2a79f548bed58df62e8eac433
     IN "\r"
     IN "5\r" # Test Scroll-Right (SR)
-    SNAP vt_11_7_5 ef5780a9c7c9c44c9db0037deb25c30d
+    SNAP vt_11_07_05 ef5780a9c7c9c44c9db0037deb25c30d
     IN "\r"
     IN "6\r" # Test Scroll-Up (SU)
-    SNAP vt_11_7_6 25ced4449004f338a3d6dd673eb8954e
+    SNAP vt_11_07_06 25ced4449004f338a3d6dd673eb8954e
     IN "\r"
     IN "0\r"
 
@@ -1032,25 +1040,27 @@ function VT_11 {
     IN "1\r" # Switch to/from alternate screen
     IN "\r"
     IN "\r"
-    SNAP vt_11_8_7_01 c5b33c89c294737c60206ddac57c59d3
+    SNAP vt_11_08_07_01 c5b33c89c294737c60206ddac57c59d3
     IN "\r"
 
     IN "2\r" # Improved alternate screen
     IN "\r"
     IN "\r"
-    SNAP vt_11_8_7_02 b27206a789930441252ea9815d178699
+    SNAP vt_11_08_07_02 b27206a789930441252ea9815d178699
     IN "\r"
 
     IN "3\r" # Better alternate screen
     IN "\r"
     IN "\r"
-    SNAP vt_11_8_7_03 c76d332c63733d2419d18b83d4672c57
+    SNAP vt_11_08_07_03 c76d332c63733d2419d18b83d4672c57
     IN "\r"
 
     IN "0\r"
     IN "0\r"
     IN "0\r"
 }
+
+setxkbmap us
 
 IN "vttest\r"
 

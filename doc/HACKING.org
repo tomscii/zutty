@@ -1,0 +1,790 @@
+#+TITLE: Zutty development guide
+#+OPTIONS: num:nil val:nil html-style:nil H:3 ^:{}
+
+* Hacking on Zutty
+** Compiling for development or debugging
+
+If you plan to spend time hacking on Zutty, you should first compile a
+debug build of it. The purpose of this is to compile in trace logging
+output, as well as debugging facilities.
+
+To configure the build for this development mode, add the option
+=--debug= to the configuration:
+
+: ./waf configure --debug
+
+Feel free to add any other options you usually use for the normal
+build. Confirm that you see this line in the output:
+
+: Debug build                              : yes
+
+Then, compile Zutty as usual:
+
+: ./waf [-j <JOBS>]
+
+Normally, you will not want to install the development build
+system-wide. Run it from an existing terminal as =./build/src/zutty
+-v= (plus any other options) to receive verbose debugging logs in the
+console.
+
+As stated in the [[./USAGE.org][Usage guide]], by default (if neither =-quiet= nor
+=-verbose= is given), Zutty will print errors and warnings, but not
+info messages. Those have to be enabled with =-verbose=, and in case
+of a debug build, that will enable Trace messages as well.
+
+** The Step Debugger
+
+A debug build of Zutty has compiled-in support not just for generating
+lots of trace output, but also for a facility called the Step
+Debugger. This is a facility specifically built to enable close
+inspection of the virtual terminal in action.
+
+The Step Debugger is initially dormant; it can be activated by
+pressing the "debug key", which is hardwired to PrintScreen (but the
+hook for it is only compiled in the debug build, so it does not affect
+the PrintScreen key in a normal build).
+
+When the Step Debugger is activated, the Zutty process will suspend
+itself on the completion of every N-th escape sequence (i.e., when the
+state machine is set back to "normal text input"), with N cycled
+through 1, 10, 100 and zero (off) on each additional press of the
+PrintScreen key.
+
+Move focus to the Zutty window, press PrintScreen, and confirm that
+you see this line in the log output:
+
+: T [vterm.icc: 40] *** DEBUG step=1
+
+The =step=1= communicates that going forward, Zutty will suspend
+itself on every completed escape sequence. To test this, type
+something (I am typing the letter =k=) and then hit Backspace. This
+will trigger the Debug Stop, and the log will look similar to this:
+
+: T [vterm.icc:392] pty write (mod=0): 'k' (1 bytes)
+: T [vterm.icc:439] pty read: 'k' (1 bytes)
+: T [vterm.icc:683] hideCursor []         p(0,48)  d(42,103)  mgn[0,42)  hmgn:0 [0,103)  cur=48  head=0
+: T [vterm.icc:109] Inserted: 'k' (1 bytes)
+: T [vterm.icc:670] showCursor []         p(0,49)  d(42,103)  mgn[0,42)  hmgn:0 [0,103)  cur=49  head=0
+: T [vterm.icc:428] pty write: '\x7f' (1 bytes)
+: T [vterm.icc:439] pty read: '\b\e[K' (4 bytes)
+: T [vterm.icc:683] hideCursor []         p(0,49)  d(42,103)  mgn[0,42)  hmgn:0 [0,103)  cur=49  head=0
+: T [vterm.icc:983] csi_CUB []    p(0,49)  d(42,103)  mgn[0,42)  hmgn:0 [0,103)  cur=49  head=0
+: T [vterm.icc:1229] csi_EL [0]   p(0,48)  d(42,103)  mgn[0,42)  hmgn:0 [0,103)  cur=48  head=0
+: T [vterm.icc: 50] *** DEBUG STOP (step=1), 4 bytes since last:
+:         '\b\e[K' (4 bytes)
+: T [vterm.icc: 55] Issue 'kill -CONT 5429' or 'fg' to continue.
+
+Following the trace log, we can see that first the keypress was sent
+to the shell (=pty write=), then the echoed character was read back
+from the shell (=pty read=), which triggered an insertion of =k= as
+text. The screen-updating is surrounded by hiding and showing the
+cursor. Then, as a consequence of the Backspace keypress, Zutty sends
+the =DEL= character (=\x7f=) to the shell, which echoes back =\b\e[K=:
+first =\b=, a backspace character, followed by =\e[K=, or a "CSI K"
+sequence in VT100-speak, which instructs Zutty to clear the terminal
+screen from the cursor to the end of line. Since this constitutes a
+finished escape sequence, this is the point where the Debug Stop
+occurs.
+
+As part of processing the input stream from the terminal, Zutty
+executed the functions =csi_CUB= (interpreting =\b=) and =csi_EL=
+(interpreting =\e[K=). The former stands for Cursor Back, the latter
+for Erase Line -- these are the names of the requested screen
+operations according to the VT100-series standards. The arguments
+parsed from the input escape sequences, effective at the time of the
+function call, are visible in square brackets. The single argument
+zero (shown as =[0]=) passed to the Erase Line routine is the implicit
+default; the actual escape sequence did not contain a numeric
+argument.
+
+Also worth noting is that on each trace point (such as =hideCursor=,
+=showCursor=, =csi_CUB=, etc.) several state variables are printed.
+These include the current cursor position =(0,49)=, the dimensions
+=(42,103)=, the horizontal scrolling margin top and bottom =[0,42)=
+(the mismatched brackets denote that the top row of scrolling is
+inclusive of the scrolling range, while the bottom row is exclusive).
+Also dumped are Frame-internal offsets =cur= and =head=.
+
+To resume Zutty, send a continue signal (SIGCONT) via kill, or just
+type =fg= into the terminal running Zutty. The latter is a neat trick
+that relies on the parent terminal detecting that the child process
+has been stopped, and putting it into the background.
+
+When trying to understand how the virtual terminal processes a longer
+input sequence, it becomes tedious to step through each escape
+sequence one by one. Pressing PrintScreen will cycle through the
+number of debug steps to go between each stop: first 1, then 10, 100,
+then 0 (the Step Debugger is turned off), then back to 1, 10, 100,
+then off again, etc. While doing this, you will see this in the output
+log:
+
+: T [vterm.icc: 40] *** DEBUG step=10
+: T [vterm.icc: 40] *** DEBUG step=100
+: T [vterm.icc: 40] *** DEBUG step=0
+: T [vterm.icc: 40] *** DEBUG step=1
+: T [vterm.icc: 40] *** DEBUG step=10
+: T [vterm.icc: 40] *** DEBUG step=100
+: ...
+
+** Automated testing
+
+By their very nature, graphical terminal emulators are interactive
+programs. Therefore, testing them in an automated fashion (e.g., for
+regression testing) can be tricky.
+
+We employ a method suitable as a general means to automation, as it is
+independent of the terminal under test: it does not require modifying
+the program by e.g., implementing test hooks to inject events or report
+screen content. This allows us to include several established terminal
+emulators in the test along with Zutty to research the state of the
+art and see how different programs stack up against each other.
+
+Prerequisites:
+- imagemagick (for convert & identify), wmctrl, xvkbd
+  : apt-get install imagemagick wmctrl xvkbd
+
+On a high level, testing consists of these steps:
+- Start the terminal (the unit under test) as a subprocess and note
+  its pid
+- Obtain its X window id:
+  : wmctrl -lp | grep <pid> | awk '{print $1}'
+- use =xvkbd= to send events to the window:
+  : xvkbd -window <id> -no-jump-pointer -text "\D3\{+1}\D3\{-1}\D3\{+Return}\D3\{-Return}\D3"
+  Note the explicit keysym presses and releases, plus the interleaved delays.
+  For reference, see: http://t-sato.in.coocan.jp/xvkbd/
+- Make a screenshot of the window via the window id
+  : xwd -nobdrs -id <id> | convert xwd:- png:- > <shot-name>.png
+- Generate a digest of the screen content, to be compared against a reference value:
+  : identify -verbose <shot-name>.png | grep signature | awk '{print $2}' | cut -32
+  (We cut the hash in half to make it less unwieldy.)
+  Having consistent hashes that depend only on the rendered pixel
+  image is convenient, as we do not need to store the reference images
+  themselves beside our test script.
+
+The above steps are automated by some fairly straightforward bash
+scripts under the =test/= subdirectory. These scripts all source the
+=testbase.sh= script, which constitutes the test library.
+
+*** Anatomy of a test script
+
+Each executable script under =test/= is an individually runnable test
+suite. It is written as a plain old bash script, sourcing the
+=testbase.sh= test code library and using its facilities. For example,
+=truecolor.sh= is a very simple test script to test support for setting
+color attributes to truecolor (24 bit) values. The full script is
+reproduced below:
+
+#+BEGIN_SRC sh
+#!/bin/bash
+
+cd $(dirname $0)
+source testbase.sh
+
+IN "source truecolor_inc.sh\r"
+SNAP truecolor_01 33a31e4d3b9fbe486c27b01764dc1823
+#+END_SRC
+
+The script starts by declaring itself as a shell script, then setting
+up its working directory to be the location of the script (a
+convenience to make relative file paths work in later parts of the
+script, independent of the location the script was invoked from). Then
+=testbase.sh= is sourced.
+
+The actual test code is just two lines, starting with the commands
+=IN= and =SNAP=. These are invocations of functions defined in
+=testbase.sh= and execute in the environment set up by sourcing that
+file.
+
+=IN= will send the specified string, as keyboard input, to the
+terminal under test. In our example, the shell running in the terminal
+will source the file =truecolor_inc.sh= that contains some setup code
+(not reproduced here) to make a certain pattern appear on the
+terminal. Note the trailing =\r= that will result in a virtual =Enter=
+keypress.
+
+The subsequent =SNAP= will capture the resulting terminal window
+content under the name =truecolor_01= and generate a digest (hash) of
+it, comparing it with the supplied value. If the digest matches, the
+output is verified to be correct; else a test failure is reported.
+
+The snap name is used to save the captured window image under
+=test/output/<profile>=.  This is useful for later inspection of test
+results. With the default profile (see [[Test profiles]] below), the
+output of this test will be saved as
+=test/output/zutty/truecolor_01.png=.
+
+There are some other useful functions exported by the test framework,
+e.g.: =CHECK_DEPS=, =CHECK_FILES=, and =WAIT_FOR_DOT_COMPLETE=. If you
+encounter them in test script code, it is best to look directly in
+=testbase.sh= for their implementation.
+
+Note that starting and stopping of the terminal under test is done as
+part of the test framework and nothing is explicitly written in the
+test script. See [[Test profiles]] below on how to control the details of
+this process.
+
+*** Common test script options
+
+Test scripts similar to the one shown above (building on
+=testbase.sh=) all take a uniform set of command line options. All
+arguments are optional, below defaults are in effect for omitted ones.
+Syntax: =--<arg-name>=<arg-value>=; value defaults to "yes" if
+omitted.
+
+:   Option             Default
+:   --------------------------
+:   --ci-mode          no
+:   --profile          zutty
+:   --step             no
+:   --update-sig       no
+
+**** =--step=
+
+The =--step= option can be given without argument, in which case it
+will be equivalent to =--step=yes=, or given as =--step=new=.  The
+former one will result in step mode, which will pause immediately
+after each snapshot is taken (the terminal under test still displaying
+this output, allowing visual inspection), and display a prompt:
+
+: [S]tep / [N]ew only / [C]ontinue / [Q]uit (s/n/c/q) ?
+
+This allows the user to choose how to proceed:
+- *S* - continue stepping, i.e., stop after each snapshot
+- *N* - continue without stopping, except on new snapshots
+- *C* - continue without ever stopping again
+- *Q* - quit the test
+
+The =new= option is useful when developing a test suite. It will run
+the test script forward until a =SNAP= command without a verification
+hash is found.
+
+**** =--update-sig=
+
+Enabling =--update-sig= will result in a prompt on a verification
+failure, i.e., when the =SNAP= command captures a screenshot with a
+different hash than the reference stored in the script:
+
+: Update signature: [y]es / [N]o / [a]ll ?
+
+By answering *Y* here, the signature in the script will be updated.
+By answering *A*, all future differences will also be updated without
+a further prompt. This is useful in case the behaviour of Zutty is
+changed in a way that alters its output; in case it is established
+that the new output is "more correct" than the previous one; and we
+want to adapt the tests to verify against this new output in the
+future.
+
+Use this with a great deal of caution. It is recommended to use *Y* in
+favour of *A* and before answering each prompt, to do a careful visual
+inspection of each screen for correctness.
+
+**** =--profile=
+
+See [[Test profiles]] below.
+
+**** =--ci-mode=
+
+The =--ci-mode= option sets up the test script to execute in an
+unattended manner, suitable for automated testing. Step mode is turned
+off (overriding =--step=), signature updates are turned off
+(overriding =--update-sig=), and the script is set up to immediately
+exit with a nonzero code on a verification failure.
+
+*** Correctness tests
+
+The list of correctness tests (automatically run in sequence by
+[[The CI test script]]):
+
+- =keys.sh=: Keyboard input handling (see [[./KEYS.org][Key mapping sequences]] for
+  further documentation). Note: This test might fail if your computer
+  is configured to use a non-US keyboard.
+- =title.sh=: Setting the window title from within the terminal via
+  escape sequences
+- =truecolor.sh=: True color support
+- =utf8.sh=: UTF-8 support (based on the
+  [[../test/UTF-8-test.txt][UTF-8 decoder capability and stress test]] by Markus Kuhn)
+- =vttest.sh=: VTTEST screens. Note: This suite depends on a specific
+  version of =vttest=, and will complain if the version found does not
+  match. Please run the vttest install script mentioned by the error
+  message, or install manually from [[https://tomscii.sig7.se/files/zutty/vttest-20200610.tar.gz][this archive]].
+
+Apart from running all the tests via [[The CI test script]] (which you
+should routinely run during development, and especially before opening
+a pull request), it is also possible to run any of the above tests
+manually. For example, to run the test automating a traversal of
+Vttest's menu system (and in case of running against Zutty, also
+verifying that results are as expected):
+
+: test/vttest.sh
+
+Do not forget about the [[Common test script options]] above; those become
+useful during development (both of Zutty itself and the test suites).
+For example, to run the above test step-by-step (stopping at each
+image checkpoint):
+
+: test/vttest.sh --step
+
+*** Performance tests
+
+The performance of Zutty can be verified with the below tests. These
+are to be run manually (similar to how you run any of the [[Correctness
+tests]] on an ad-hoc basis). The goal of these tests is to get a handle
+on performance under repeatable circumstances.
+
+Since everyone's hardware and systems are different, it does not make
+too much sense to compare numbers obtained by different people at
+different times.  Rather, it is most useful to compare the results
+obtained on the same system (running the comparison tests after one
+another without any changes to the rest of the system), with the goal
+of comparing a proposed set of patches to the baseline of Zutty, or to
+compare Zutty with another terminal emulator.
+
+Needless to say: when running the below scripts, your machine should
+be otherwise idle.
+
+Another consideration is that instead of the usual (debug) build used
+for running tests, make sure to reconfigure and recompile Zutty to
+obtain a regular (production) build to run the performance tests with,
+otherwise the results will be meaningless due to excessive logging and
+hitting other debug-only code paths.
+
+- =cat_dict.sh=: Arguably the dumbest possible performance test of any
+  text terminal, this test consists of outputting a very long text
+  file containing (mostly) very short lines with English words, one
+  per line. This test will be repeated a number of times (check
+  =TIMES= in the script) and the overall timing and data throughput
+  will be computed at the end. Since the input does not contain any
+  terminal controls (escape sequences), it is a measure of the raw
+  incoming data rate the terminal can sustain while frequently forced
+  to scroll/page its output. This load resembles one extreme end of
+  the way a terminal can be used.
+
+- =cat_vtscript.sh=: This test generates load resembling the other
+  extreme end of possible terminal usage, by outputting the stream of
+  data written to the terminal in the course of the VTTEST cycle (see
+  =vttest.sh= among the [[Correctness tests]]). However, instead of
+  verifying the correctness of the generated screen output, here we
+  are concerned with measuring the performance of processing the input
+  stream heavy on all kinds of escape sequences. Screen updates are
+  dominated by intra-screen rewrites and relatively little
+  scrolling/paging activity is forced.  Similar to the =cat_dict.sh=
+  test, the input is fed into the terminal a number of times, and
+  overall timing and throughput is measured and calculated.
+
+*** The CI test script
+
+The script =test/run_ci.sh= will run all automated [[Correctness tests]]
+in sequence with the ==--ci-mode= option, stopping and exiting with a
+nonzero return code if any of them exits with an error, and concluding
+with a confirmatory message and zero return code otherwise.
+
+You should always run this at a convenient time (it will occupy your
+screen for about 20 minutes) and observe the successful result before
+opening a pull request with your changes.
+
+*** Test profiles
+
+Given that our method of testing is independent of the terminal itself
+(meaning that we do not rely on any hooks or test instrumentation in
+the terminal itself), we can run the same tests against other
+terminals, too. This is useful for comparison and research purposes.
+The default profile is =zutty=, invoking the locally built Zutty
+executable as the unit under test.
+
+Profiles are defined as shell include files under =test/profiles=, and
+can be invoked by passing the =--profile= option to the test
+script. For example, to run the VTTEST suite against =xterm=:
+
+: ./test/vttest.sh [--step] --profile=xterm
+
+Available profiles can be enumerated by looking in =test/profiles/=
+(pass their name without the =.sh= extension to =--profile=, as
+above). The list is also printed by the test script in case an invalid
+profile name is given.
+
+Each test profile contains a program invocation assigned to =UUT_EXE=,
+used to launch the terminal under test with the right arguments. The
+terminal must be configured so that its geometry is 80 characters wide
+and 24 rows tall.
+
+Some other variables set up in the profile encode different
+capabilities to control the test scripts so that unsupported features
+are skipped (and the terminal does not encounter confusing escape
+sequences). Examples: =MISSING_ANSWERBACK=, =MISSING_DSR=,
+=MISSING_SECONDARY_DA=, =SUPPORTS_VT52=, =SUPPORTS_VT220=. Please
+check the script files for details.
+
+Note that validation against the stored image hashes does not make too
+much sense, unless preparations are made to ensure that the terminal
+settings (size, font, etc.) are perfectly identical. Even then,
+differences from the valid output stored for Zutty do not necessarily
+constitute bugs in any other terminal, unless the rendered screen
+content is visibly wrong. For this reason, auto-validation of the
+saved screens runs in a relaxed mode for all profiles other than
+=zutty=. This means that for terminals other than Zutty, matches are
+still prominently displayed (by a line reading =MATCH= in green),
+while non-matches are considered normal and indicated by =DONE=,
+followed by a metric of the image difference compared to the
+reference. The output image and the image generated for Zutty will be
+diffed, resulting in a difference image that will highlight
+differences with red.
+
+** Contribution guide
+
+There is no commercial entity behind Zutty. It is a volunteer effort
+with extremely limited resources. Your contributions are welcome.
+However, to make them actually useful, please keep the following in
+mind:
+
+*** Respect existing coding style
+
+Please keep your changes in line with the coding style of the existing
+codebase. In particular, observe the following rules:
+- Maximum source line width: 80 characters.
+- No tabs, only spaces.
+- Indentation: BSD (a.k.a. Allman) style with a width of three (3) spaces.
+- Extra space before opening parens.
+
+We are not interested in any opinions or debates on whether this style
+is good or bad and whether you like it or not; it is simply what we
+use every day (at least when working with C++). If you are interested
+in contributing to the codebase, please format your proposed changes
+accordingly.
+
+*** Think long and hard...
+
+... about anything that involves resource ownership, anything related
+to architecture, anything that changes the user interface, and
+anything that might be expensive (negatively affecting performance).
+
+Let existing standards (published programming manuals of DEC VT-series
+terminals) as well as de-facto standard implementations (=xterm=) and
+tests (=VTTEST=) be your guide when it comes to specifications of
+correctness (see [[Useful resources]]), along with the spirit and
+philosophy outlined in the project [[../README.org][README]] for design and
+implementation questions specific to Zutty. If you are uncertain, feel
+free to ask.
+
+*** Test your changes thoroughly
+
+At a minimum, run all regression tests via [[The CI test script]] before
+pull-requesting any change.
+
+If relevant to your change, run [[Performance tests]] with and without
+your changes to establish that the performance is maintained at its
+current level.
+
+If you add or change user-visible functionality, please add or update
+the tests covering it.
+
+*** Keep documentation up to date
+
+If you change any functionality covered by existing documentation, or
+add anything that belongs in the same vein, please contribute
+appropriate documentation updates as well. Nobody will do
+documentation work for you.
+
+* Module breakdown
+
+Zutty is written in modern C++, with the customary file extensions:
+=<module>.h= for the header, =<module>.cc= for the (optional)
+separately compiled implementation, and =<module>.icc= for the (even
+more optional) included implementation (inline and/or templatized
+code) of a certain module. (Strictly speaking, "module" is not a thing
+in C++, but I find it a useful concept, so there you go.)
+
+A short rundown of the modules of Zutty:
+
+- =base64=: Base64 encoder and decoder, used by the OSC command for
+  clipboard interaction.
+- =base=: Fundamental structures.
+- =charvdev=: The virtual character device that provides the "raw
+  video memory" interface to the Vterm and contains/drives the OpenGL
+  rendering pipeline.
+- =font=: FreeType-based font loader, mostly concerned with building
+  an atlas texture for the CharVdev to load into graphics memory.
+- =fontpack=: Locates the font name's variants (regular, bold, ...)
+  under a search path and provides a unified point of contact to deal
+  with the whole bunch.
+- =frame=: A Frame represents a snapshot of the content to be rendered
+  by the CharVdev, and is the rendering target of the Vterm. It
+  provides an abstraction based on character grid coordinates on top
+  of the raw cell storage, plus support for passing around said
+  storage cheaply via reference-counted pointers.
+- =gl=: Low level GL utils.
+- =log=: Logging facility.
+- =main=: Main module for top-level tasks such as instantiating the
+  Fontpack, the Renderer and the Vterm; creating the X window;
+  selecting, parameterizing and spawning the shell; and subsequently
+  servicing events on the file descriptors, handling X events
+  (mainly around the keyboard, mouse and selection) as well as feeding
+  the stream of output bytes from the shell subprocess into the Vterm.
+- =options=: Unified handling and support for command line switches
+  and X resource database entries (the former take precedence over
+  the latter).
+- =pty=: Code for spawning a pseudo-terminal and communicating resize
+  events to it.
+- =renderer=: The Renderer runs a separate thread to feed the CharVdev
+  with Frames handed off by the Vterm.
+- =selmgr=: The Selection Manager contains all code that glues
+  together the Vterm (which is completely agnostic of any windowing
+  system) and the X Selection API.
+- =utf8=: Support for producing and consuming UTF-encoded Unicode code
+  points.
+- =vterm=: The Vterm implements the Virtual Terminal itself. That is,
+  it consumes a stream of bytes output by the shell. The Vterm
+  interprets the stream of text destined for the screen, interspersed
+  with escape sequences to control the terminal, and produces Frames
+  that are handed off to the Renderer.
+
+The major modules in the architecture of Zutty are sufficiently
+interesting to have their own expanded sections that follow.
+
+** CharVdev (character virtual device)
+
+The architectural centerpiece of Zutty is the emulation of a
+character-oriented video device addressable as a plain old array of
+character cells. The source module =charvdev= contains its
+implementation, encompassing the GPU-hosted OpenGL ES shaders, and the
+data structures to communicate with them. On the host side, the C++
+code within CharVdev runs in a separate thread that does the
+rendering, as driven by the Renderer.
+
+At the interface level, the CharVdev provides access to a linear array
+of CharVdev::Cell structures, each Cell having fields for the unicode
+code point to be displayed, attributes (bold, italic, underline,
+inverse), and color (3 bytes each for foreground and background). A
+pointer to the Cells is obtained via a CharVdev::Mapping, which is a
+C++ wrapper object to allow idiomatic (RAII-style) safe access to the
+GL memory area backing the Cells residing on the GPU, and hides the
+underlying =glMapBufferRange ()= / =glUnmapBuffer ()= calls.
+
+Two auxiliary properties baked into the shader-based rendering, the
+Cursor and the Rect defining the current selection, have setters
+provided on CharVdev. These will set GL uniform variables to their
+appropriate values.
+
+The virtual video device, as driven by the array of Cells, is entirely
+implemented in the OpenGL ES shaders (GLSL code embedded into
+=charvdev.cc=), chiefly by the Compute Shader. The following
+subsections outline the processing and the data structures backing it
+at each stage.
+
+*** Input character video memory area
+
+The primary input to the OpenGL program of Zutty is a flat array of
+Cell structures. It is defined as a Shader Storage Buffer Object (GL
+SSBO), which means that the memory backing it is allocated by the GL
+system (ultimately by the graphics driver, preferably within GPU
+memory). Being an SSBO, this GL-backed object is cheap to frequently
+modify (on a frame-by-frame basis), as opposed to input textures that
+hold more permanent data.
+
+The total length of the array is always equal to the terminal
+size (rows x cols in characters). The cells are addressed left to
+right, top to bottom. Each cell takes up 12 bytes, with 3 bytes
+currently unused (available for future extensions).
+
+By way of the CharVdev::Mapping, the application is able to obtain a
+client-side mapping to this area, allowing direct manipulations of its
+content.
+
+*** Unicode to Atlas position mapping texture
+
+Font rendering is implemented by a font atlas, which is a texture
+containing a bitmap of all font characters rasterized to a certain
+size. The atlas is a single image held in graphics memory, divided
+into character-size cells (measured by the chosen font face's pixel
+dimensions) on a rectangular grid. Having all characters
+pre-rasterized into a single 2D image is customary in OpenGL text
+rendering, and is highly beneficial for performance and memory
+reasons. Each font glyph supported by the font face has a pair of
+atlas coordinates, denoting the row and column of the grid cell with
+the chosen glyph.
+
+Zutty goes a step further than most, and allows the application layer
+to communicate directly by writing Unicode code points to the input
+character video memory area. The translation from Unicode code point
+to atlas coordinates decouples the application from having to deal
+with this font-specific mapping, on a per-character basis, on the
+client side.
+
+The Unicode to atlas position mapping is created and stored on
+initialization and font loading, and is read-only for the GL program.
+This is a 256x256 2D texture that maps all 16-bit unicode code points
+to an atlas grid position. It is initialized with the GL data type
+GL_LUMINANCE_ALPHA (two channels), from an array with two 8-bit
+integers per texel (8 bits for either atlas grid coordinate).
+
+This allows direct lookups for any 16 bit Unicode code point in the
+shader and returns two bytes, one for the atlas row and column each.
+
+If the value stored for atlas (row,col) is (0,0), that means there is
+no glyph for that code point in the font. As a measure of convenience,
+the font loader ensures that there is a blank glyph stored at that
+atlas location, so no special GLSL code is needed to handle this case.
+
+*** Atlas glyph texture
+
+Once the atlas coordinates of the glyph to be drawn are known, the
+corresponding area of the atlas glyph texture is rendered onto the
+output image texture. The atlas glyph texture is a 2D image holding
+all the pre-rendered glyphs supported by the loaded font. Its
+dimensions are auto-computed based on the number of glyphs in the font
+and the glyph dimensions, to produce a pixel size as close to square
+as possible. This is necessary so the row and column coordinate will
+both fit into a single byte (the maximum number of characters
+rasterized from a font is 2^16 (65536), corresponding to the Unicode
+Basic Multilingual Plane).
+
+Texture encoding: 1 byte per texel, gray-scale (0 = black, 255 = white)
+
+The atlas texture is stored as a 2D array with one layer for each font
+face loaded. The mapping from unicode code point to atlas grid
+location is the same across fonts, and is determined by the primary
+font (loaded into texture array index 0). Each subsequent layer starts
+out as a copy of the primary atlas layer, with glyphs successively
+overwritten for each defined code point in the alternate font. This
+means that when referencing an alternate font, the shader does not
+have to care about whether the alternate font has a glyph for the
+given code point -- if nothing else, the primary font's glyph will be
+present.
+
+*** Output image texture
+
+The glyph-sized rectangle on the atlas glyph texture, as defined by
+the atlas coordinates, contains a gray-scale image of the character to
+be rendered. The destination of this rendering is an image,
+accumulating the output from all the compute shaders running in
+parallel, each rendering a single character cell in the terminal
+window.
+
+The dimensions of this image texture are set according to the terminal
+window's character grid size (window size, minus split-character
+border area at the bottom and right edges). The output texture is
+rendered onto the viewport area using a quad in the most
+straightforward way. All the work of computing the terminal window
+content is done by the compute shader that sets color values of
+individual pixels in the output texture.
+
+**  Frame
+
+The Frame is an abstraction on top of a cell array compatible with the
+one provided by the CharVdev, and provides access to cells based on
+screen grid coordinates. This access layer is used by Vterm (the
+virtual terminal implementation) to manipulate the cell storage that
+ultimately defines the screen content.
+
+A Frame wraps a certain cell array and abstracts away the actual
+"physical" storage details of which cell (as defined by screen grid
+coordinates) is stored in which array slot (as defined by array
+index). The separation is necessary for efficient implementation of
+scrolling. This is based on the concept of ringbuffers (circular
+buffers) where upon appending to a data buffer, a write pointer is
+moved around in physical storage denoting the start of a logical page,
+instead of shifting all existing content (discarding the oldest bits)
+to make room for incoming new data. In this scheme, data in the
+buffer, once written, stays untouched until the write buffer wraps
+around (by which point this data is the oldest still contained in the
+buffer) and gets overwritten by the newest incoming data.
+
+The physical storage underpinning the Frame contains an embedded
+ringbuffer for the scrolling area. The virtual terminal allows a
+scroll top and bottom to be set, and appending lines within these
+limits will have the effect of rotating the ringbuffer without
+physically moving already written data in it.  The key Frame fields
+encoding the ringbuffer state are =marginTop=, =marginBottom= and
+=scrollHead=. These are all row numbers, so cell offsets are obtained
+by multiplying them with the number of characters in each row
+(=nCols=).
+
+To understand the memory layout of cells mapped to the screen grid,
+consider the below figure:
+
+#+BEGIN_EXAMPLE
+            0 --> +-----------------------+
+                  |                       |
+                  .          (1)          .
+                  |                       |
+                  +-----------------------+
+    marginTop --> +-----------------------+    <
+                  |                       |    <
+                  .          (3)          .    <
+                  |                       |    <
+                  +-----------------------+    < scrolling
+   scrollHead --> +-----------------------+    <   area
+                  |                       |    <
+                  .          (2)          .    <
+                  |                       |    <
+                  +-----------------------+    <
+ marginBottom --> +-----------------------+
+                  |                       |
+                  .          (4)          .
+                  |                       |
+                  +-----------------------+
+        nRows -->
+#+END_EXAMPLE
+
+The storage can be conceptually divided into four consecutive areas.
+Area =(1)= between row 0 and =marginTop= (non-inclusive) is
+non-scrolling (it might be empty though, if =marginTop= is zero). The
+same applies to area =(4)= that begins with the row numbered
+=marginBottom= and extends to the bottom of the screen (this area is
+empty if =marginBottom= equals =nRows=).
+
+The area beginning with row =marginTop= and ending just above, but not
+including =marginBottom= is the scrolling area. The current logical
+top of the scrolling area is marked by =scrollHead=, which is the
+first row of area =(2)=. The scrolling area extends downwards to the
+last row above =marginBottom=, and logically continues with area =(3)=
+that starts with the row =marginTop=, ending with the last row above
+=scrollHead=.
+
+When a new row is appended to the scrolling area, =scrollHead= is
+moved down, unless it would become equal to =marginBottom=, in which
+case it jumps back up to =marginTop=. In any case, newly written
+content will overwrite the logically-topmost scrolling row, which has
+conceptually dropped off the top of the scrolling area.
+
+The method =Frame::copyCells ()= copies all the cell content from a
+frame, in logical order =(1)(2)(3)(4)=, into linear (straight) storage
+elsewhere.  This is employed by =Frame::linearizeCellStorage ()=,
+which in turn is used to reset the logical-to-physical mapping, e.g.,
+when the scrolling limits =marginTop= or =marginBottom= are
+changed. In the reset state, =scrollHead= equals =marginTop=, which
+means area =(2)= fills the space between =(1)= and =(4)=, while =(3)=
+is empty.
+
+** Vterm (virtual terminal)
+
+The Vterm module is the actual virtual terminal implementation. That
+is, its task is to convert a stream of incoming characters containing
+visual characters to display as well as control characters and escape
+sequences to interpret, and alter the screen content according to the
+relevant standards and specifications.
+
+The stream of input characters are written by the pseudoterminal (pty)
+slave running in a process spawned by Zutty. This is most commonly a
+shell program (unless Zutty was instructed otherwise).
+
+Parsing and interpretation of the input is fairly straightforward and
+implemented (on the highest conceptual level) by a state machine that
+reads input character-by-character, moves across states (Normal,
+Escape, CSI, etc) and calls the registered refresh handler to deliver
+an updated Frame to the renderer at appropriate moments.
+
+An architecturally noteworthy detail is that the Vterm is completely
+separated from both the rendering machinery and also from input
+methods. This is intentional and lends a high degree of portability to
+the Vterm implementation.
+
+* Useful resources
+
+- [[https://invisible-island.net/xterm/manpage/xterm.html][xterm(1)]]: The manual page for =xterm=
+- [[https://invisible-island.net/xterm/ctlseqs/ctlseqs.html][ctlseqs]]: The control sequences implemented by =xterm=
+- [[https://invisible-island.net/vttest/vttest.html][VTTEST]]: VT compatibility test program homepage
+- [[https://vt100.net/docs/vt220-rm/contents.html][VT220rm]]: VT220 Programmer Reference Manual
+- [[https://manx-docs.org/collections/mds-199909/cd3/term/vt420rm2.pdf][VT420rm]] [pdf]: VT420 Programmer Reference Manual
+- [[http://www.bitsavers.org/pdf/dec/terminal/vt5xx/EK-VT520-RM_VT520_VT525_Programmer_Information_Jul94.pdf][VT520rm]] [pdf]: VT520/VT525 Video Terminal Programmer Information
+- [[https://vt100.net/emu/dec_ansi_parser][VT500-series parser]]: A parser for DEC’s ANSI-compatible video
+  terminals (not used by Zutty, but interesting!)
