@@ -5,7 +5,7 @@ then
     exit 1
 fi
 
-CHECK_DEPS rxvt
+CHECK_DEPS urxvt
 
 FONT=-misc-fixed-medium-r-normal--18-120-100-100-c-90-iso10646-1
-export UUT_EXE="rxvt -geometry 80x24 -fn $FONT -rv +sb"
+export UUT_EXE="urxvt -geometry 80x24 -fn $FONT -rv +sb"

@@ -1,5 +1,6 @@
 #+TITLE: Zutty usage guide
-#+OPTIONS: num:nil val:nil html-style:nil H:3 ^:{}
+#+OPTIONS: author:nil timestamp:nil num:nil val:nil html-style:nil H:3 ^:{}
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="org.css"/>
 
 This document is aimed at all levels of users: experts and non-experts
 alike.

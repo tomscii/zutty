@@ -1,5 +1,6 @@
 #+TITLE: Zutty development guide
-#+OPTIONS: num:nil val:nil html-style:nil H:3 ^:{}
+#+OPTIONS: author:nil timestamp:nil num:nil val:nil html-style:nil H:3 ^:{}
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="org.css"/>
 
 * Hacking on Zutty
 ** Compiling for development or debugging
@@ -327,9 +328,9 @@ image checkpoint):
 *** Performance tests
 
 The performance of Zutty can be verified with the below tests. These
-are to be run manually (similar to how you run any of the [[Correctness
-tests]] on an ad-hoc basis). The goal of these tests is to get a handle
-on performance under repeatable circumstances.
+are to be run manually (similar to how you run any of the
+[[Correctness tests]] on an ad-hoc basis). The goal of these tests is to
+get a handle on performance under repeatable circumstances.
 
 Since everyone's hardware and systems are different, it does not make
 too much sense to compare numbers obtained by different people at
@@ -364,12 +365,12 @@ hitting other debug-only code paths.
   data written to the terminal in the course of the VTTEST cycle (see
   =vttest.sh= among the [[Correctness tests]]). However, instead of
   verifying the correctness of the generated screen output, here we
-  are concerned with measuring the performance of processing the input
-  stream heavy on all kinds of escape sequences. Screen updates are
-  dominated by intra-screen rewrites and relatively little
-  scrolling/paging activity is forced.  Similar to the =cat_dict.sh=
-  test, the input is fed into the terminal a number of times, and
-  overall timing and throughput is measured and calculated.
+  are interested in the performance of processing the input stream
+  heavy on all kinds of escape sequences. Screen updates are dominated
+  by intra-screen rewrites and relatively little scrolling/paging
+  activity is forced.  Similar to the =cat_dict.sh= test, the input is
+  fed into the terminal a number of times, and overall timing and
+  throughput is measured and calculated.
 
 *** The CI test script
 
@@ -755,6 +756,26 @@ changed. In the reset state, =scrollHead= equals =marginTop=, which
 means area =(2)= fills the space between =(1)= and =(4)=, while =(3)=
 is empty.
 
+** Renderer
+
+The task of the Renderer is simple: run the rendering loop in a
+separate thread. This thread executes the CharVdev code, and is
+synchronized on frame updates published by the Vterm. On each update,
+a reference-counted copy of the Frame (using =std::shared_ptr=) is
+made. This ensures that the Frame is decoupled from the Vterm and the
+render thread can keep asynchronously working with it.
+
+The rendering loop blocks on the GL program that does the actual
+drawing of the frame content (=CharVdev::draw ()=), and synchronizes
+the delivery of new frames with screen refreshes (ultimately via
+calling =eglSwapBuffers ()=). This mechanism ensures that there will
+not be work wasted on rendering frames so frequently that they won't
+be all shown on the screen. In effect, the renderer samples the "next
+frame" (as updated in =Renderer::update ()=) with the screen refresh
+rate and delivers it to the screen. The refresh rate is usually either
+30 Hz (low-spec hardware or high resolution screens) or 60 Hz (average
+laptops).
+
 ** Vterm (virtual terminal)
 
 The Vterm module is the actual virtual terminal implementation. That
@@ -783,6 +804,8 @@ the Vterm implementation.
 - [[https://invisible-island.net/xterm/manpage/xterm.html][xterm(1)]]: The manual page for =xterm=
 - [[https://invisible-island.net/xterm/ctlseqs/ctlseqs.html][ctlseqs]]: The control sequences implemented by =xterm=
 - [[https://invisible-island.net/vttest/vttest.html][VTTEST]]: VT compatibility test program homepage
+- [[https://vt100.net/docs/vt100-ug][VT100ug]]: VT100 User Guide
+- [[https://vt100.net/docs/vt102-ug][VT102ug]]: VT102 User Guide
 - [[https://vt100.net/docs/vt220-rm/contents.html][VT220rm]]: VT220 Programmer Reference Manual
 - [[https://manx-docs.org/collections/mds-199909/cd3/term/vt420rm2.pdf][VT420rm]] [pdf]: VT420 Programmer Reference Manual
 - [[http://www.bitsavers.org/pdf/dec/terminal/vt5xx/EK-VT520-RM_VT520_VT525_Programmer_Information_Jul94.pdf][VT520rm]] [pdf]: VT520/VT525 Video Terminal Programmer Information

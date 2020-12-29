@@ -1,5 +1,13 @@
 #+TITLE: Zutty - Zero-cost Unicode Teletype
-#+OPTIONS: toc:nil num:nil val:nil html-style:nil H:3 ^:{}
+#+OPTIONS: author:nil timestamp:nil toc:nil num:nil val:nil html-style:nil H:3 ^:{}
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="doc/org.css"/>
+
+#+BEGIN_CENTER
+*A high-end terminal for low-end systems*
+
+Homepage: https://tomscii.sig7.se/zutty \\
+Source: https://github.com/tomszilagyi/zutty
+#+END_CENTER
 
 Zutty is a terminal emulator for the X Window System, functionally
 similar to several other X terminal emulators such as =xterm=, =rxvt=
@@ -31,9 +39,11 @@ Core documentation (bundled with the Zutty sources):
 - [[./doc/KEYS.org][Key mapping sequences]]: reference on keyboard-induced sequences
 - [[./doc/VTTEST.org][Vttest results]]: documents the level of conformance against Vttest
 
-Articles about Zutty:
+More about Zutty:
 
+- [[https://github.com/tomszilagyi/zutty/wiki/Screenshots][Screenshots]]: Zutty in action
 - [[https://tomscii.sig7.se/2020/11/How-Zutty-works][How Zutty works]]: Rendering a terminal with an OpenGL Compute Shader
+- [[https://tomscii.sig7.se/2020/12/A-totally-biased-comparison-of-Zutty][A totally biased comparison of Zutty]] (to some better-known X terminal emulators)
 
 ** Current status
 
@@ -69,8 +79,8 @@ memory area, allocated on the GPU, is mapped to make it directly
 writable by the application.  This results in a conceptually similar
 interface as to how one could write to the screen by directly poking
 at physical video memory starting at 0xB8000 on the IBM PC. Zutty
-employs an OpenGL "Compute Shader" running on the GPU to read this
-video memory and render output pixels.
+employs an OpenGL Compute Shader running on the GPU to read this video
+memory and render output pixels.
 
 Zutty requires OpenGL ES 3.1 because this is precisely the lowest
 version with support for the Compute Shader, the enabling technology
@@ -90,15 +100,16 @@ additions defined by the de-facto standard =xterm= implementation.
 
 We take great care to ensure that Zutty passes the subset of VTTEST
 screens that we care about (this amounts to the overwhelming majority
-of tests concerned with actual screen rendering). We have an automated
-regression testing setup to run VTTEST in Zutty and verify that the
-output is a pixel-perfect match of the pre-approved video output. You
-can thus expect the terminal output to be /correct/ -- be it driven by
-tmux, emacs (with org-mode, helm, magit, etc.) or whatever else. Zutty
-handles several corner cases (escape sequences) which, sadly enough,
-several popular terminal emulators do not correctly support. Zutty
-also boasts mouse support (substantially modeled after xterm) to make
-the user experience of many terminal applications more interactive.
+of tests concerned with actual screen rendering, and is subject to
+further extension). We have an automated regression testing setup to
+run VTTEST in Zutty and verify that the output is a pixel-perfect
+match of the pre-approved video output. You can thus expect the
+terminal output to be /correct/ -- be it driven by tmux, emacs (with
+org-mode, helm, magit, etc.) or whatever else. Zutty handles several
+corner cases (escape sequences) which, sadly enough, several popular
+terminal emulators do not correctly support. Zutty also boasts mouse
+support (substantially modeled after xterm) to make the user
+experience of many terminal applications more interactive.
 
 In a perfect world, this should not have to be listed as such a
 prominent feature, but unfortunately, it is rather the exception
