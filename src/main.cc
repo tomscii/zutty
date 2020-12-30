@@ -493,6 +493,17 @@ onKeyPress (XEvent& event, XIC& xic, int pty_fd)
       KEYIGN (XK_Hyper_L);
       KEYIGN (XK_Hyper_R);
 
+      // Ignore some funky keys that cause problems on non-US keyboards
+      KEYIGN (XK_Menu);
+      KEYIGN (XK_ISO_Lock);
+      KEYIGN (XK_ISO_Level2_Latch);
+      KEYIGN (XK_ISO_Level3_Shift);  // AltGr
+      KEYIGN (XK_ISO_Level3_Latch);
+      KEYIGN (XK_ISO_Level3_Lock);
+      KEYIGN (XK_ISO_Level5_Shift);
+      KEYIGN (XK_ISO_Level5_Latch);
+      KEYIGN (XK_ISO_Level5_Lock);
+
 #undef KEYIGN
 
    default:
