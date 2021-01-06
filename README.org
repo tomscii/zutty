@@ -49,8 +49,8 @@ More about Zutty:
 
 Zutty started out as a concept to prove the feasibility of using a
 GLES Compute Shader to render a fixed-width text grid entirely in
-graphics hardware. From its modest beginnings as a technological Proof
-of Concept, Zutty has evolved considerably and is now perfectly
+graphics hardware. From its modest beginnings as a technological proof
+of concept, Zutty has evolved considerably and is now perfectly
 capable of serving as the main terminal emulator for heavy users of
 the command line. In particular, this author employs Zutty to run a
 workload of =tmux=, =emacs= (=-nw=), =tig=, =mutt=, =htop=, and a
@@ -80,7 +80,9 @@ writable by the application.  This results in a conceptually similar
 interface as to how one could write to the screen by directly poking
 at physical video memory starting at 0xB8000 on the IBM PC. Zutty
 employs an OpenGL Compute Shader running on the GPU to read this video
-memory and render output pixels.
+memory and render output pixels. The full name of Zutty (dubbed the
+/Zero-cost Unicode Teletype/) stands for the remarkable fact that its
+image rendering is zero-cost from the host CPU perspective.
 
 Zutty requires OpenGL ES 3.1 because this is precisely the lowest
 version with support for the Compute Shader, the enabling technology

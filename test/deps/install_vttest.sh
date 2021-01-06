@@ -2,18 +2,18 @@
 
 cd $(dirname $0)
 
-urlbase=https://tomscii.sig7.se/files/zutty
-vttest=vttest-20200610
+urlbase=ftp://ftp.invisible-island.net/vttest
+vttest=vttest-20201225
 instdir=$(pwd)
 
 echo "===[ Downloading archive:"
-wget ${urlbase}/${vttest}.tar.gz || exit 1;
+wget ${urlbase}/${vttest}.tgz || exit 1;
 
 echo "===[ Checking integrity of downloaded archive:"
-md5sum -c MD5SUM || exit 1;
+grep ${vttest} MD5SUM | md5sum -c - || exit 1;
 
 echo "===[ Unpack, compile, install ..."
-tar xzf ${vttest}.tar.gz || exit 1;
+tar xzf ${vttest}.tgz || exit 1;
 cd ${vttest}
 ./configure --prefix=${instdir} && make && make install || exit 1;
 

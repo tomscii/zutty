@@ -306,8 +306,8 @@ The list of correctness tests (automatically run in sequence by
   [[../test/UTF-8-test.txt][UTF-8 decoder capability and stress test]] by Markus Kuhn)
 - =vttest.sh=: VTTEST screens. Note: This suite depends on a specific
   version of =vttest=, and will complain if the version found does not
-  match. Please run the vttest install script mentioned by the error
-  message, or install manually from [[https://tomscii.sig7.se/files/zutty/vttest-20200610.tar.gz][this archive]].
+  match. Just run the vttest install script mentioned by the error
+  message, and you should be good to go.
 
 Apart from running all the tests via [[The CI test script]] (which you
 should routinely run during development, and especially before opening

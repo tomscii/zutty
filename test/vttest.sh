@@ -4,7 +4,7 @@ cd $(dirname $0)
 source testbase.sh
 
 CHECK_DEPS vttest setxkbmap
-VttestReqVsn="VT100 test program, version 2.7 (20200610)"
+VttestReqVsn="VT100 test program, version 2.7 (20201225)"
 if [[ $(vttest -V) != $VttestReqVsn ]]
 then
     printf "${RED}Error: vttest version mismatch${DFLT}\n"
