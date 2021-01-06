@@ -470,6 +470,13 @@ namespace zutty {
       return cur - posX + nCols;
    }
 
+   inline bool
+   Vterm::isCursorInsideMargins ()
+   {
+      return posX >= hMargin && posX < nColsEff &&
+             posY >= cf->marginTop && posY < cf->marginBottom;
+   }
+
    // N.B.: Only use this to erase (within) one line.
    // Use a series of eraseRow () calls to erase larger areas!
    inline void
@@ -793,8 +800,7 @@ namespace zutty {
    {
       TRACE_FUN;
       int arg = inputOps [0] ? inputOps [0] : 1u;
-      if (posX >= hMargin && posX < nColsEff &&
-          posY >= cf->marginTop && posY < cf->marginBottom)
+      if (isCursorInsideMargins ())
       {
          arg = std::min (arg, nColsEff - posX);
          insertCols (posX, arg);
@@ -807,8 +813,7 @@ namespace zutty {
    {
       TRACE_FUN;
       int arg = inputOps [0] ? inputOps [0] : 1u;
-      if (posX >= hMargin && posX < nColsEff &&
-          posY >= cf->marginTop && posY < cf->marginBottom)
+      if (isCursorInsideMargins ())
       {
          arg = std::min (arg, nColsEff - posX);
          deleteCols (posX, arg);
@@ -1255,15 +1260,13 @@ namespace zutty {
    Vterm::csi_IL ()
    {
       TRACE_FUN;
-      if (posY < cf->marginTop || posY >= cf->marginBottom)
+      if (isCursorInsideMargins ())
       {
-         setState (InputState::Normal);
-         return;
+         int arg = inputOps [0] ? inputOps [0] : 1;
+         arg = std::min (arg, cf->marginBottom - posY);
+         insertRows (posY, arg);
+         inp_CR ();
       }
-      int arg = inputOps [0] ? inputOps [0] : 1;
-      arg = std::min (arg, cf->marginBottom - posY);
-      insertRows (posY, arg);
-      inp_CR ();
       setState (InputState::Normal);
    }
 
@@ -1271,15 +1274,13 @@ namespace zutty {
    Vterm::csi_DL ()
    {
       TRACE_FUN;
-      if (posY < cf->marginTop || posY >= cf->marginBottom)
+      if (isCursorInsideMargins ())
       {
-         setState (InputState::Normal);
-         return;
+         int arg = inputOps [0] ? inputOps [0] : 1;
+         arg = std::min (arg, cf->marginBottom - posY);
+         deleteRows (posY, arg);
+         inp_CR ();
       }
-      int arg = inputOps [0] ? inputOps [0] : 1;
-      arg = std::min (arg, cf->marginBottom - posY);
-      deleteRows (posY, arg);
-      inp_CR ();
       setState (InputState::Normal);
    }
 
@@ -1287,19 +1288,22 @@ namespace zutty {
    Vterm::csi_ICH ()
    {
       TRACE_FUN;
-      uint32_t arg = inputOps [0] ? inputOps [0] : 1;
-      uint32_t len = nColsEff - posX;
-      arg = std::min (arg, len);
-      len -= arg;
-
-      if ((* cf) [cur + arg + len - 1].wrap)
+      if (isCursorInsideMargins ())
       {
-         // maintain wrap bit invariance at EOL
-         (* cf) [cur + arg + len - 1].wrap = 0;
-         (* cf) [cur + len - 1].wrap = 1;
+         uint32_t arg = inputOps [0] ? inputOps [0] : 1;
+         uint32_t len = nColsEff - posX;
+         arg = std::min (arg, len);
+         len -= arg;
+
+         if ((* cf) [cur + arg + len - 1].wrap)
+         {
+            // maintain wrap bit invariance at EOL
+            (* cf) [cur + arg + len - 1].wrap = 0;
+            (* cf) [cur + len - 1].wrap = 1;
+         }
+         cf->moveCells (cur + arg, cur, len);
+         eraseRange (cur, cur + arg);
       }
-      cf->moveCells (cur + arg, cur, len);
-      eraseRange (cur, cur + arg);
       setState (InputState::Normal);
    }
 
@@ -1307,12 +1311,15 @@ namespace zutty {
    Vterm::csi_DCH ()
    {
       TRACE_FUN;
-      uint32_t arg = inputOps [0] ? inputOps [0] : 1;
-      uint32_t len = nColsEff - posX;
-      arg = std::min (arg, len);
-      len -= arg;
-      cf->moveCells (cur, cur + arg, len);
-      eraseRange (cur + len, cur + len + arg);
+      if (isCursorInsideMargins ())
+      {
+         uint32_t arg = inputOps [0] ? inputOps [0] : 1;
+         uint32_t len = nColsEff - posX;
+         arg = std::min (arg, len);
+         len -= arg;
+         cf->moveCells (cur, cur + arg, len);
+         eraseRange (cur + len, cur + len + arg);
+      }
       setState (InputState::Normal);
    }
 

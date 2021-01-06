@@ -212,11 +212,6 @@ that double-width lines are not supported.
 - [X] 11.3.3.10 Test vertical scrolling (IND, RI)
 - [X] 11.3.3.11 Test insert/delete line (IL, DL)
 - [X] 11.3.3.12 Test insert/delete char (ICH, DCH)
-
-Note: when Top/Bottom margins are set, ICH/DCH tests are incorrect
-when compared to the screen text, because the letters cover the whole
-range (a-t). This is bug-compatible with Xterm!
-
 - [X] 11.3.3.13 Test ASCII formatting (BS, CR, TAB)
 - [X] 11.3.4.1 Test Backarrow key (DECBKM)
 

@@ -528,11 +528,9 @@ function VT_11 {
     SNAP vt_11_03_03_11_02b b099fb20c8f42149f431e33058bc4b1e
     IN "\r"
     IN "12\r" # Test insert/delete char (ICH, DCH)
-    echo "N.B.: Same bug in Xterm!"
-    SNAP vt_11_03_03_12_02a 7992fc76ed99837bee083070a9a812ee
+    SNAP vt_11_03_03_12_02a 5a85eef7521c36f13a7e1a645ded7c25
     IN "\r"
-    echo "N.B.: Same bug in XTerm!"
-    SNAP vt_11_03_03_12_02b 5114e8b2c4911412edafc3477aa24b70
+    SNAP vt_11_03_03_12_02b 914ee70e615964d1893c6f11fcea5cca
     IN "\r"
     IN "13\r" # Test ASCII formatting (BS, CR, TAB)
     SNAP vt_11_03_03_13_02 c33aec43990b0a4021648259f659deaf
@@ -578,11 +576,9 @@ function VT_11 {
     SNAP vt_11_03_03_11_04b e5516846b232b14b90d4fb7b7f526eac
     IN "\r"
     IN "12\r" # Test insert/delete char (ICH, DCH)
-    echo "N.B.: Same bug in Xterm!"
-    SNAP vt_11_03_03_12_04a ce043bd68d2b96101d2ed61af275f39a
+    SNAP vt_11_03_03_12_04a 2357a1d1e25eb5b0b869448b9da63ba7
     IN "\r"
-    echo "N.B.: Same bug in Xterm!"
-    SNAP vt_11_03_03_12_04b 9c65d98b94b345613730e41b399fe87f
+    SNAP vt_11_03_03_12_04b 3916258123268ae994a71c85bcb83884
     IN "\r"
     IN "13\r" # Test ASCII formatting (BS, CR, TAB)
     SNAP vt_11_03_03_13_04 6926417da2a660a1f9243c709d41f268
@@ -601,8 +597,7 @@ function VT_11 {
     SNAP vt_11_03_03_10_05b b0ae034833228f898954ab951e3bbeea
     IN "\r"
     IN "11\r\r" # Test insert/delete line (IL, DL)
-    echo "N.B.: Bug in vttest, extra line scroll!"
-    SNAP vt_11_03_03_11_05a 2b3826f46745abcb490c9cd5296f6d4f
+    SNAP vt_11_03_03_11_05a d3e27ca86e54bb4e0b6529f8c8b31da2
     IN "\r\r"
     SNAP vt_11_03_03_11_05b a076afeb72458eb8505a3555b108bc18
     IN "\r"
@@ -626,8 +621,7 @@ function VT_11 {
     SNAP vt_11_03_03_10_06b 0e9e493a6ea7fe4a4dbb8e68be09b084
     IN "\r"
     IN "11\r\r" # Test insert/delete line (IL, DL)
-    echo "N.B.: Bug in vttest, extra line scroll!"
-    SNAP vt_11_03_03_11_06a fa7903f3cf6b236c8b6e3d3bd4f4a881
+    SNAP vt_11_03_03_11_06a cd881e1b8d80c70154ecbdb1686a0939
     IN "\r\r"
     SNAP vt_11_03_03_11_06b 3e567cec673863215fb9cba66f495de1
     IN "\r"
@@ -651,8 +645,7 @@ function VT_11 {
     SNAP vt_11_03_03_10_07b 2c1a82bfdc314387a5076016b11eed13
     IN "\r"
     IN "11\r\r" # Test insert/delete line (IL, DL)
-    echo "N.B.: Bug in vttest, extra line scroll!"
-    SNAP vt_11_03_03_11_07a 415f8ee48b45c8a307626d6f52b9c8d0
+    SNAP vt_11_03_03_11_07a 2881b12c9bffde4ad2f6f3a1a410e4f4
     IN "\r\r"
     SNAP vt_11_03_03_11_07b d6a126d5244b127928549d0457335eb7
     IN "\r"

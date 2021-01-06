@@ -177,6 +177,7 @@ namespace zutty {
       void normalizeCursorPos ();
       uint32_t startOfThisLine ();
       uint32_t startOfNextLine ();
+      bool isCursorInsideMargins ();
       void eraseRange (uint32_t start, uint32_t end);
       void eraseRow (uint16_t pY);
       void copyRow (uint16_t dstY, uint16_t srcY);
