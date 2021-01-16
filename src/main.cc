@@ -284,20 +284,48 @@ sighandler (int sig, siginfo_t* info, void* ucontext)
    }
 }
 
+static void
+setupSignals ()
+{
+   // The SIGCHLD handler is required to detect that the child process
+   // has quit; its handler ensures we won't create zombies.
+   {
+      struct sigaction sa;
+      sa.sa_sigaction = sighandler;
+      sa.sa_flags = SA_SIGINFO | SA_RESTART | SA_NOCLDSTOP;
+      if (sigaction (SIGCHLD, &sa, nullptr) < 0)
+      {
+         using zutty::printArgs;
+         SYS_ERROR ("can't install SIGCHLD handler: sigaction()");
+      }
+   }
+
+   // SIGINT and SIGQUIT might have inherited handlers if Zutty was launched
+   // from an interactive Bash shell. Restore the default handlers to enable
+   // normal functionality (e.g., terminate a program under Zutty with Ctrl-C);
+   // see bash(1) section SIGNALS.
+   {
+      struct sigaction sa;
+      sa.sa_handler = SIG_DFL;
+      sa.sa_flags = 0;
+      if (sigaction (SIGINT, &sa, nullptr) < 0)
+      {
+         using zutty::printArgs;
+         SYS_ERROR ("can't reset SIGINT handler to SIG_DFL: sigaction()");
+      }
+      if (sigaction (SIGQUIT, &sa, nullptr) < 0)
+      {
+         using zutty::printArgs;
+         SYS_ERROR ("can't reset SIGQUIT handler to SIG_DFL: sigaction()");
+      }
+   }
+}
+
 static int
 startShell (const char* const argv[])
 {
    int ptyFd;
    pid_t pid;
-
-   struct sigaction sa;
-   sa.sa_sigaction = sighandler;
-   sa.sa_flags = SA_SIGINFO | SA_RESTART | SA_NOCLDSTOP;
-   if (sigaction (SIGCHLD, &sa, nullptr) < 0)
-   {
-      using zutty::printArgs;
-      SYS_ERROR ("can't install SIGCHLD handler: sigaction()");
-   }
 
    pid = zutty::pty_fork (ptyFd, opts.nCols, opts.nRows);
 
@@ -1051,6 +1079,7 @@ main (int argc, char* argv[])
       strncpy (progPath, argv [1], PATH_MAX-1);
       validateShell (progPath);
    }
+   setupSignals ();
    int pty_fd = startShell (shArgv);
 
    egl_dpy = eglGetDisplay ((EGLNativeDisplayType)x_dpy);

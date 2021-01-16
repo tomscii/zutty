@@ -104,7 +104,9 @@ namespace zutty {
       char pts_name [20];
       int fdm = ptym_open (pts_name, sizeof (pts_name));
 
-      if ((pid = fork ()) < 0)
+      pid = fork ();
+
+      if (pid < 0)
       {
          return -1;
       }
