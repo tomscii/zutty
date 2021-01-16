@@ -170,8 +170,8 @@ make_x_window (Display* x_dpy, EGLDisplay egl_dpy,
    // test eglQueryContext()
    {
       EGLint val;
-      eglQueryContext (egl_dpy, ctx, EGL_CONTEXT_CLIENT_VERSION, &val);
-      assert (val == 2);
+      eglQueryContext (egl_dpy, ctx, EGL_CONTEXT_CLIENT_TYPE, &val);
+      assert (val == EGL_OPENGL_ES_API);
    }
 
    *o_surface = eglCreateWindowSurface (egl_dpy, config,
