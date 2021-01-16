@@ -843,10 +843,7 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed, bool& holdPtyIn)
       destroyed = true;
       return true;
    case KeyPress:
-      if (onKeyPress (event, xic, pty_fd))
-         return true;
-      redraw = true;
-      break;
+      return onKeyPress (event, xic, pty_fd);
    case KeyRelease:
       break;
    case ButtonPress:
