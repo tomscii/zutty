@@ -30,7 +30,7 @@ namespace zutty {
 
       ~CharVdev ();
 
-      void resize (uint16_t pxWidth_, uint16_t pxHeight_);
+      bool resize (uint16_t pxWidth_, uint16_t pxHeight_);
       void draw ();
 
       struct Cell
@@ -41,7 +41,8 @@ namespace zutty {
          uint8_t underline: 1;
          uint8_t inverse: 1;
          uint8_t wrap: 1;
-         uint16_t _fill0: 11;
+         uint8_t dirty: 1;
+         uint16_t _fill0: 10;
          Color fg;
          uint8_t _fill1;
          Color bg;
@@ -49,10 +50,20 @@ namespace zutty {
 
          Cell ():
             bold (0), italic (0), underline (0), inverse (0), wrap (0),
-            fg (opts.fg), bg (opts.bg)
+            dirty (0), fg (opts.fg), bg (opts.bg)
          {}
 
          using Ptr = std::shared_ptr <Cell>;
+
+         bool operator == (const Cell& rhs) const
+         {
+            return memcmp (this, &rhs, sizeof (Cell)) == 0;
+         }
+
+         bool operator != (const Cell& rhs) const
+         {
+            return ! operator == (rhs);
+         }
       };
       static_assert (sizeof (Cell) == 12);
 
@@ -91,6 +102,7 @@ namespace zutty {
 
       void setCursor (const Cursor& cursor);
       void setSelection (const Rect& selection);
+      void setDeltaFrame (bool delta);
 
    private:
       uint16_t nCols;
@@ -107,7 +119,8 @@ namespace zutty {
       GLint A_pos, A_vertexTexCoord;
       GLint compU_glyphPixels, compU_sizeChars, compU_cursorColor;
       GLint compU_cursorPos, compU_cursorStyle;
-      GLint compU_selectRect, compU_selectRectMode;
+      GLint compU_selectRect, compU_selectRectMode, compU_selectDamage;
+      GLint compU_deltaFrame;
       GLint drawU_viewPixels;
 
       const Fontpack& fontpk;

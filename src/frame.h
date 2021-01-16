@@ -15,7 +15,8 @@
 
 namespace zutty {
 
-   class Frame {
+   class Frame
+   {
    public:
       explicit Frame ();
 
@@ -27,7 +28,8 @@ namespace zutty {
 
       void linearizeCellStorage ();
       void copyCells (CharVdev::Cell * const dest);
-
+      void deltaCopyCells (CharVdev::Cell * const dest);
+      void damageDeltaCopy (CharVdev::Cell* dst, uint32_t start, uint32_t end);
       operator bool () const { return cells != nullptr; }
       void freeCells () { cells = nullptr; }
 
@@ -52,6 +54,33 @@ namespace zutty {
       uint16_t scrollHead;   // scrolling area row offset of logical top row
       uint16_t marginTop;    // current margin top (number of rows above)
       uint16_t marginBottom; // current margin bottom (number of rows above + 1)
+
+      struct Damage
+      {
+         uint32_t start = 0;
+         uint32_t end = 0;
+
+         void reset ()
+         {
+            start = 0;
+            end = 0;
+         }
+
+         void add (uint32_t start_, uint32_t end_)
+         {
+            if (start == end) // null state
+            {
+               start = start_;
+               end = end_;
+            }
+            else
+            {
+               start = std::min (start, start_);
+               end = std::max (end, end_);
+            }
+         }
+      };
+      Damage damage;
 
    private:
       CharVdev::Cell::Ptr cells = nullptr;

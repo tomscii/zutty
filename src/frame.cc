@@ -82,6 +82,55 @@ namespace zutty {
       memcpy (p, s + marginBottom * nCols, n * cellSize);
    }
 
+   inline void
+   Frame::damageDeltaCopy (CharVdev::Cell* dst, uint32_t start, uint32_t end)
+   {
+      if (damage.end <= start || end <= damage.start)
+         return; // no intersection
+
+      if (start < damage.start)
+      {
+         dst += (damage.start - start);
+         start = damage.start;
+      }
+
+      if (end > damage.end)
+      {
+         end = damage.end;
+      }
+
+      CharVdev::Cell* const src = cells.get ();
+
+      for (size_t i = 0, j = start; j < end; ++i, ++j)
+      {
+         if (dst [i] != src [j])
+         {
+            dst [i] = src [j];
+            dst [i].dirty = 1;
+         }
+      }
+   }
+
+   void
+   Frame::deltaCopyCells (CharVdev::Cell * const dst)
+   {
+      CharVdev::Cell* p = dst;
+      uint32_t n = marginTop * nCols;
+      damageDeltaCopy (p, 0, n);
+
+      p += n;
+      n = (marginBottom - scrollHead) * nCols;
+      damageDeltaCopy (p, scrollHead * nCols, marginBottom * nCols);
+
+      p += n;
+      n = (scrollHead - marginTop) * nCols;
+      damageDeltaCopy (p, marginTop * nCols, scrollHead * nCols);
+
+      p += n;
+      n = (nRows - marginBottom) * nCols;
+      damageDeltaCopy (p, marginBottom * nCols, nRows * nCols);
+   }
+
    void
    Frame::linearizeCellStorage ()
    {

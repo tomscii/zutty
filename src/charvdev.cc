@@ -28,10 +28,12 @@ layout (binding = 2) uniform lowp sampler2D atlasMap;
 uniform lowp ivec2 glyphPixels;
 uniform lowp ivec2 sizeChars;
 uniform lowp ivec3 cursorColor;
-uniform lowp ivec2 cursorPos;
+uniform lowp ivec4 cursorPos; // .xy: current; .zw: previous
 uniform lowp int cursorStyle;
 uniform lowp ivec4 selectRect;
 uniform lowp int selectRectMode;
+uniform highp ivec2 selectDamage;
+uniform lowp int deltaFrame;
 
 struct Cell
 {
@@ -50,6 +52,16 @@ void main ()
    ivec2 charPos = ivec2 (gl_GlobalInvocationID.xy);
    int idx = sizeChars.x * charPos.y + charPos.x;
    Cell cell = vmem.cells[idx];
+
+   if (deltaFrame == 1)
+   {
+      uint dirty = bitfieldExtract (cell.charData, 21, 1);
+      if (dirty == 0u &&
+          charPos != cursorPos.xy && charPos != cursorPos.zw &&
+          (idx < selectDamage.x || idx >= selectDamage.y))
+         return;
+   }
+   vmem.cells[idx].charData = bitfieldInsert (cell.charData, 0u, 21, 1);
 
    ivec2 charCode =
       ivec2 (bitfieldExtract (cell.charData, 0, 8),  // Lowest byte
@@ -93,7 +105,7 @@ void main ()
    if (crColor == bgColor) {
       crColor = vec3 (1.0) - crColor;
    }
-   if (charPos == cursorPos && cursorStyle == 1) {
+   if (charPos == cursorPos.xy && cursorStyle == 1) {
       fgColor = bgColor;
       bgColor = crColor;
    }
@@ -117,7 +129,7 @@ void main ()
       }
    }
 
-   if (charPos == cursorPos && cursorStyle == 2) {
+   if (charPos == cursorPos.xy && cursorStyle == 2) {
       vec4 pixel = vec4 (crColor, 1.0);
       for (int j = 0; j < glyphPixels.x; j++) {
          ivec2 pxCoords = charPos * glyphPixels + ivec2 (j, 0);
@@ -361,13 +373,13 @@ namespace zutty {
    {
    }
 
-   void
+   bool
    CharVdev::resize (uint16_t pxWidth_, uint16_t pxHeight_)
    {
       assert (cells == nullptr); // no mapping in place
 
       if (pxWidth == pxWidth_ && pxHeight == pxHeight_)
-         return;
+         return false;
 
       pxWidth = pxWidth_;
       pxHeight = pxHeight_;
@@ -398,24 +410,45 @@ namespace zutty {
       glCheckError ();
 
       setupStorageBuffer <Cell> (0, B_text, nRows * nCols);
+
+      return true;
    }
 
    void
    CharVdev::setCursor (const Cursor& cursor)
    {
+      static uint16_t prevPosX = 0;
+      static uint16_t prevPosY = 0;
+
       glUseProgram (P_compute);
       glUniform3i (compU_cursorColor,
                    cursor.color.red, cursor.color.green, cursor.color.blue);
-      glUniform2i (compU_cursorPos, cursor.posX, cursor.posY);
+      glUniform4i (compU_cursorPos, cursor.posX, cursor.posY, prevPosX, prevPosY);
+      prevPosX = cursor.posX;
+      prevPosY = cursor.posY;
       glUniform1i (compU_cursorStyle, static_cast <uint8_t> (cursor.style));
    }
 
    void
    CharVdev::setSelection (const Rect& sel)
    {
+      static Rect prev;
+      Rect damage (std::min (sel.tl, prev.tl), std::max (sel.br, prev.br));
+      uint32_t damageStart = nCols * damage.tl.y + damage.tl.x;
+      uint32_t damageEnd = nCols * damage.br.y + damage.br.x + 1;
+      prev = sel;
+
       glUseProgram (P_compute);
       glUniform4i (compU_selectRect, sel.tl.x, sel.tl.y, sel.br.x, sel.br.y);
       glUniform1i (compU_selectRectMode, static_cast <int> (sel.rectangular));
+      glUniform2i (compU_selectDamage, damageStart, damageEnd);
+   }
+
+   void
+   CharVdev::setDeltaFrame (bool delta)
+   {
+      glUseProgram (P_compute);
+      glUniform1i (compU_deltaFrame, delta ? 1 : 0);
    }
 
    void
@@ -471,7 +504,7 @@ namespace zutty {
       cells = reinterpret_cast <Cell *> (
                  glMapBufferRange (GL_SHADER_STORAGE_BUFFER,
                                    0, sizeof (Cell) * nRows * nCols,
-                                   GL_MAP_WRITE_BIT));
+                                   GL_MAP_READ_BIT | GL_MAP_WRITE_BIT));
 
       return CharVdev::Mapping (nCols, nRows, cells);
    };
@@ -502,6 +535,8 @@ namespace zutty {
       compU_cursorStyle = glGetUniformLocation (P_compute, "cursorStyle");
       compU_selectRect = glGetUniformLocation (P_compute, "selectRect");
       compU_selectRectMode = glGetUniformLocation (P_compute, "selectRectMode");
+      compU_selectDamage = glGetUniformLocation (P_compute, "selectDamage");
+      compU_deltaFrame = glGetUniformLocation (P_compute, "deltaFrame");
 
       logT << "compute program:"
            << " uniform glyphPixels=" << compU_glyphPixels
@@ -511,6 +546,8 @@ namespace zutty {
            << " cursorStyle=" << compU_cursorStyle
            << " selectRect=" << compU_selectRect
            << " selectRectMode=" << compU_selectRectMode
+           << " selectDamage=" << compU_selectDamage
+           << " deltaFrame=" << compU_deltaFrame
            << std::endl;
 
       P_draw = glCreateProgram ();

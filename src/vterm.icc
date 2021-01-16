@@ -118,6 +118,7 @@ namespace zutty {
    {
       cf->selection = snapSelection (selection, selectSnapTo);
       onRefresh (* cf);
+      cf->damage.reset ();
    }
 
    inline const MouseTrackingState&
@@ -240,6 +241,7 @@ namespace zutty {
          (* cf) [k] = attrs;
          (* cf) [k].uc_pt = ch;
       }
+      cf->damage.add (0, nRows * nCols);
    }
 
    inline void
@@ -345,6 +347,7 @@ namespace zutty {
       {
          frame_alt = Frame (winPx, winPy, nCols, nRows);
          cf = &frame_alt;
+         cf->damage.add (0, nRows * nCols);
 
          savedCursor_DEC = &savedCursor_DEC_alt;
          altScreenBufferMode = true;
@@ -353,6 +356,7 @@ namespace zutty {
       {
          frame_pri.resize (winPx, winPy, nCols, nRows);
          cf = &frame_pri;
+         cf->damage.add (0, nRows * nCols);
          frame_alt.freeCells ();
 
          savedCursor_DEC_alt.isSet = false;
@@ -484,6 +488,7 @@ namespace zutty {
    {
       CharVdev::Cell* ca = &((* cf) [start]);
       CharVdev::Cell*const cz = ca - start + end;
+      cf->damage.add (start, end);
       while (ca < cz)
          *ca++ = attrs;
    }
@@ -609,6 +614,7 @@ namespace zutty {
          csi_ICH ();
       }
 
+      cf->damage.add (cur, cur + 1);
       auto& c = (* cf) [cur];
       c = attrs;
       c.uc_pt = utf8dec.getUnicode ();
@@ -1112,6 +1118,7 @@ namespace zutty {
                cf->scrollHead = cf->marginTop;
             eraseRow (cf->marginBottom - 1);
          }
+         cf->damage.add (cf->marginTop * nCols, cf->marginBottom * nCols);
          setCur ();
       }
       setState (InputState::Normal);
@@ -1138,6 +1145,7 @@ namespace zutty {
                cf->scrollHead = cf->marginBottom - 1;
             eraseRow (cf->marginTop);
          }
+         cf->damage.add (cf->marginTop * nCols, cf->marginBottom * nCols);
          setCur ();
       }
       setState (InputState::Normal);
@@ -1364,6 +1372,7 @@ namespace zutty {
             cf->marginTop = newMarginTop;
             cf->marginBottom = newMarginBottom;
             cf->scrollHead = cf->marginTop;
+            cf->damage.add (0, nRows * nCols);
          }
       }
 

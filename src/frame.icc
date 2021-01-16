@@ -57,6 +57,7 @@ namespace zutty {
    {
       memcpy (cells.get () + dstIx, cells.get () + srcIx,
               count * sizeof (CharVdev::Cell));
+      damage.add (dstIx, dstIx + count);
    }
 
    inline void
@@ -64,6 +65,7 @@ namespace zutty {
    {
       memmove (cells.get () + dstIx, cells.get () + srcIx,
                count * sizeof (CharVdev::Cell));
+      damage.add (dstIx, dstIx + count);
    }
 
 } // namespace zutty

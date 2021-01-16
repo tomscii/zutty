@@ -52,6 +52,7 @@ namespace zutty {
       charVdev = std::make_unique <CharVdev> (fontpk);
 
       Frame lastFrame;
+      bool delta = false;
 
       while (1)
       {
@@ -65,19 +66,25 @@ namespace zutty {
          if (done)
             return;
 
+         delta = (lastFrame.seqNo + 1 == nextFrame.seqNo);
          lastFrame = nextFrame;
          lk.unlock ();
 
-         charVdev->resize (lastFrame.winPx, lastFrame.winPy);
+         if (charVdev->resize (lastFrame.winPx, lastFrame.winPy))
+            delta = false;
 
          {
             CharVdev::Mapping m = charVdev->getMapping ();
             assert (m.nCols == lastFrame.nCols);
             assert (m.nRows == lastFrame.nRows);
 
-            lastFrame.copyCells (m.cells);
+            if (delta)
+               lastFrame.deltaCopyCells (m.cells);
+            else
+               lastFrame.copyCells (m.cells);
          }
 
+         charVdev->setDeltaFrame (delta);
          charVdev->setCursor (lastFrame.cursor);
          charVdev->setSelection (lastFrame.selection);
          charVdev->draw ();
