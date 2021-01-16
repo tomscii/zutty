@@ -85,7 +85,7 @@ namespace zutty {
          double side = sqrt (total_pixels);
          nx = side / px;
          ny = side / py;
-         while (nx * ny < n_glyphs)
+         while ((unsigned) nx * ny < n_glyphs)
          {
             if (px * nx < py * ny)
                ++nx;
