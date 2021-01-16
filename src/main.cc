@@ -13,6 +13,7 @@
 #include <X11/Xatom.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
+#include <X11/Xmu/Error.h>
 
 #include "base64.h"
 #include "fontpack.h"
@@ -50,6 +51,8 @@ static std::unique_ptr <Fontpack> fontpk = nullptr;
 static std::unique_ptr <Renderer> renderer = nullptr;
 static std::unique_ptr <Vterm> vt = nullptr;
 static std::unique_ptr <zutty::SelectionManager> selMgr = nullptr;
+
+static Atom wmDeleteMessage;
 
 static void
 make_x_window (Display* x_dpy, EGLDisplay egl_dpy,
@@ -158,6 +161,9 @@ make_x_window (Display* x_dpy, EGLDisplay egl_dpy,
       XSetStandardProperties (x_dpy, win, name, name,
                               None, nullptr, 0, &sizehints);
    }
+
+   wmDeleteMessage = XInternAtom (x_dpy, "WM_DELETE_WINDOW", False);
+   XSetWMProtocols (x_dpy, win, &wmDeleteMessage, 1);
 
    eglBindAPI (EGL_OPENGL_ES_API);
 
@@ -803,6 +809,18 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed, bool& holdPtyIn)
       exposed = true;
       redraw = true;
       break;
+   case ClientMessage:
+      if ((unsigned long) event.xclient.data.l [0] == wmDeleteMessage)
+      {
+         logT << "WM Delete message" << std::endl;
+         destroyed = true;
+         return true;
+      }
+      else
+      {
+         logT << "ClientMessage" << std::endl;
+      }
+      break;
    case ConfigureNotify:
       vt->resize (event.xconfigure.width, event.xconfigure.height);
       redraw = true;
@@ -1000,6 +1018,30 @@ printGLInfo (EGLDisplay egl_dpy)
              << std::endl;
 }
 
+static int
+handleXError (Display* dpy, XErrorEvent* ev)
+{
+   logE << "Exiting on received X error event:" << std::endl;
+   XmuPrintDefaultErrorMessage(dpy, ev, stdout);
+   fflush (stdout);
+
+   renderer = nullptr; // ~Renderer () shuts down renderer thread
+   exit (1);
+   return 0;
+}
+
+static int
+handleXIOError (Display* dpy)
+{
+   int err = errno;
+   logE << "Fatal IO error " << err << " (" << strerror (err)
+        << ") on X server " << DisplayString (dpy) << std::endl;
+
+   renderer = nullptr; // ~Renderer () shuts down renderer thread
+   exit (1);
+   return 0;
+}
+
 int
 main (int argc, char* argv[])
 {
@@ -1043,6 +1085,9 @@ main (int argc, char* argv[])
                 << std::endl;
       return -1;
    }
+
+   XSetErrorHandler(handleXError);
+   XSetIOErrorHandler(handleXIOError);
 
    opts.initialize (&argc, argv);
 
