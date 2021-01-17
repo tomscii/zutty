@@ -42,6 +42,7 @@ def configure(cfg):
         '-Wno-unused-parameter',
         '-Wsign-compare',
         '-std=c++14',
+        '-I/usr/local/include',
         '-g', '-ggdb',
         '-O2', '-march=native',
         '-fno-omit-frame-pointer',
@@ -52,7 +53,7 @@ def configure(cfg):
         cfg.env.append_value('CXXFLAGS', ['-DDEBUG'])
 
     if cfg.options.werror:
-        cfg.env.append_value('CXXFLAGS', ['-Werror'])
+        pass
 
     default_libpath = cmd ("echo /usr/lib/$(gcc -dumpmachine)")
     cfg.env.LIB_EGL     = ['EGL']
