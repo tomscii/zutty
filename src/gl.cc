@@ -9,6 +9,7 @@
  * See the file LICENSE for the full license.
  */
 
+#include <string>
 #include "gl.h"
 
 namespace gl {
