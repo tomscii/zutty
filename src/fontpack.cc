@@ -184,7 +184,7 @@ namespace zutty {
       sstate.fontname = fontname.data ();
       sstate.fontnamelen = fontname.size ();
 
-      int flags = FTW_DEPTH | FTW_PHYS;
+      int flags = FTW_DEPTH;
       if (nftw (fontpath.c_str (), fontFileFilter, 16, flags) == -1)
       {
          SYS_ERROR ("Cannot walk file tree; nftw()");
