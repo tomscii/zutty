@@ -79,8 +79,8 @@ namespace {
          return 0;
       }
 
-      // Filter by file type - only regular files
-      if (tflag != FTW_F)
+      // Filter by file type - only regular files and symlinks
+      if (tflag != FTW_F && tflag != FTW_SL)
          return 0;
 
       // Filter by extension
@@ -184,11 +184,26 @@ namespace zutty {
       sstate.fontname = fontname.data ();
       sstate.fontnamelen = fontname.size ();
 
-      int flags = FTW_DEPTH | FTW_PHYS;
-      if (nftw (fontpath.c_str (), fontFileFilter, 16, flags) == -1)
+      size_t pos = 0;
+      size_t nextpos = 0;
+      do
       {
-         SYS_ERROR ("Cannot walk file tree; nftw()");
-      }
+         nextpos = fontpath.find (':', pos);
+         size_t len = (nextpos == std::string::npos)
+                    ? std::string::npos
+                    : nextpos - pos;
+
+         std::string fontpath1 = fontpath.substr (pos, len);
+         logT << "Looking for candidates under " << fontpath1 << std::endl;
+         pos = nextpos + 1;
+
+         int flags = FTW_DEPTH;
+         if (nftw (fontpath1.c_str (), fontFileFilter, 32, flags) == -1)
+         {
+            SYS_ERROR ("Cannot walk file tree; nftw()");
+         }
+
+      } while (!sstate.regular.size () && nextpos != std::string::npos);
 
       if (! sstate.regular.size ())
       {

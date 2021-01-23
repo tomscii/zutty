@@ -340,9 +340,9 @@ specified font name) will be used to assign the files to each variant
 sought after.
 
 For example, the default font is =9x18=. This is one of the "misc
-fixed" fonts. After seeing that the font name is "9x18", Zutty will
+fixed" fonts. After seeing that the font name is =9x18=, Zutty will
 search under the font path =/usr/share/fonts= for files starting with
-"9x18". It will find =9x18.pcf.gz= and =9x18B.pcf.gz=, both under
+=9x18=. It will find =9x18.pcf.gz= and =9x18B.pcf.gz=, both under
 =/usr/share/fonts/X11/misc=. Based on the filenames, Zutty will
 recognize the first file as the regular variant, and the second file
 as the bold variant. Other variants are absent; use of text attributes
@@ -379,6 +379,10 @@ files will be searched. It is seldom necessary to change this, but
 might be useful to try some new font you downloaded from the Internet
 (and have not yet installed to a system-wide location).
 
+Hint: you can specify more than one root, separated by colons. These
+will be searched in order (left to right) until the specified font is
+found.
+
 *** Recommended fonts
 
 The author of Zutty prefers the so-called "misc fixed" fonts that were
@@ -414,6 +418,32 @@ fonts. For each package, install it and pass the specified name(s) to
 Note that the quotation marks are required when passing an argument
 value with a space, e.g.: =zutty -font "Anonymous Pro"=
 
+*** Making fonts discoverable
+
+Zutty has a simple heuristic to identify the font files to load for
+each variant of a given size of a requested font face. This will work
+for lots of fonts (see above), but inevitably, certain fonts will have
+naming schemes that evade this mechanism. In such a case, manually
+renaming the files on your system will help. An even better method is
+to create symlinks (symbolic links) to the font files with alternative
+names that Zutty will be able to correctly identify. This has the
+advantage of preserving the original files.
+
+For example, [[https://people.mpi-inf.mpg.de/~uwe/misc/uw-ttyp0/][UW ttyp0]] is a family of freely available monospace bitmap
+fonts that works well with Zutty. You might want to consider it as an
+alternative to the "misc fixed" family. However, installing these
+fonts will yield names such as (for the 18-point, Unicode encoded
+variant): =t0-18-uni.pcf.gz= (regular), =t0-18b-uni.pcf.gz= (bold),
+=t0-18i-uni.pcf.gz= (italic). The solution is to add symlinks such as:
+
+- =t0-18.pcf.gz -> t0-18-uni.pcf.gz=
+- =t0-18b.pcf.gz -> t0-18b-uni.pcf.gz=
+- =t0-18i.pcf.gz -> t0-18i-uni.pcf.gz=
+
+These symlinks will allow you to use this font in Zutty by starting it
+via =-font t0-18=. Add a similar set of symlinks for each point size
+you want to be able to use.
+
 * Persistent configuration
 
 The configuration options documented in the previous chapter
@@ -432,9 +462,9 @@ want to change.
 : Zutty.geometry:                120x45
 : Zutty.altScroll:               true
 : Zutty.selection:               clipboard
-: Zutty.font:                    SourceCodePro
+: Zutty.font:                    Inconsolata
 : Zutty.fontsize:                18
-: Zutty.fontpath:                /home/tom/doc/fonts
+: Zutty.fontpath:                /home/tom/root/share/fonts:/usr/share/fonts
 : Zutty.fg:                      00ff80
 : Zutty.bg:                      203040
 
