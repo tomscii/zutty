@@ -27,8 +27,40 @@ namespace {
    // magic byte to act as a placeholder for the Modifier Code:
    #define MC "\xff"
 
+   const InputSpec is_Alt [] =
+   {
+      {Key::K0,          ESC "0"},
+      {Key::K1,          ESC "1"},
+      // N.B.: Keys 2-8 generate special codes, do not override
+      {Key::K9,          ESC "9"},
+      {Key::Backspace,   ESC "\x7f"},
+      {Key::Tab,         ESC "\t"},
+      {Key::NONE,        nullptr},
+   };
+
+   const InputSpec is_Control [] =
+   {
+      {Key::K0,          CSI "27;5;48~"},
+      {Key::K1,          CSI "27;5;49~"},
+      // N.B.: Keys 2-8 generate special codes, do not override
+      {Key::K9,          CSI "27;5;57~"},
+      {Key::Tab,         CSI "27;5;9~"},
+      {Key::Return,      CSI "27;5;13~"},
+      {Key::NONE,        nullptr},
+   };
+
+   const InputSpec is_Shift [] =
+   {
+      {Key::Tab,         CSI "Z"},
+      {Key::NONE,        nullptr},
+   };
+
    const InputSpec is_Ansi [] =
    {
+      {Key::K0,          "0"},
+      {Key::K1,          "1"},
+      // N.B.: Keys 2-8 generate special codes, do not override
+      {Key::K9,          "9"},
       {Key::Backspace,   "\x7f"},
       {Key::Tab,         "\t"},
       {Key::Return,      "\r"},
@@ -263,6 +295,12 @@ namespace {
    const InputSpec is_BackspaceKey_BkSp [] =
    {
       {Key::Backspace,   "\b"},
+      {Key::NONE,        nullptr},
+   };
+
+   const InputSpec is_Alt_BackspaceKey_BkSp [] =
+   {
+      {Key::Backspace,   ESC "\b"},
       {Key::NONE,        nullptr},
    };
 
@@ -534,6 +572,21 @@ namespace zutty {
       pty_resize (ptyFd, nCols, nRows);
    }
 
+   std::string
+   Vterm::getLocalEcho (const unsigned char *const begin,
+                        const unsigned char *const end)
+   {
+      std::ostringstream oss;
+      for (const unsigned char* p = begin; p < end; ++p)
+      {
+         if (*p == '\r' || *p >= ' ')
+            oss << *p;
+         else
+            oss << '^' << (char)(*p + 0x40);
+      }
+      return oss.str ();
+   }
+
    int
    Vterm::writePty (VtKey key, VtModifier modifiers_)
    {
@@ -575,6 +628,23 @@ namespace zutty {
       {
          { [this] () { return (autoNewlineMode == true); },
            is_ReturnKey_ANL
+         },
+
+         { [this] () { return ((modifiers & Mod::alt) != Mod::none &&
+                               bkspSendsDel == false); },
+           is_Alt_BackspaceKey_BkSp
+         },
+
+         { [this] () { return ((modifiers & Mod::alt) != Mod::none); },
+           is_Alt
+         },
+
+         { [this] () { return ((modifiers & Mod::control) != Mod::none); },
+           is_Control
+         },
+
+         { [this] () { return ((modifiers & Mod::shift) != Mod::none); },
+           is_Shift
          },
 
          { [this] () { return (bkspSendsDel == false); },
@@ -684,7 +754,13 @@ namespace zutty {
       break
 
    void
-   Vterm::processInput (unsigned char* input, int inputSize)
+   Vterm::processInput (const std::string& str)
+   {
+      processInput ((unsigned char*)str.c_str (), str.length ());
+   }
+
+   void
+   Vterm::processInput (const unsigned char *const input, int inputSize)
    {
       lastEscBegin = 0;
       lastNormalBegin = 0;

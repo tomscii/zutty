@@ -157,19 +157,23 @@ function ALT_SENDS_ESC {
     IN "printf \"\\\\e[H\\\\e[J\" && cat -vT\r"
 
     IN "Testing Alt-sends-Esc in normal mode. \D1"
-    IN "a A \Aa \AA \C\Aa \C\AA 2 \A2 \C\A2 # \A# \C\A#"
-    IN "/ ? \A/ \A? \C\A/ \C\A?"
+    IN "a A \Aa \AA \C\Aa \C\AA 2 \A2 \C\A2 # \A# \C\A# "
+    IN "/ ? \A/ \A? \C\A/ \C\A? "
+    IN "\A0 \A1 \A2 \A3 \A4 \A5 \A6 \A7 \A8 \A9 "
+    IN "\C\A2 \C\A3 \C\A5 \C\A6 \C\A7 "
 
-    SNAP keys_06 86428d69167433775c8481df47f15a87
+    SNAP keys_06 fa78d452ab0fde532cc24ffcd8bbbf7f
 
     IN "\Cd\Cd\D3"
     IN "stty -echo && printf \"\\\\e[H\\\\e[J\\\\e[12l\" && cat -vT\r"
 
     IN "Testing Alt-sends-Esc with local echo on. \D1"
     IN "a A \Aa \AA \C\Aa \C\AA 2 \A2 \C\A2 # \A# \C\A# "
-    IN "/ ? \A/ \A? \C\A/ \C\A?"
+    IN "/ ? \A/ \A? \C\A/ \C\A? "
+    IN "\A0 \A1 \A2 \A3 \A4 \A5 \A6 \A7 \A8 \A9 "
+    IN "\C\A2 \C\A3 \C\A5 \C\A6 \C\A7 "
 
-    SNAP keys_07 be8f0c856c9e80a14c9e0f959d78b6f9
+    SNAP keys_07 67051d652516e3a0e2198b9e28219c25
 
     IN "\Cd\Cd\D3"
     IN "printf \"\\\\e[12h\" && stty echo\r"
@@ -270,6 +274,27 @@ function COMPOSE_CHARS {
     IN " \[Multi_key]??"
 
     SNAP keys_08 60554ad0c7ff32768f1536016cafde4d
+
+    IN "\Cd\Cd\D3"
+}
+
+function SPECIAL_KEYS {
+    IN "printf \"\\\\e[H\\\\e[J\" && cat -vT\r"
+
+    IN "Testing special key combinations. \D1"
+
+    # xvkbd seemingly cannot generate Alt-BackSpace and Shift-Tab
+
+    IN "Alt-Tab: \A\[Tab] \D2"
+    IN "Ctrl-Tab: \C\[Tab] \D2"
+    IN "Ctrl-Return: \C\[Return] \D2"
+    IN "Ctrl-0: \C\[0] \D2"
+    IN "Ctrl-1: \C\[1] \D2"
+    IN "Ctrl-9: \C\[9] \D2"
+
+    SNAP keys_09 60aa7c174a4d4aef5e3d8238d9fd7e35
+
+    IN "\Cd\Cd\D3"
 }
 
 INS_DEL_PGUPDN
@@ -278,3 +303,4 @@ CURSOR_KEYS
 KEYPAD_KEYS
 ALT_SENDS_ESC
 COMPOSE_CHARS
+SPECIAL_KEYS

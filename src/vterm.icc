@@ -398,26 +398,13 @@ namespace zutty {
          static uint8_t wbuf [2] = { '\e', '\0' };
          wbuf [1] = ch;
          if (localEcho)
-         {
-            static uint8_t pbuf [4] = { '^', '[', '\0', '\0' };
-            uint8_t k = 3;
-            if (ch >= ' ')
-               pbuf [2] = ch;
-            else
-            {
-               pbuf [2] = '^';
-               pbuf [3] = ch + 0x40;
-               k = 4;
-            }
-            logT << "pty pbuf: " << dumpBuffer (pbuf, pbuf + k);
-            processInput (pbuf, k);
-         }
+            processInput (getLocalEcho (wbuf, wbuf + 2));
          return write (ptyFd, wbuf, 2);
       }
       else
       {
          if (localEcho)
-            processInput (uch, 1);
+            processInput (getLocalEcho (uch, uch + 1));
          return write (ptyFd, &ch, 1);
       }
    }
@@ -429,7 +416,7 @@ namespace zutty {
       auto len = strlen (cstr);
       logT << "pty write: " << dumpBuffer (ucstr, ucstr + len);
       if (localEcho)
-         processInput (ucstr, len);
+         processInput (getLocalEcho (ucstr, ucstr + len));
       return write (ptyFd, cstr, len);
    }
 

@@ -433,9 +433,14 @@ onKeyPress (XEvent& event, XIC& xic, int pty_fd)
          vt->writePty (VtKey, mod);             \
          return false
 
+      KEYSEND (XK_0,                Key::K0);
+      KEYSEND (XK_1,                Key::K1);
+      // N.B.: Keys 2-8 generate special codes, do not override
+      KEYSEND (XK_9,                Key::K9);
       KEYSEND (XK_Return,           Key::Return);
       KEYSEND (XK_BackSpace,        Key::Backspace);
       KEYSEND (XK_Tab,              Key::Tab);
+      KEYSEND (XK_ISO_Left_Tab,     Key::Tab);
       KEYSEND (XK_Insert,           Key::Insert);
       KEYSEND (XK_Delete,           Key::Delete);
       KEYSEND (XK_Home,             Key::Home);

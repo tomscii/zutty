@@ -166,8 +166,25 @@ Modifiers are not applied in VT52 mode.
 
 Hitting any ordinary key (letters, punctuation symbols, etc.) not
 shown in the above tables while holding Alt will result in the key
-being prefixed by the ESC character. This is consistent with the "Meta
-sends Escape" setting of xterm, and allows programs such as Emacs to
-recognize keyboard bindings containing Alt (or Meta). However, this
-will probably need to be made configurable (to be able to turn it off)
-in case Zutty gains a more diverse userbase.
+being prefixed by the ESC character. This is also applied to some
+special keys, e.g., Alt-Tab sends =ESC TAB= and Alt-Backspace sends
+=ESC DEL= or =ESC \b= depending on the current DECBKM mode setting.
+This handling is consistent with enabling the "Meta sends Escape"
+setting of xterm, and allows programs such as terminal-mode Emacs to
+recognize keyboard bindings containing Alt (or Meta).
+
+* Special key combinations
+
+Certain key combinations generate special sequences according to the
+below table. These settings correspond to the default behaviour of
+xterm, and enable e.g., terminal-mode Emacs to correctly recognize
+these combinations.
+
+| Combination    | Sequence          |
+|----------------+-------------------|
+| Shift-TAB      | CSI Z             |
+| Control-TAB    | CSI 27 ; 5 ; 9 ~  |
+| Control-Return | CSI 27 ; 5 ; 13 ~ |
+| Control-0      | CSI 27 ; 5 ; 48 ~ |
+| Control-1      | CSI 27 ; 5 ; 49 ~ |
+| Control-9      | CSI 27 ; 5 ; 57 ~ |

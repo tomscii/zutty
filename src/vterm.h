@@ -29,6 +29,7 @@ namespace zutty {
       Insert, Delete, Home, End, PageUp, PageDown,
       F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
       F13, F14, F15, F16, F17, F18, F19, F20,
+      K0, K1, K9,
 
       KP_F1, KP_F2, KP_F3, KP_F4,
       KP_Insert, KP_Delete,
@@ -124,7 +125,10 @@ namespace zutty {
       void pasteSelection (const std::string& utf8_selection);
 
    private:
-      void processInput (unsigned char* input, int size);
+      std::string getLocalEcho (const unsigned char *const begin,
+                                const unsigned char *const end);
+      void processInput (const unsigned char *const input, int size);
+      void processInput (const std::string& str);
 
       // table entry for deciding which set of InputSpecs to use
       struct InputSpecTable
