@@ -23,8 +23,13 @@ Then, compile Zutty as usual:
 
 : ./waf [-j <JOBS>]
 
+The build will produce an executable named =zutty.dbg= (as opposed to
+=zutty= for normal builds). This allows you to keep a normal build and
+a debug build from the same source side by side each other, which
+might prove useful while working on some debugging-intensive problem.
+
 Normally, you will not want to install the development build
-system-wide. Run it from an existing terminal as =./build/src/zutty
+system-wide. Run it from an existing terminal as =./build/src/zutty.dbg
 -v= (plus any other options) to receive verbose debugging logs in the
 console.
 

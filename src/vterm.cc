@@ -248,6 +248,7 @@ namespace {
       /* TODO is there a Begin key? */  {Key::KP_Begin,    CSI "E"},
       {Key::Home,        CSI "H"},      {Key::KP_Home,     CSI "H"},
       {Key::End,         CSI "F"},      {Key::KP_End,      CSI "F"},
+      {Key::NONE,        nullptr},
    };
 
    const InputSpec is_Appl_CursorKeys [] =
@@ -271,6 +272,7 @@ namespace {
       /* TODO is there a Begin key? */       {Key::KP_Begin,  CSI "1;" MC "E"},
       {Key::Home,        CSI "1;" MC "H"},   {Key::KP_Home,   CSI "1;" MC "H"},
       {Key::End,         CSI "1;" MC "F"},   {Key::KP_End,    CSI "1;" MC "F"},
+      {Key::NONE,        nullptr},
    };
 
    const InputSpec is_VT52_CursorKeys [] =
@@ -523,6 +525,7 @@ namespace zutty {
    void
    Vterm::setOscHandler (const OscHandlerFn& onOsc_)
    {
+      haveOscHandler = true;
       onOsc = onOsc_;
    }
 
@@ -601,7 +604,7 @@ namespace zutty {
       const auto& spec = getInputSpec (key);
       if (modifiers == VtModifier::none)
       {
-         return writePty (spec.input);
+         return writePty (spec.input, true);
       }
       else
       {
@@ -614,7 +617,7 @@ namespace zutty {
             else
                buf [k++] = *p;
          buf [k] = '\0';
-         return writePty (buf);
+         return writePty (buf, true);
       }
    }
 
@@ -739,8 +742,16 @@ namespace zutty {
 #define COLLECT_NUMERIC_PARAMS                                        \
    case '0': case '1': case '2': case '3': case '4':                  \
    case '5': case '6': case '7': case '8': case '9':                  \
-      inputOps [nInputOps - 1] *= 10;                                 \
-      inputOps [nInputOps - 1] += ch - '0';                           \
+      if (inputOps [nInputOps - 1] < 429496704)                       \
+      {                                                               \
+         inputOps [nInputOps - 1] *= 10;                              \
+         inputOps [nInputOps - 1] += ch - '0';                        \
+      }                                                               \
+      else                                                            \
+      {                                                               \
+         logE << "inputOp overflow!" << std::endl;                    \
+         setState (InputState::Normal);                               \
+      }                                                               \
       break;                                                          \
    case ';':                                                          \
       if (nInputOps < maxEscOps)                                      \
@@ -844,6 +855,7 @@ namespace zutty {
             case 'K': csi_EL (); break;
             case 'Y': setState (InputState::VT52_CUP_Arg1); break;
             case 'Z': writePty ("\e/Z"); break;
+            case 'c': esc_RIS (); break; // allow "reset" command to escape VT52
             default: unhandledInput (ch); break;
             }
             break;
@@ -860,7 +872,8 @@ namespace zutty {
             switch (ch)
             {
             case '\x18': case '\x1a': // CAN and SUB interrupts ESC sequence
-               setState (InputState::Normal); break;
+               setState (InputState::Normal);
+               break;
             case '\e': // ESC restarts ESC sequence
                inputOps [0] = 0;
                nInputOps = 1;
@@ -1094,13 +1107,21 @@ namespace zutty {
             switch (ch)
             {
             case '\e': setState (InputState::DCS_Esc); break;
-            default: argBuf.push_back (ch); break;
+            default:
+               if (argBuf.size () < 4095)
+                  argBuf.push_back (ch);
+               else
+               {
+                  logE << "DCS argument string overflow" << std::endl;
+                  setState (InputState::Normal);
+               }
+               break;
             }
             break;
          case InputState::DCS_Esc:
             switch (ch)
             {
-            case '\\': handle_DCS (); break;
+            case '\\': traceNormalInput (); handle_DCS (); break;
             default:
                argBuf.push_back ('\e');
                argBuf.push_back (ch);
@@ -1111,15 +1132,23 @@ namespace zutty {
          case InputState::OSC:
             switch (ch)
             {
-            case '\a': handle_OSC (); break;
+            case '\a': traceNormalInput (); handle_OSC (); break;
             case '\e': setState (InputState::OSC_Esc); break;
-            default: argBuf.push_back (ch); break;
+            default:
+               if (argBuf.size () < 4095)
+                  argBuf.push_back (ch);
+               else
+               {
+                  logE << "OSC argument string overflow" << std::endl;
+                  setState (InputState::Normal);
+               }
+               break;
             }
             break;
          case InputState::OSC_Esc:
             switch (ch)
             {
-            case '\\': handle_OSC (); break;
+            case '\\': traceNormalInput (); handle_OSC (); break;
             default:
                argBuf.push_back ('\e');
                argBuf.push_back (ch);
@@ -1389,7 +1418,7 @@ namespace zutty {
          oss << "\e[201~";
 
       if (oss.str ().size ())
-         writePty (oss.str ().c_str ());
+         writePty (oss.str ().c_str (), true);
    }
 
 } // namespace zutty

@@ -9,5 +9,5 @@ def configure(cfg):
 
 def build(bld):
     src = bld.path.ant_glob('*.cc')
-    bld.program(features='cxx', source=src, target='zutty',
+    bld.program(features='cxx', source=src, target=bld.env.target,
                 use=['EGL', 'FT', 'GLES', 'THREAD', 'XMU'])

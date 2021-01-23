@@ -27,9 +27,12 @@ def options(opt):
     opt.recurse('src')
 
 def configure(cfg):
-    vsn = cmd("git describe --tags --dirty 2>/dev/null || cat version.txt")
+    vsn = cmd("(git checkout -- version.txt && " +
+              "git describe --tags --dirty) 2>/dev/null || cat version.txt")
     with open("version.txt", 'w') as f: f.write(vsn + '\n')
     cfg.msg('Zutty version', vsn)
+    if cfg.options.debug:
+        vsn = vsn + '-DEBUG'
     cfg.env.append_value('CXXFLAGS', ['-DZUTTY_VERSION=\"' + vsn + '\"'])
 
     cfg.msg('Debug build', "yes" if cfg.options.debug else "no")
@@ -47,7 +50,9 @@ def configure(cfg):
         '-fno-omit-frame-pointer',
         '-fPIC', '-fsigned-char'])
 
+    cfg.env.target = 'zutty'
     if cfg.options.debug:
+        cfg.env.target = 'zutty.dbg'
         cfg.options.werror = False
         cfg.env.append_value('CXXFLAGS', ['-DDEBUG'])
 

@@ -103,8 +103,9 @@ namespace zutty {
          const char * input;
       };
 
-      int writePty (uint8_t ch, VtModifier modifiers = VtModifier::none);
-      int writePty (const char* cstr);
+      int writePty (uint8_t ch, VtModifier modifiers = VtModifier::none,
+                    bool userInput = false);
+      int writePty (const char* cstr, bool userInput = false);
       int writePty (VtKey key, VtModifier modifiers = VtModifier::none);
 
       void readPty ();
@@ -143,7 +144,7 @@ namespace zutty {
       const InputSpec * selectInputSpecs ();
       const InputSpec & getInputSpec (VtKey key);
 
-      void unhandledInput (char ch);
+      void unhandledInput (unsigned char ch);
       void traceNormalInput ();
       void resetTerminal ();
       void resetAttrs ();
@@ -174,6 +175,33 @@ namespace zutty {
          VT52_CUP_Arg1,
          VT52_CUP_Arg2
       };
+      const char* strInputState (InputState is)
+      {
+         static const char* enumerators [] =
+         {
+         "Normal",
+         "Escape",
+         "Escape_VT52",
+         "Esc_SPC",
+         "Esc_Hash",
+         "Esc_Pct",
+         "SelectCharset",
+         "CSI",
+         "CSI_priv",
+         "CSI_Quote",
+         "CSI_DblQuote",
+         "CSI_Bang",
+         "CSI_SPC",
+         "CSI_GT",
+         "DCS",
+         "DCS_Esc",
+         "OSC",
+         "OSC_Esc",
+         "VT52_CUP_Arg1",
+         "VT52_CUP_Arg2"
+         };
+         return enumerators [(int) is];
+      }
 
       void setState (InputState inputState);
 
@@ -278,6 +306,7 @@ namespace zutty {
 
       RefreshHandlerFn onRefresh;
       OscHandlerFn onOsc;
+      bool haveOscHandler = false;
 
       // Cell storage, display and input state
 

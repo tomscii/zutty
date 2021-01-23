@@ -156,7 +156,7 @@ namespace zutty {
 
    void pty_resize (int ptyFd, int cols, int rows)
    {
-      struct winsize wsize;
+      struct winsize wsize {};
       wsize.ws_col = cols;
       wsize.ws_row = rows;
       if (ioctl (ptyFd, TIOCSWINSZ, &wsize) < 0)

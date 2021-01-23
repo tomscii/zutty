@@ -87,10 +87,10 @@ namespace zutty {
 #endif // DEBUG
 
    inline void
-   Vterm::unhandledInput (char ch)
+   Vterm::unhandledInput (unsigned char ch)
    {
-      logE << "Unhandled input char '" << ch
-           << "' (" << (unsigned int)ch << ") in state " << (int)inputState
+      logE << "Unhandled input char '" << ch << "' (" << (int)ch
+           << ") in state " << strInputState (inputState)
            << ". Escape sequence so far: "
            << dumpBuffer (inputBuf + lastEscBegin, inputBuf + readPos + 1);
       setState (InputState::Normal);
@@ -184,6 +184,17 @@ namespace zutty {
       nColsEff = nCols;
 
       setState (InputState::Normal);
+
+      if (haveOscHandler)
+      {
+         // reset title
+         argBuf.clear ();
+         argBuf.push_back ('0');
+         argBuf.push_back (';');
+         for (const char* p = opts.title; *p != '\0'; ++p)
+            argBuf.push_back (*p);
+         handle_OSC ();
+      }
    }
 
    inline void
@@ -388,7 +399,7 @@ namespace zutty {
    }
 
    inline int
-   Vterm::writePty (uint8_t ch, VtModifier modifiers)
+   Vterm::writePty (uint8_t ch, VtModifier modifiers, bool userInput)
    {
       auto uch = (unsigned char*)&ch;
       logT << "pty write (mod=" << (int)modifiers << "): "
@@ -397,25 +408,25 @@ namespace zutty {
       {
          static uint8_t wbuf [2] = { '\e', '\0' };
          wbuf [1] = ch;
-         if (localEcho)
+         if (userInput && localEcho)
             processInput (getLocalEcho (wbuf, wbuf + 2));
          return write (ptyFd, wbuf, 2);
       }
       else
       {
-         if (localEcho)
+         if (userInput && localEcho)
             processInput (getLocalEcho (uch, uch + 1));
          return write (ptyFd, &ch, 1);
       }
    }
 
    inline int
-   Vterm::writePty (const char* cstr)
+   Vterm::writePty (const char* cstr, bool userInput)
    {
       auto ucstr = (unsigned char*)cstr;
       auto len = strlen (cstr);
       logT << "pty write: " << dumpBuffer (ucstr, ucstr + len);
-      if (localEcho)
+      if (userInput && localEcho)
          processInput (getLocalEcho (ucstr, ucstr + len));
       return write (ptyFd, cstr, len);
    }
@@ -1838,7 +1849,7 @@ namespace zutty {
       iss >> cmd >> sep;
       if (iss.fail () || sep != ';')
       {
-         logT << "OSC: malformed command string'" << osc << "'" << std::endl;
+         logT << "OSC: malformed command string '" << osc << "'" << std::endl;
       }
       else
       {

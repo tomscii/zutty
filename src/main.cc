@@ -296,7 +296,7 @@ setupSignals ()
    // The SIGCHLD handler is required to detect that the child process
    // has quit; its handler ensures we won't create zombies.
    {
-      struct sigaction sa;
+      struct sigaction sa {};
       sa.sa_sigaction = sighandler;
       sa.sa_flags = SA_SIGINFO | SA_RESTART | SA_NOCLDSTOP;
       if (sigaction (SIGCHLD, &sa, nullptr) < 0)
@@ -311,7 +311,7 @@ setupSignals ()
    // normal functionality (e.g., terminate a program under Zutty with Ctrl-C);
    // see bash(1) section SIGNALS.
    {
-      struct sigaction sa;
+      struct sigaction sa {};
       sa.sa_handler = SIG_DFL;
       sa.sa_flags = 0;
       if (sigaction (SIGINT, &sa, nullptr) < 0)
@@ -550,12 +550,12 @@ onKeyPress (XEvent& event, XIC& xic, int pty_fd)
       {
          if (nbytes > 1)
          {
-            if (vt->writePty (buffer) < nbytes)
+            if (vt->writePty (buffer, true) < nbytes)
                return true;
          }
          else
          {
-            if (vt->writePty (buffer [0], mod) < 1)
+            if (vt->writePty (buffer [0], mod, true) < 1)
                return true;
          }
       }
