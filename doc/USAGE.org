@@ -46,8 +46,12 @@ you are going to build, and whether you are creating a Debug build (it
 should say "no" at this point; read the [[./HACKING.org][Development guide]] if you are
 interested in debugging Zutty).
 
-You should also see checks for the presence of the build
-dependencies. If anything is missing, the configure script will
+By default, g++ (the gcc compiler for C++) will be used to compile
+Zutty. To use clang instead, pass =--check-cxx-compiler=clang++= to
+the above script.
+
+In the configure output, you will see checks for the presence of the
+build dependencies. If anything is missing, the configure script will
 terminate with an error. Otherwise, the configure output will finish
 with a line like this:
 

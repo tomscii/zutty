@@ -78,8 +78,6 @@ namespace zutty {
    class Vterm
    {
    public:
-      explicit Vterm () = default;
-
       explicit Vterm (uint16_t glyphPx, uint16_t glyphPy,
                       uint16_t winPx, uint16_t winPy,
                       int ptyFd);

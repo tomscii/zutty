@@ -34,7 +34,7 @@ namespace zutty {
 // sources are under src/, we need to skip the '../src/' prefix (7 chars).
 // THIS IS LIKELY COMPILER DEPENDENT, IT WORKS ON LINUX & GCC BUT YMMV.
 #define plog(Ostream,Prefix)                            \
-   Ostream << Prefix << " [" << (__FILE__ + 7) << ":"   \
+   Ostream << Prefix << " [" << (& __FILE__ [7]) << ":" \
            << std::setw (3) << __LINE__ << "] "
 
 #define logE      plog(zlog, "E") << "Error: "
@@ -46,7 +46,7 @@ namespace zutty {
 #ifdef DEBUG
    #define logT      plog(vlog, "T")
 #else
-   #define logT      nullptr && std::cout
+   #define logT      false && std::cout
 #endif // DEBUG
 
    inline void

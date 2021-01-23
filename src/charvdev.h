@@ -65,7 +65,7 @@ namespace zutty {
             return ! operator == (rhs);
          }
       };
-      static_assert (sizeof (Cell) == 12);
+      static_assert (sizeof (Cell) == 12, "Cell size mismatch");
 
       static Cell::Ptr make_cells (uint16_t nCols, uint16_t nRows)
       {

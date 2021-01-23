@@ -11,6 +11,8 @@
 
 #include "gl.h"
 
+#include <string>
+
 namespace gl {
 
 void CheckError_(const char* file, int line)

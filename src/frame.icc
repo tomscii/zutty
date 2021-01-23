@@ -40,7 +40,7 @@ namespace zutty {
       if (cells == nullptr)
          throw std::runtime_error ("cell accessor: no cell storage!");
 
-      if (idx >= nRows * nCols)
+      if ((unsigned) nRows * nCols <= idx)
       {
          std::ostringstream oss;
          oss << "Frame[" << idx << "] out of bounds, nCols="

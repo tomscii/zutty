@@ -40,24 +40,29 @@ def configure(cfg):
     cfg.load('compiler_cxx')
 
     cfg.env.append_value('CXXFLAGS',
-       ['-Wall',
-        '-Wextra',
-        '-Wno-unused-parameter',
-        '-Wsign-compare',
-        '-std=c++14',
-        '-g', '-ggdb',
-        '-O2', '-march=native',
+       ['-std=c++14',
         '-fno-omit-frame-pointer',
-        '-fPIC', '-fsigned-char'])
+        '-fsigned-char',
+        '-Wall',
+        '-Wextra',
+        '-Wsign-compare',
+        '-Wno-unused-parameter'
+        ])
 
     cfg.env.target = 'zutty'
     if cfg.options.debug:
         cfg.env.target = 'zutty.dbg'
-        cfg.options.werror = False
-        cfg.env.append_value('CXXFLAGS', ['-DDEBUG'])
-
-    if cfg.options.werror:
-        cfg.env.append_value('CXXFLAGS', ['-Werror'])
+        cfg.env.append_value('CXXFLAGS',
+                             ['-DDEBUG',
+                              '-Og', '-g', '-ggdb',
+                             ])
+    else:
+        cfg.env.append_value('CXXFLAGS',
+                             ['-Werror',
+                              '-O3', '-march=native', '-mtune=native',
+                              '-flto'
+                             ])
+        cfg.env.append_value('LINKFLAGS', ['-flto'])
 
     default_libpath = cmd ("echo /usr/lib/$(gcc -dumpmachine)")
     cfg.env.LIB_EGL     = ['EGL']

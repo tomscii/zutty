@@ -31,7 +31,8 @@ namespace {
          } ();
 }
 
-namespace zutty::base64 {
+namespace zutty {
+namespace base64 {
 
    static std::string
    encode (const std::string& in)
@@ -77,4 +78,5 @@ namespace zutty::base64 {
       return out;
    }
 
-} // namespace zutty::base64
+} // namespace base64
+} // namespace zutty
