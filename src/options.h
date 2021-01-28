@@ -44,7 +44,7 @@ namespace zutty {
       {"help",      XrmoptionNoArg,    "true",  "false",     "Print usage information"},
       {"rv",        XrmoptionNoArg,    "true",  "false",     "Reverse video"},
       {"selection", XrmoptionSepArg,   nullptr, "primary",   "Selection target"},
-      {"shell",     XrmoptionSepArg,   nullptr, "/bin/bash", "Shell program to run"},
+      {"shell",     XrmoptionSepArg,   nullptr, "bash",      "Shell program to run"},
       {"title",     XrmoptionSepArg,   nullptr, "Zutty",     "Window title"},
       {"quiet",     XrmoptionNoArg,    "true",  "false",     "Silence logging output"},
       {"verbose",   XrmoptionNoArg,    "true",  "false",     "Output info messages"},
