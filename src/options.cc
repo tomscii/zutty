@@ -134,24 +134,6 @@ namespace {
       outRows = rows;
    }
 
-   void
-   convSelection (Atom& outSelection)
-   {
-      const char* opt = get ("selection");
-      if (!opt)
-         throw std::runtime_error ("-selection: missing value");
-
-      switch (opt [0])
-      {
-      case 'p': outSelection = XA_PRIMARY; return;
-      case 's': outSelection = XA_SECONDARY; return;
-      case 'c': outSelection = XA_CLIPBOARD (dpy); return;
-      default:
-         throw std::runtime_error ("-selection: expected one of: "
-                                   "primary, secondary, clipboard");
-      }
-   }
-
    uint8_t
    convHexDigit (const char* name, const char ch)
    {
@@ -233,13 +215,13 @@ namespace zutty {
          glinfo = getBool ("glinfo");
          shell = get ("shell");
          title = get ("title");
-         convSelection (selection);
          convColor ("fg", fg);
          convColor ("bg", bg);
          rv = getBool ("rv");
          if (rv)
             std::swap (fg, bg);
          altScrollMode = getBool ("altScroll");
+         autoCopyMode = getBool ("autoCopy");
          quiet = getBool ("quiet");
          verbose = getBool ("verbose");
       }

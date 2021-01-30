@@ -380,6 +380,13 @@ convertKeyState (KeySym ks, unsigned int state)
    return mod;
 }
 
+static void
+pasteCb (bool success, const std::string& content)
+{
+   if (success)
+      vt->pasteSelection (content);
+}
+
 static bool
 onKeyPress (XEvent& event, XIC& xic, int pty_fd)
 {
@@ -410,12 +417,19 @@ onKeyPress (XEvent& event, XIC& xic, int pty_fd)
    buffer [nbytes] = '\0';
 
    // Special key combinations that are handled by Zutty itself:
-   if ((ks == XK_Insert || ks == XK_KP_Insert) &&
-       xkevt.state == ShiftMask)
+   if (ks == XK_C && (xkevt.state & ControlMask) && (xkevt.state & ShiftMask))
    {
-      selMgr->getSelection (xkevt.time,
-                            [] (const std::string& s)
-                            { vt->pasteSelection (s); });
+      selMgr->copySelection (selMgr->getClipboard (), selMgr->getPrimary ());
+      return false;
+   }
+   if (ks == XK_V && (xkevt.state & ControlMask) && (xkevt.state & ShiftMask))
+   {
+      selMgr->getSelection (selMgr->getClipboard (), xkevt.time, pasteCb);
+      return false;
+   }
+   if ((ks == XK_Insert || ks == XK_KP_Insert) && xkevt.state == ShiftMask)
+   {
+      selMgr->getSelection (selMgr->getPrimary (), xkevt.time, pasteCb);
       return false;
    }
    if ((ks == XK_space || ks == XK_KP_Space) &&
@@ -778,13 +792,16 @@ onButtonRelease (XButtonEvent& xbevt, bool& holdPtyIn)
       holdPtyIn = false;
       mouseCtx.selectionOngoing = false;
       if (vt->selectFinish (utf8_sel))
-         selMgr->setSelection (xbevt.time, utf8_sel);
+      {
+         selMgr->setSelection (selMgr->getPrimary (), xbevt.time, utf8_sel);
+         if (opts.autoCopyMode)
+            selMgr->copySelection (selMgr->getClipboard (),
+                                   selMgr->getPrimary ());
+      }
    }
    break;
    case 2:
-      selMgr->getSelection (xbevt.time,
-                            [] (const std::string& s)
-                            { vt->pasteSelection (s); });
+      selMgr->getSelection (selMgr->getPrimary (), xbevt.time, pasteCb);
       break;
    case 4: vt->mouseWheelUp (); break;
    case 5: vt->mouseWheelDown (); break;
@@ -874,7 +891,8 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed, bool& holdPtyIn)
       selMgr->onPropertyNotify (event.xproperty);
       break;
    case SelectionClear:
-      vt->selectClear ();
+      if (event.xselectionclear.selection == selMgr->getPrimary ())
+         vt->selectClear ();
       selMgr->onSelectionClear (event.xselectionclear);
       break;
    case SelectionNotify:
@@ -950,25 +968,56 @@ handleOsc (Display* dpy, Window win, int cmd, const std::string& arg)
               << arg << "'" << std::endl;
          break;
       }
-      std::string pc = arg.substr (0, p); // Currently not used
+      std::string pc = arg.substr (0, p);
       std::string pd = arg.substr (p + 1);
       logT << "OSC 52: pc='" << pc << "', pd='" << pd << "'" << std::endl;
 
-      if (pd == "?")
+      std::vector <Atom> targets {};
+      if (pc == "" || pc.find ('s') != std::string::npos)
       {
-         selMgr->getSelection (
-            CurrentTime,
-            [] (const std::string& s)
-            {
-               std::ostringstream oss;
-               oss << "\e]52;;" << zutty::base64::encode (s) << "\e\\";
-               vt->writePty (oss.str ().c_str ());
-            });
+         targets.push_back (selMgr->getPrimary ());
+         targets.push_back (selMgr->getClipboard ());
       }
       else
       {
-         std::string sel = zutty::base64::decode (pd);
-         selMgr->setSelection (CurrentTime, sel);
+         for (auto c: pc)
+            switch (c)
+            {
+            case 'p': targets.push_back (selMgr->getPrimary ()); break;
+            case 'c': targets.push_back (selMgr->getClipboard ()); break;
+            }
+      }
+
+      if (pd == "?")
+      {
+         // Iterate through targets via callback in continuation-passing style
+         auto it = targets.begin ();
+         auto iend = targets.end ();
+         zutty::SelectionManager::PasteCallbackFn getSelectionCb =
+            [&] (bool success, const std::string& content)
+            {
+               if (success)
+               {
+                  std::ostringstream oss;
+                  oss << "\e]52;;" << zutty::base64::encode (content) << "\e\\";
+                  vt->writePty (oss.str ().c_str ());
+               }
+               else if (++it != iend)
+               {
+                  selMgr->getSelection (*it, CurrentTime,
+                                        std::move (getSelectionCb));
+               }
+            };
+         if (it != iend)
+            selMgr->getSelection (*it, CurrentTime, std::move (getSelectionCb));
+      }
+      else
+      {
+         for (const auto& target: targets)
+         {
+            std::string content = zutty::base64::decode (pd);
+            selMgr->setSelection (target, CurrentTime, content);
+         }
       }
    }
       break;

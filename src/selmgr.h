@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace zutty {
@@ -26,9 +27,13 @@ namespace zutty {
    public:
       SelectionManager (Display*, Window);
 
-      using PasteCallbackFn = std::function <void (const std::string&)>;
-      void getSelection (Time, PasteCallbackFn&&);
-      bool setSelection (Time, const std::string&);
+      Atom getPrimary () const { return primary; };
+      Atom getClipboard () const { return clipboard; };
+
+      using PasteCallbackFn = std::function <void (bool, const std::string&)>;
+      void getSelection (Atom selection, Time, PasteCallbackFn&&);
+      bool setSelection (Atom selection, const Time, const std::string&);
+      bool copySelection (Atom dest, Atom source);
 
       void onPropertyNotify (XPropertyEvent& event);
       void onSelectionClear (XSelectionClearEvent& event);
@@ -39,18 +44,14 @@ namespace zutty {
       Display* dpy;
       Window win;
 
+      const Atom primary;
+      const Atom clipboard;
+
       const Atom incr;
-      const Atom targets;
       const Atom prop;
-      const size_t chunkSize;
-
-      const Atom selection;
       const Atom target;
-
-      bool selOwned = false;
-      std::string content;
-      std::vector <unsigned char> incoming;
-      PasteCallbackFn pasteCallback;
+      const Atom targets;
+      const size_t chunkSize;
 
       enum class State: uint8_t
       {
@@ -59,11 +60,26 @@ namespace zutty {
          WaitingForSelNotify,
          ReadingIncr
       };
-      State state = State::Idle;
 
-      size_t cliPos;
-      Window cliWin;
-      Atom cliProp;
+      struct Context
+      {
+         bool owned = false;
+         std::string content;
+         PasteCallbackFn pasteCallback;
+         State state = State::Idle;
+
+         // inbound transfer state
+         std::vector <unsigned char> incoming;
+
+         // outbound transfer state
+         size_t cliPos;
+         Window cliWin;
+         Atom cliProp;
+      };
+      std::unordered_map <Atom, Context> ctx;
+
+      void handleInboundIncr (Context& cx);
+      void handleOutboundIncr (Context& cx);
    };
 
 } // namespace zutty

@@ -141,9 +141,7 @@ independent of each other and all other cells.
 
 Zutty supports the traditional method of "copy-paste" based on the X
 Selection API, and is accessible via the same GUI mechanisms that
-long-time =xterm= users are familiar with. Zutty can be configured to
-use whichever selection target you prefer (it defaults to the PRIMARY
-selection, but you might want to use CLIPBOARD instead).
+long-time =xterm= users are familiar with.
 
 Zutty faithfully replicates what =xterm= has provided for a very long
 time: starting selections with the left button, adjusting them with
@@ -152,8 +150,15 @@ double clicks. Compared with =xterm=, one notable difference is a
 built-in, simpler rule for word boundaries (as opposed to
 user-adjustable definitions of character classes).
 
-Paste the selection into the terminal via middle click or
-Shift-Insert, like in =xterm=.
+Selecting a region with the mouse will set the primary selection, and
+pressing Control+Shift+C will copy that to the clipboard. This
+mechanism is useful because it allows holding two separate pieces of
+selection data at once. Zutty can also be configured to automatically
+copy the primary to the clipboard each time a selection is done.
+
+Paste the primary selection into the terminal via middle click or
+Shift+Insert, like in =xterm=. Paste the clipboard via
+Control+Shift+V.
 
 Just as with =xterm=, terminal programs might enable one of the
 supported "mouse protocols" to provide mouse interaction on their user
