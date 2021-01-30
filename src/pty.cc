@@ -108,7 +108,7 @@ namespace zutty {
 
       if (pid < 0)
       {
-         return -1;
+         return pid;
       }
       else if (pid == 0) // child process
       {
@@ -130,14 +130,7 @@ namespace zutty {
          pty_resize (fds, cols, rows);
 
          // Slave becomes stdin/stdout/stderr of child.
-         if (dup2 (fds, STDIN_FILENO) != STDIN_FILENO)
-            SYS_ERROR ("dup2 to stdin");
-         if (dup2 (fds, STDOUT_FILENO) != STDOUT_FILENO)
-            SYS_ERROR ("dup2 to stdout");
-         if (dup2 (fds, STDERR_FILENO) != STDERR_FILENO)
-            SYS_ERROR ("dup2 to stderr");
-         if (fds != STDIN_FILENO && fds != STDOUT_FILENO && fds != STDERR_FILENO)
-            close (fds);
+         redirectFds (fds);
 
          // Setup terminal attributes
          struct termios term;

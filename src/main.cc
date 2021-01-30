@@ -300,10 +300,7 @@ setupSignals ()
       sa.sa_sigaction = sighandler;
       sa.sa_flags = SA_SIGINFO | SA_RESTART | SA_NOCLDSTOP;
       if (sigaction (SIGCHLD, &sa, nullptr) < 0)
-      {
-         using zutty::printArgs;
          SYS_ERROR ("can't install SIGCHLD handler: sigaction()");
-      }
    }
 
    // SIGINT and SIGQUIT might have inherited handlers if Zutty was launched
@@ -315,15 +312,9 @@ setupSignals ()
       sa.sa_handler = SIG_DFL;
       sa.sa_flags = 0;
       if (sigaction (SIGINT, &sa, nullptr) < 0)
-      {
-         using zutty::printArgs;
          SYS_ERROR ("can't reset SIGINT handler to SIG_DFL: sigaction()");
-      }
       if (sigaction (SIGQUIT, &sa, nullptr) < 0)
-      {
-         using zutty::printArgs;
          SYS_ERROR ("can't reset SIGQUIT handler to SIG_DFL: sigaction()");
-      }
    }
 }
 
@@ -337,17 +328,17 @@ startShell (const char* const argv[])
 
    if (pid < 0)
    {
-      throw std::runtime_error ("fork error");
+      SYS_ERROR ("fork");
    }
    else if (pid == 0) // child:
    {
       // N.B.: DISPLAY and WINDOWID are inherited from parent
       // environment (set elsewhere)
       if (setenv ("TERM", "xterm-256color", 1) < 0)
-         throw std::runtime_error ("can't setenv (TERM)");
+         SYS_ERROR ("setenv TERM");
 
-      if (execvp (argv[0], (char * const *) argv) < 0)
-         throw std::runtime_error (std::string ("can't execvp: ") + argv [0]);
+      if (execvp (argv [0], (char * const *) argv) < 0)
+         SYS_ERROR ("execvp of ", argv [0]);
    }
    else // parent:
    {
@@ -920,7 +911,7 @@ eventLoop (Display* dpy, Window win, XIC& xic, int pty_fd)
    logT << "x11_fd = " << x11_fd << std::endl;
    logT << "pty_fd = " << pty_fd << std::endl;
 
-   struct pollfd pollset[] = {
+   struct pollfd pollset [] = {
       {pty_fd, POLLIN, 0},
       {x11_fd, POLLIN, 0},
    };
@@ -931,13 +922,13 @@ eventLoop (Display* dpy, Window win, XIC& xic, int pty_fd)
       if (poll (pollset, 2, -1) < 0)
          return false;
 
-      if (pollset[0].revents & POLLHUP)
+      if (pollset [0].revents & POLLHUP)
          return false;
 
-      if (pollset[0].revents & POLLIN)
+      if (pollset [0].revents & POLLIN)
          vt->readPty ();
 
-      if (pollset[1].revents & POLLIN)
+      if (pollset [1].revents & POLLIN)
          while (XPending (dpy))
          {
             XEvent event;
@@ -1173,6 +1164,10 @@ main (int argc, char* argv[])
    else if (argc == 2)
    {
       strncpy (progPath, argv [1], PATH_MAX-1);
+      validateShell (progPath);
+   }
+   else
+   {
       validateShell (progPath);
    }
    setupSignals ();

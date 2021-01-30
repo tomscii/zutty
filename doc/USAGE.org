@@ -148,7 +148,7 @@ To view the list of options, issue =zutty -h= (short for =-help=):
 :   -glinfo      Print OpenGL information
 :   -help        Print usage information
 :   -rv          Reverse video
-:   -shell       Shell program to run (default: /bin/bash)
+:   -shell       Shell program to run (default: bash)
 :   -title       Window title (default: Zutty)
 :   -quiet       Silence logging output
 :   -verbose     Output info messages
@@ -206,7 +206,7 @@ made via =-v= / =-q=.
 Print the help message containing the list of options documented here,
 and quit.
 
-:   -shell       Shell program to run (default: /bin/bash)
+:   -shell       Shell program to run (default: bash)
 
 Specify the shell program to run in the terminal. As a bit of special
 syntax, this option can be passed both as a regular option (=-shell
@@ -216,7 +216,7 @@ option. If both forms are present, the last item on the command line
 will take precedence over the value supplied after =-shell=.
 
 The algorithm to determine the actual shell program to spawn closely
-resembles Xterm behaviour and follows these steps:
+resembles the behaviour of =xterm=, and follows these steps:
 
 0. Start with the =shell= value (the last argument given after all
    valid options, if present, or the value supplied after =-shell=).
@@ -233,7 +233,7 @@ resembles Xterm behaviour and follows these steps:
 
 In accordance with the general precedence of configuration lookups, in
 case a =shell= argument is *not* given, the =zutty.shell= resource is
-consulted; if that is not set, the built-in default of =/bin/bash= is
+consulted; if that is not set, the built-in default of =bash= is
 assumed as the result of step 0 (and then steps 1-4 carried out as
 above).
 
