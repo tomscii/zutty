@@ -136,7 +136,6 @@ namespace zutty {
          struct termios term;
          if (tcgetattr (STDIN_FILENO, &term) < 0)
             SYS_ERROR ("tcgetattr");
-         term.c_iflag |= IUTF8;
          if (tcsetattr (STDIN_FILENO, TCSANOW, &term) < 0)
             SYS_ERROR ("tcsetattr");
       }
