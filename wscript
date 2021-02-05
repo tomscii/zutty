@@ -44,6 +44,7 @@ def configure(cfg):
         '-fno-omit-frame-pointer',
         '-fsigned-char',
         '-Wall',
+        '-I/usr/local/include',
         '-Wextra',
         '-Wsign-compare',
         '-Wno-unused-parameter'
@@ -58,8 +59,7 @@ def configure(cfg):
                              ])
     else:
         cfg.env.append_value('CXXFLAGS',
-                             ['-Werror',
-                              '-O3', '-march=native', '-mtune=native',
+                             ['-O3', '-march=native', '-mtune=native',
                               '-flto'
                              ])
         cfg.env.append_value('LINKFLAGS', ['-flto'])
