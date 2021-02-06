@@ -469,7 +469,7 @@ function VT_11 {
     SNAP vt_11_03_02_09_06 fb66ea22e6c9684e2b0ddb88f95e2547
     IN "\r"
     IN "10\r" # Test other movement within margins
-    SNAP vt_11_03_02_10_06 d57bcc097ad7229f71855682ee7bba22
+    SNAP vt_11_03_02_10_06 f094abe9e6342f2b8473124b606c8fba
     IN "\r"
     IN "5\r" # Left/Right margins are set to middle half of screen
     IN "7\r" # Test Back Index (BI)
@@ -482,7 +482,7 @@ function VT_11 {
     SNAP vt_11_03_02_09_07 d6b8514303928a596f8593719bae7af8
     IN "\r"
     IN "10\r" # Test other movement within margins
-    SNAP vt_11_03_02_10_07 9b5dd2a33f79a98fea7fa6cbf46bafb9
+    SNAP vt_11_03_02_10_07 1141581f474964fe0dcbd40b230b815c
     IN "\r"
     IN "0\r"
 
@@ -822,7 +822,7 @@ function VT_11 {
     SNAP vt_11_04_02_09_06 8aa64c9033fd2e4ab29a87b5da0b261a
     IN "\r"
     IN "10\r" # Test Cursor-Horizontal-Index (CHT)
-    SNAP vt_11_04_02_10_06 bf078d72d06cc310f7b51fc653aa26ad
+    SNAP vt_11_04_02_10_06 b25ab4e0458a7137dde7715ab3d6cff9
     IN "\r"
     IN "11\r" # Test Horizontal-Position-Relative (HPR)
     SNAP vt_11_04_02_11_06 79339821a7dd4db3fa9f035f4244493f
@@ -834,7 +834,7 @@ function VT_11 {
     SNAP vt_11_04_02_13_06 d0fd73b732ba36b01f235a934249535f
     IN "\r"
     IN "14\r" # Test Previous-Line (CPL)
-    SNAP vt_11_04_02_14_06 d64cd1331a249b5426cefaa1063bcfbf
+    SNAP vt_11_04_02_14_06 1fe58ede5c7b5ee6b99c3e8eff81bd49
     IN "\r"
     IN "15\r" # Test Vertical-Position-Relative (VPR)
     SNAP vt_11_04_02_15_06 06ec75a35ab7ad36f4666b80fbfe5ee6
@@ -850,7 +850,7 @@ function VT_11 {
     SNAP vt_11_04_02_09_07 75bed4faf3bf1c506f3fed606eb82a2b
     IN "\r"
     IN "10\r" # Test Cursor-Horizontal-Index (CHT)
-    SNAP vt_11_04_02_10_07 86cb1e9ef93f3dbe6c2bba602cd5e638
+    SNAP vt_11_04_02_10_07 6e0157d22c9d504a8e14f23be75f4cd5
     IN "\r"
     IN "11\r" # Test Horizontal-Position-Relative (HPR)
     SNAP vt_11_04_02_11_07 6d260bb190de2dea4f72e41b35695247
@@ -862,7 +862,7 @@ function VT_11 {
     SNAP vt_11_04_02_13_07 c61325eab90d37fef34f5a343198d144
     IN "\r"
     IN "14\r" # Test Previous-Line (CPL)
-    SNAP vt_11_04_02_14_07 edaa6652a7f6037e36b62875c48ee16c
+    SNAP vt_11_04_02_14_07 3917afeb2e3bebc2ce65a5427722130f
     IN "\r"
     IN "15\r" # Test Vertical-Position-Relative (VPR)
     SNAP vt_11_04_02_15_07 5b46dff0c40888bacc199415074f0fa0

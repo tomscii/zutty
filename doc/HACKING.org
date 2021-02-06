@@ -814,5 +814,7 @@ the Vterm implementation.
 - [[https://vt100.net/docs/vt220-rm/contents.html][VT220rm]]: VT220 Programmer Reference Manual
 - [[https://manx-docs.org/collections/mds-199909/cd3/term/vt420rm2.pdf][VT420rm]] [pdf]: VT420 Programmer Reference Manual
 - [[http://www.bitsavers.org/pdf/dec/terminal/vt5xx/EK-VT520-RM_VT520_VT525_Programmer_Information_Jul94.pdf][VT520rm]] [pdf]: VT520/VT525 Video Terminal Programmer Information
+- [[http://www.bitsavers.org/pdf/dec/standards/EL-SM070-00_DEC_STD_070_Video_Systems_Reference_Manual_Dec91.pdf][DEC STD 070]] [pdf]: DEC-internal standards document going into more
+  technical detail than user-oriented product manuals.
 - [[https://vt100.net/emu/dec_ansi_parser][VT500-series parser]]: A parser for DEC’s ANSI-compatible video
   terminals (not used by Zutty, but interesting!)

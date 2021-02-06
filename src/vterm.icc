@@ -635,7 +635,10 @@ namespace zutty {
    Vterm::inp_CR ()
    {
       TRACE_FUN;
-      posX = hMargin;
+      if (originMode == OriginMode::Absolute && posX < hMargin)
+         posX = 0;
+      else
+         posX = hMargin;
       setCur ();
    }
 
@@ -645,10 +648,11 @@ namespace zutty {
       if (tabStops.empty ())
       {
          // Hard default of 8 chars limited to right margin
+         auto margin = isCursorInsideMargins () ? hMargin : 0;
          do
          {
             posX = ((posX / 8) + 1) * 8;
-         } while (posX < hMargin);
+         } while (posX < margin);
          posX = std::min ((int)posX, nColsEff - 1);
       }
       else
@@ -666,8 +670,8 @@ namespace zutty {
       TRACE_FUN;
       if (posX == nColsEff)
       {
-         inp_CR ();
          esc_IND ();
+         inp_CR ();
       }
       else
          jumpToNextTabStop ();
@@ -856,8 +860,7 @@ namespace zutty {
    {
       TRACE_FUN;
       esc_IND ();
-      posX = 0;
-      setCur ();
+      inp_CR ();
       setState (InputState::Normal);
    }
 
@@ -1374,8 +1377,16 @@ namespace zutty {
          }
       }
 
-      posX = 0;
-      posY = cf->marginTop;
+      if (originMode == OriginMode::Absolute)
+      {
+         posX = 0;
+         posY = 0;
+      }
+      else
+      {
+         posX = hMargin;
+         posY = cf->marginTop;
+      }
       setCur ();
       setState (InputState::Normal);
    }
@@ -1406,8 +1417,16 @@ namespace zutty {
          }
       }
 
-      posX = 0;
-      posY = cf->marginTop;
+      if (originMode == OriginMode::Absolute)
+      {
+         posX = 0;
+         posY = 0;
+      }
+      else
+      {
+         posX = hMargin;
+         posY = cf->marginTop;
+      }
       setCur ();
       setState (InputState::Normal);
    }
