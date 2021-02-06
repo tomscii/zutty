@@ -5,9 +5,17 @@ then
     exit 1
 fi
 
-CHECK_EXE ../build/src/zutty
+if [ ${DEBUG} == "yes" ]; then
+    EXE=zutty.dbg
+else
+    EXE=zutty
+fi
+CHECK_EXE ../build/src/${EXE}
 
-export UUT_EXE="../build/src/zutty -geometry 80x24 -v"
+# Report actually tested version
+export UUT_VERSION=$(../build/src/${EXE} -h | head -1)
+
+export UUT_EXE="../build/src/${EXE} -geometry 80x24 -v"
 
 # set to non-empty to enable test paths that rely on VT52 support
 export SUPPORTS_VT52=yes

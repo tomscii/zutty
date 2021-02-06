@@ -240,6 +240,7 @@ omitted.
 :   Option             Default
 :   --------------------------
 :   --ci-mode          no
+:   --debug            no
 :   --profile          zutty
 :   --step             no
 :   --update-sig       no
@@ -295,6 +296,14 @@ unattended manner, suitable for automated testing. Step mode is turned
 off (overriding =--step=), signature updates are turned off
 (overriding =--update-sig=), and the script is set up to immediately
 exit with a nonzero code on a verification failure.
+
+**** =--debug=
+
+The =--debug= option sets the variable =DEBUG= to =yes= (instead of
+its default value =no=). This is used by the =zutty= test profile to
+ensure that the correct UUT executable (=zutty= vs. =zutty.dbg=) is
+launched. This option is currently not used by any other profile, nor
+for any other, more general purpose.
 
 *** Correctness tests
 

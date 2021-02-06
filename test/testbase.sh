@@ -12,6 +12,7 @@ declare -A ARGS=(
     ["step"]=no          # N.B.: --step=new will only stop at new snaps!
     ["update-sig"]=no
     ["ci-mode"]=no
+    ["debug"]=no
 )
 
 # Include argument handler
@@ -32,6 +33,11 @@ if [ ${ARGS["ci-mode"]} == "yes" ] ; then
     EXIT_ON_FAILURE=yes
 else
     EXIT_ON_FAILURE=no
+fi
+if [ ${ARGS["debug"]} == "yes" ] ; then
+    DEBUG=yes
+else
+    DEBUG=no
 fi
 
 EXIT_CODE=0
@@ -99,6 +105,7 @@ if [ ! -f "profiles/${PROFILE}.sh" ] ; then
 fi
 source "profiles/${PROFILE}.sh"
 echo "Running test: ${TEST_NAME} with profile: ${PROFILE}"
+[ -n "${UUT_VERSION}" ] && echo "UUT version: ${UUT_VERSION}"
 
 export TEST_LOG="$(pwd)/output/${PROFILE}/${TEST_NAME}.log"
 export UUT_LOG="$(pwd)/output/${PROFILE}/${TEST_NAME}.uut.log"
@@ -113,7 +120,7 @@ CON_PID=$(ps -p ${CON_PID} -o ppid=;)
 CON_WID=$(wmctrl -lp | grep ${CON_PID} | awk '{print $1}')
 if [ -z "${CON_WID}" ] ; then
     echo "Console pid: ${CON_PID}"
-    printf "        ${YELLOW}wid not found, running in tmux?${DFLT}\n"
+    printf "        ${YELLOW}wid not found, prompts won't focus console${DFLT}\n"
 else
     echo "Console pid: ${CON_PID} wid: ${CON_WID}"
 fi
@@ -166,7 +173,12 @@ trap "exit 1" SIGINT
 
 function check_uut {
     if [ $(wmctrl -lp | grep ${WID} | wc -l) -eq 0 ] ; then
+        # If IN was interrupted, Return key might have gotten stuck...
+        LANG=C xvkbd -window root -no-jump-pointer \
+            -text "\{-Return}\D3\{-Return}\D3" 2>/dev/null
         echo "UUT window gone, exiting"
+        echo "---------- LOG TAIL ----------"
+        tail ${UUT_LOG}
         trap - EXIT
         exit 1
     fi
