@@ -137,7 +137,7 @@ fi
 # wait until window opens and grab its X window id
 WID=''
 while true ; do
-    if [[ -z "$(ps --no-header -o pid ${PID})" ]] ; then
+    if [[ -z "$(ps -o pid= ${PID})" ]] ; then
         echo "UUT process ${PID} gone, aborting."
         exit 1
     fi
