@@ -28,8 +28,27 @@ namespace zutty {
    {}
 
    void
+   Frame::setMargins (uint16_t marginTop_, uint16_t marginBottom_)
+   {
+      unwrapCellStorage ();
+      scrollHead = marginTop = marginTop_;
+      marginBottom = marginBottom_;
+      damage.add (0, nRows * nCols);
+   }
+
+   void
+   Frame::resetMargins (uint16_t& marginTop_, uint16_t& marginBottom_)
+   {
+      unwrapCellStorage ();
+      scrollHead = marginTop = marginTop_ = 0;
+      marginBottom = marginBottom_ = nRows;
+      damage.add (0, nRows * nCols);
+   }
+
+   void
    Frame::resize (uint16_t winPx_, uint16_t winPy_,
-                  uint16_t nCols_, uint16_t nRows_)
+                  uint16_t nCols_, uint16_t nRows_,
+                  uint16_t& marginTop_, uint16_t& marginBottom_)
    {
       if (winPx == winPx_ && winPy == winPy_)
          return;
@@ -40,7 +59,7 @@ namespace zutty {
       if (nCols == nCols_ && nRows == nRows_)
          return;
 
-      linearizeCellStorage ();
+      unwrapCellStorage ();
       const CharVdev::Cell* src = cells.get ();
       auto newCells = CharVdev::make_cells (nCols_, nRows_);
       CharVdev::Cell* dst = newCells.get ();
@@ -55,8 +74,8 @@ namespace zutty {
       nCols = nCols_;
       nRows = nRows_;
       scrollHead = 0;
-      marginTop = 0;
-      marginBottom = nRows;
+      marginTop = marginTop_ = 0;
+      marginBottom = marginBottom_ = nRows;
    }
 
    void
@@ -132,8 +151,11 @@ namespace zutty {
    }
 
    void
-   Frame::linearizeCellStorage ()
+   Frame::unwrapCellStorage ()
    {
+      if (scrollHead == marginTop)
+         return;
+
       auto newCells = CharVdev::make_cells (nCols, nRows);
       copyCells (newCells.get ());
       cells = std::move (newCells);

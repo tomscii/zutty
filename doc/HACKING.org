@@ -754,7 +754,7 @@ conceptually dropped off the top of the scrolling area.
 
 The method =Frame::copyCells ()= copies all the cell content from a
 frame, in logical order =(1)(2)(3)(4)=, into linear (straight) storage
-elsewhere.  This is employed by =Frame::linearizeCellStorage ()=,
+elsewhere.  This is employed by =Frame::unwrapCellStorage ()=,
 which in turn is used to reset the logical-to-physical mapping, e.g.,
 when the scrolling limits =marginTop= or =marginBottom= are
 changed. In the reset state, =scrollHead= equals =marginTop=, which

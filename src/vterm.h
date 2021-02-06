@@ -203,13 +203,10 @@ namespace zutty {
 
       void setState (InputState inputState);
 
-      uint32_t setCur ();
       void normalizeCursorPos ();
-      uint32_t startOfThisLine ();
-      uint32_t startOfNextLine ();
       bool isCursorInsideMargins ();
-      void eraseRange (uint32_t start, uint32_t end);
       void eraseRow (uint16_t pY);
+      void eraseRows (uint16_t startY, uint16_t count);
       void copyRow (uint16_t dstY, uint16_t srcY);
       void insertRows (uint16_t startY, uint16_t count);
       void deleteRows (uint16_t startY, uint16_t count);
@@ -311,9 +308,10 @@ namespace zutty {
       Frame frame_pri;
       Frame frame_alt;
       Frame* cf;              // current frame (primary or alternative)
-      uint32_t cur = 0;       // current screen position (abs. offset in cells)
       uint16_t posX = 0;      // current cursor horizontal position (on-screen)
       uint16_t posY = 0;      // current cursor vertical position (on-screen)
+      uint16_t marginTop;     // current margin top (copy of frame field)
+      uint16_t marginBottom;  // current margin bottom (copy of frame field)
       bool curPosViaCharPlacement = false;
 
       CharVdev::Cell attrs;   // prototype cell with current attributes

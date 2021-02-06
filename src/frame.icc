@@ -10,13 +10,144 @@
  * See the file LICENSE for the full license.
  */
 
+#ifdef DEBUG
 #include <sstream>
+#endif
 
 namespace zutty {
 
-   inline uint32_t
-   Frame::getIdx (uint16_t pY, uint16_t pX)
+   inline void
+   Frame::scrollUp (uint16_t count)
    {
+      for (uint16_t k = 0; k < count; ++k)
+      {
+         ++scrollHead;
+         if (scrollHead == marginBottom)
+            scrollHead = marginTop;
+      }
+      damage.add (marginTop * nCols, marginBottom * nCols);
+   }
+
+   inline void
+   Frame::scrollDown (uint16_t count)
+   {
+      for (uint16_t k = 0; k < count; ++k)
+      {
+         if (scrollHead >= marginTop + 1)
+            --scrollHead;
+         else
+            scrollHead = marginBottom - 1;
+      }
+      damage.add (marginTop * nCols, marginBottom * nCols);
+   }
+
+   inline const CharVdev::Cell &
+   Frame::getCell (uint16_t pY, uint16_t pX) const
+   {
+      return operator [] (getIdx (pY, pX));
+   }
+
+   inline CharVdev::Cell &
+   Frame::getCell (uint16_t pY, uint16_t pX)
+   {
+      uint32_t idx = getIdx (pY, pX);
+      damage.add (idx, idx + 1);
+      return operator [] (idx);
+   }
+
+   inline void
+   Frame::fillCells (uint16_t ch, const CharVdev::Cell& attrs)
+   {
+      for (int k = 0; k < nRows * nCols; ++k)
+      {
+         cells.get () [k] = attrs;
+         cells.get () [k].uc_pt = ch;
+      }
+      damage.add (0, nRows * nCols);
+   }
+
+   inline void
+   Frame::eraseInRow (uint16_t pY, uint16_t startX, uint16_t count,
+                      const CharVdev::Cell& attrs)
+   {
+      if (!count)
+         return;
+
+#ifdef DEBUG
+      if (nCols < startX + count || nRows <= pY)
+      {
+         std::ostringstream oss;
+         oss << "Frame::eraseInRow (pY=" << pY << " startX=" << startX
+             << " count=" << count << ") out of bounds, nCols=" << nCols
+             << ", nRows=" << nRows;
+         throw std::runtime_error (oss.str ());
+      }
+#endif
+      uint32_t idx = getIdx (pY, startX);
+      eraseRange (idx, idx + count, attrs);
+   }
+
+   inline void
+   Frame::moveInRow (uint16_t pY, uint16_t dstX, uint16_t srcX,
+                     uint16_t count)
+   {
+      if (!count)
+         return;
+
+#ifdef DEBUG
+      if (nCols < dstX + count || nCols < srcX + count || nRows <= pY)
+      {
+         std::ostringstream oss;
+         oss << "Frame::moveInRow (pY=" << pY << " dstX=" << dstX
+             << " srcX=" << srcX << " count=" << count
+             << ") out of bounds, nCols=" << nCols << ", nRows=" << nRows;
+         throw std::runtime_error (oss.str ());
+      }
+#endif
+      uint32_t dstIdx = getIdx (pY, dstX);
+      uint32_t srcIdx = getIdx (pY, srcX);
+      moveCells (dstIdx, srcIdx, count);
+   }
+
+   inline void
+   Frame::copyRow (uint16_t dstY, uint16_t srcY, uint16_t startX,
+                   uint16_t count)
+   {
+      if (!count)
+         return;
+
+#ifdef DEBUG
+      if (nCols < startX + count || nRows <= dstY || nRows <= srcY)
+      {
+         std::ostringstream oss;
+         oss << "Frame::copyRow (dstY=" << dstY << " srcY=" << srcY
+             << " startX=" << startX << " count=" << count
+             << ") out of bounds, nCols=" << nCols << ", nRows=" << nRows;
+         throw std::runtime_error (oss.str ());
+      }
+#endif
+      uint32_t dstIdx = getIdx (dstY, startX);
+      uint32_t srcIdx = getIdx (srcY, startX);
+      copyCells (dstIdx, srcIdx, count);
+   }
+
+   // private functions
+
+   inline uint32_t
+   Frame::getIdx (uint16_t pY, uint16_t pX) const
+   {
+#ifdef DEBUG
+      if (nCols <= pX || nRows <= pY)
+      {
+         // N.B.: Vterm code is allowed to set pX to nCols,
+         // but not allowed to dereference a cell at such a coordinate.
+
+         std::ostringstream oss;
+         oss << "Frame::getIdx (pY=" << pY << " pX=" << pX
+             << ") out of bounds, nCols=" << nCols << ", nRows=" << nRows;
+         throw std::runtime_error (oss.str ());
+      }
+#endif
       if (pY < marginTop || pY >= marginBottom)
          return nCols * pY + pX;
 
@@ -27,29 +158,27 @@ namespace zutty {
       return nCols * pY + pX;
    }
 
-   inline CharVdev::Cell &
-   Frame::getCell (uint16_t pY, uint16_t pX)
+   inline const CharVdev::Cell &
+   Frame::operator [] (uint32_t idx) const
    {
-      return operator [] (getIdx (pY, pX));
+      return cells.get () [idx];
    }
 
    inline CharVdev::Cell &
    Frame::operator [] (uint32_t idx)
    {
-#ifdef DEBUG
-      if (cells == nullptr)
-         throw std::runtime_error ("cell accessor: no cell storage!");
-
-      if ((unsigned) nRows * nCols <= idx)
-      {
-         std::ostringstream oss;
-         oss << "Frame[" << idx << "] out of bounds, nCols="
-             << nCols << ", nRows=" << nRows << ", number of cells: "
-             << nCols * nRows;
-         throw std::runtime_error (oss.str ());
-      }
-#endif
       return cells.get () [idx];
+   }
+
+   inline void
+   Frame::eraseRange (uint32_t start, uint32_t end,
+                      const CharVdev::Cell& attrs)
+   {
+      CharVdev::Cell* ca = &(cells.get () [start]);
+      CharVdev::Cell*const cz = ca - start + end;
+      damage.add (start, end);
+      while (ca < cz)
+         *ca++ = attrs;
    }
 
    inline void

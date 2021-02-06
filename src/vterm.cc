@@ -553,7 +553,8 @@ namespace zutty {
       }
       else
       {
-         frame_pri.resize (winPx, winPy, nCols_, nRows_);
+         frame_pri.resize (winPx, winPy, nCols_, nRows_,
+                           marginTop, marginBottom);
          frame_alt.freeCells ();
       }
 

@@ -75,10 +75,9 @@ namespace zutty {
       vlog << "] \t"                                                      \
            << "p(" << posY << "," << posX << ")  "                        \
            << "d(" << nRows << "," << nCols << ")  "                      \
-           << "mgn[" << cf->marginTop << "," << cf->marginBottom << ")  " \
+           << "mgn[" << marginTop << "," << marginBottom << ")  "         \
            << "hmgn:" << horizMarginMode                                  \
-           << " [" << hMargin << "," << nColsEff                          \
-           << ")  cur=" << cur << "  head=" << cf->scrollHead             \
+           << " [" << hMargin << "," << nColsEff << ")"                   \
            << std::endl;                                                  \
    } while (0)
 #else
@@ -118,7 +117,7 @@ namespace zutty {
    {
       cf->selection = snapSelection (selection, selectSnapTo);
       onRefresh (* cf);
-      cf->damage.reset ();
+      cf->resetDamage ();
    }
 
    inline const MouseTrackingState&
@@ -166,15 +165,13 @@ namespace zutty {
 
       switchColMode (ColMode::C80);
 
-      cf->scrollHead = 0;
-      cf->marginTop = 0;
-      cf->marginBottom = nRows;
+      cf->resetMargins (marginTop, marginBottom);
       cf->cursor.color = defaultFgPalIx < 0
                        ? opts.fg
                        : palette256 [defaultFgPalIx];
       posX = 0;
       posY = 0;
-      setCur ();
+      curPosViaCharPlacement = false;
 
       switchScreenBufferMode (false);
       altScrollMode = opts.altScrollMode;
@@ -240,19 +237,14 @@ namespace zutty {
    {
       posX = 0;
       posY = 0;
-      setCur ();
+      curPosViaCharPlacement = false;
       fillScreen (' ');
    }
 
    inline void
    Vterm::fillScreen (uint16_t ch)
    {
-      for (int k = 0; k < nRows * nCols; ++k)
-      {
-         (* cf) [k] = attrs;
-         (* cf) [k].uc_pt = ch;
-      }
-      cf->damage.add (0, nRows * nCols);
+      cf->fillCells (ch, attrs);
    }
 
    inline void
@@ -277,9 +269,9 @@ namespace zutty {
       int y1 = selection.tl.y + vertOffset;
       int y2 = selection.br.y + vertOffset;
 
-      if (y1 < cf->marginTop ||
-          y2 > cf->marginBottom ||
-          (y2 == cf->marginBottom && selection.br.x > 0))
+      if (y1 < marginTop ||
+          y2 > marginBottom ||
+          (y2 == marginBottom && selection.br.x > 0))
       {
          selection.clear ();
          return;
@@ -358,16 +350,17 @@ namespace zutty {
       {
          frame_alt = Frame (winPx, winPy, nCols, nRows);
          cf = &frame_alt;
-         cf->damage.add (0, nRows * nCols);
+         cf->expose ();
 
          savedCursor_DEC = &savedCursor_DEC_alt;
          altScreenBufferMode = true;
       }
       else
       {
-         frame_pri.resize (winPx, winPy, nCols, nRows);
+         frame_pri.resize (winPx, winPy, nCols, nRows,
+                           marginTop, marginBottom);
          cf = &frame_pri;
-         cf->damage.add (0, nRows * nCols);
+         cf->expose ();
          frame_alt.freeCells ();
 
          savedCursor_DEC_alt.isSet = false;
@@ -440,14 +433,6 @@ namespace zutty {
       processInput (inputBuf, n);
    }
 
-   inline uint32_t
-   Vterm::setCur ()
-   {
-      curPosViaCharPlacement = false;
-      cur = cf->getIdx (posY, posX);
-      return cur;
-   }
-
    inline void
    Vterm::normalizeCursorPos ()
    {
@@ -457,54 +442,34 @@ namespace zutty {
       if (nRows < posY + 1)
          posY = nRows - 1;
 
-      setCur ();
-   }
-
-   inline uint32_t
-   Vterm::startOfThisLine ()
-   {
-      return cur - posX;
-   }
-
-   inline uint32_t
-   Vterm::startOfNextLine ()
-   {
-      return cur - posX + nCols;
+      curPosViaCharPlacement = false;
    }
 
    inline bool
    Vterm::isCursorInsideMargins ()
    {
       return posX >= hMargin && posX < nColsEff &&
-             posY >= cf->marginTop && posY < cf->marginBottom;
-   }
-
-   // N.B.: Only use this to erase (within) one line.
-   // Use a series of eraseRow () calls to erase larger areas!
-   inline void
-   Vterm::eraseRange (uint32_t start, uint32_t end)
-   {
-      CharVdev::Cell* ca = &((* cf) [start]);
-      CharVdev::Cell*const cz = ca - start + end;
-      cf->damage.add (start, end);
-      while (ca < cz)
-         *ca++ = attrs;
+             posY >= marginTop && posY < marginBottom;
    }
 
    inline void
    Vterm::eraseRow (uint16_t pY)
    {
-      uint32_t idx = cf->getIdx (pY, 0);
-      eraseRange (idx + hMargin, idx + nColsEff);
+      cf->eraseInRow (pY, hMargin, nColsEff - hMargin, attrs);
       invalidateSelection (Rect (hMargin, pY, nColsEff, pY));
+   }
+
+   inline void
+   Vterm::eraseRows (uint16_t startY, uint16_t count)
+   {
+      for (uint16_t pY = startY; pY < startY + count; ++pY)
+         eraseRow (pY);
    }
 
    inline void
    Vterm::copyRow (uint16_t dstY, uint16_t srcY)
    {
-      uint32_t dstIdx = cf->getIdx (dstY, hMargin);
-      uint32_t srcIdx = cf->getIdx (srcY, hMargin);
-      cf->copyCells (dstIdx, srcIdx, nColsEff - hMargin);
+      cf->copyRow (dstY, srcY, hMargin, nColsEff - hMargin);
       invalidateSelection (Rect (hMargin, dstY, nColsEff, dstY));
    }
 
@@ -512,7 +477,7 @@ namespace zutty {
    inline void
    Vterm::insertRows (uint16_t startY, uint16_t count)
    {
-      for (uint16_t pY = cf->marginBottom - count - 1; pY >= startY; --pY)
+      for (uint16_t pY = marginBottom - count - 1; pY >= startY; --pY)
       {
          copyRow (pY + count, pY);
          if (!pY) break;
@@ -526,10 +491,10 @@ namespace zutty {
    inline void
    Vterm::deleteRows (uint16_t startY, uint16_t count)
    {
-      for (uint16_t pY = startY; pY < cf->marginBottom - count; ++pY)
+      for (uint16_t pY = startY; pY < marginBottom - count; ++pY)
          copyRow (pY, pY + count);
 
-      for (uint16_t pY = cf->marginBottom - count; pY < cf->marginBottom; ++pY)
+      for (uint16_t pY = marginBottom - count; pY < marginBottom; ++pY)
          eraseRow (pY);
    }
 
@@ -537,28 +502,24 @@ namespace zutty {
    inline void
    Vterm::insertCols (uint16_t startX, uint16_t count)
    {
-      for (uint16_t r = cf->marginTop; r < cf->marginBottom; ++r)
+      for (uint16_t r = marginTop; r < marginBottom; ++r)
       {
-         cf->moveCells (nCols * r + startX + count, nCols * r + startX,
-                        nColsEff - startX - count);
-         eraseRange (nCols * r + startX, nCols * r + startX + count);
+         cf->moveInRow (r, startX + count, startX, nColsEff - startX - count);
+         cf->eraseInRow (r, startX, count, attrs);
       }
-      invalidateSelection (Rect (startX, cf->marginTop,
-                                 nColsEff, cf->marginBottom));
+      invalidateSelection (Rect (startX, marginTop, nColsEff, marginBottom));
    }
 
    // delete cols at and to the right of startX, within the scrolling area
    inline void
    Vterm::deleteCols (uint16_t startX, uint16_t count)
    {
-      for (uint16_t r = cf->marginTop; r < cf->marginBottom; ++r)
+      for (uint16_t r = marginTop; r < marginBottom; ++r)
       {
-         cf->moveCells (nCols * r + startX, nCols * r + startX + count,
-                        nColsEff - startX - count);
-         eraseRange (nCols * r + nColsEff - count, nCols * r + nColsEff);
+         cf->moveInRow (r, startX, startX + count, nColsEff - startX - count);
+         cf->eraseInRow (r, nColsEff - count, count, attrs);
       }
-      invalidateSelection (Rect (startX, cf->marginTop,
-                                 nColsEff, cf->marginBottom));
+      invalidateSelection (Rect (startX, marginTop, nColsEff, marginBottom));
    }
 
    inline void
@@ -600,7 +561,7 @@ namespace zutty {
       if (curPosViaCharPlacement && (posX == nColsEff || posX == nCols))
       {
          if (! autoWrapMode) return;
-         (* cf) [cur - 1].wrap = 1;
+         cf->getCell (posY, posX - 1).wrap = 1;
          inp_CR ();
          inp_LF ();
       }
@@ -612,14 +573,12 @@ namespace zutty {
          csi_ICH ();
       }
 
-      cf->damage.add (cur, cur + 1);
-      auto& c = (* cf) [cur];
+      auto& c = cf->getCell (posY, posX);
       c = attrs;
       c.uc_pt = utf8dec.getUnicode ();
       invalidateSelection (Rect (posX, posY));
 
       ++posX;
-      setCur ();
       curPosViaCharPlacement = true;
     }
 
@@ -628,7 +587,7 @@ namespace zutty {
    {
       TRACE_FUN;
       if (esc_IND ())
-         eraseRange (cur, cur - posX + nColsEff);
+         cf->eraseInRow (posY, posX, nColsEff - posX, attrs);
    }
 
    inline void
@@ -639,7 +598,7 @@ namespace zutty {
          posX = 0;
       else
          posX = hMargin;
-      setCur ();
+      curPosViaCharPlacement = false;
    }
 
    inline void
@@ -661,7 +620,7 @@ namespace zutty {
          auto ts = std::lower_bound (tabStops.begin (), tabStops.end (), posX);
          posX = (ts == tabStops.end ()) ? nCols - 1 : * ts;
       }
-      setCur ();
+      curPosViaCharPlacement = false;
    }
 
    inline void
@@ -749,7 +708,7 @@ namespace zutty {
    {
       TRACE_FUN;
       bool scrolled = false;
-      if (posY == cf->marginBottom - 1)
+      if (posY == marginBottom - 1)
       {
          nInputOps = 1;
          inputOps [0] = 1;
@@ -759,7 +718,7 @@ namespace zutty {
       else if (posY < nRows - 1)
       {
          ++posY;
-         setCur ();
+         curPosViaCharPlacement = false;
       }
       setState (InputState::Normal);
       return scrolled;
@@ -769,7 +728,7 @@ namespace zutty {
    Vterm::esc_RI ()
    {
       TRACE_FUN;
-      if (posY == cf->marginTop)
+      if (posY == marginTop)
       {
          nInputOps = 1;
          inputOps [0] = 1;
@@ -778,7 +737,7 @@ namespace zutty {
       else if (posY > 0)
       {
          --posY;
-         setCur ();
+         curPosViaCharPlacement = false;
       }
       setState (InputState::Normal);
    }
@@ -953,12 +912,12 @@ namespace zutty {
    {
       TRACE_FUN;
       uint16_t arg = inputOps [0] ? inputOps [0] : 1;
-      if (posY >= cf->marginTop)
-         arg = std::min ((int)arg, posY - cf->marginTop);
+      if (posY >= marginTop)
+         arg = std::min ((int)arg, posY - marginTop);
       else
          arg = std::min (arg, posY);
       posY -= arg;
-      setCur ();
+      curPosViaCharPlacement = false;
       setState (InputState::Normal);
    }
 
@@ -967,12 +926,12 @@ namespace zutty {
    {
       TRACE_FUN;
       int arg = inputOps [0] ? inputOps [0] : 1;
-      if (posY < cf->marginBottom)
-         arg = std::min (arg, cf->marginBottom - posY - 1);
+      if (posY < marginBottom)
+         arg = std::min (arg, marginBottom - posY - 1);
       else
          arg = std::min (arg, nRows - posY - 1);
       posY += arg;
-      setCur ();
+      curPosViaCharPlacement = false;
       setState (InputState::Normal);
    }
 
@@ -983,7 +942,7 @@ namespace zutty {
       int arg = inputOps [0] ? inputOps [0] : 1;
       arg = std::min (arg, nColsEff - posX - 1);
       posX += arg;
-      setCur ();
+      curPosViaCharPlacement = false;
       setState (InputState::Normal);
    }
 
@@ -999,7 +958,7 @@ namespace zutty {
       if (posX == nColsEff)
          arg = std::min (arg + 1, (int)posX);
       posX -= arg;
-      setCur ();
+      curPosViaCharPlacement = false;
       setState (InputState::Normal);
    }
 
@@ -1028,7 +987,7 @@ namespace zutty {
       uint16_t col = inputOps [0] ? inputOps [0] : 1;
       col = std::max ((uint16_t)1, std::min (col, nCols));
       posX = col - 1;
-      setCur ();
+      curPosViaCharPlacement = false;
       setState (InputState::Normal);
    }
 
@@ -1057,7 +1016,7 @@ namespace zutty {
       uint16_t row = inputOps [0] ? inputOps [0] : 1;
       row = std::max ((uint16_t)1, std::min (row, nRows));
       posY = row - 1;
-      setCur ();
+      curPosViaCharPlacement = false;
       setState (InputState::Normal);
    }
 
@@ -1069,7 +1028,7 @@ namespace zutty {
       row += (posY + 1);
       row = std::max ((uint16_t)1, std::min (row, nRows));
       posY = row - 1;
-      setCur ();
+      curPosViaCharPlacement = false;
       setState (InputState::Normal);
    }
 
@@ -1085,15 +1044,15 @@ namespace zutty {
          row = std::max ((uint16_t)1, std::min (row, nRows)) - 1;
          break;
       case OriginMode::ScrollingRegion:
-         row = std::max ((uint16_t)1, std::min (row, cf->marginBottom)) - 1;
-         row += cf->marginTop;
+         row = std::max ((uint16_t)1, std::min (row, marginBottom)) - 1;
+         row += marginTop;
          break;
       }
       col = std::max ((uint16_t)1, std::min (col, nCols)) - 1;
 
       posX = col;
       posY = row;
-      setCur ();
+      curPosViaCharPlacement = false;
       setState (InputState::Normal);
       logT << "Cursor positioned to (" << posY << "," << posX << ")"
            << std::endl;
@@ -1106,21 +1065,15 @@ namespace zutty {
       uint16_t arg = inputOps [0] ? inputOps [0] : 1;
       if (horizMarginMode)
       {
-         arg = std::min ((int)arg, cf->marginBottom - cf->marginTop);
-         deleteRows (cf->marginTop, arg);
+         arg = std::min ((int)arg, marginBottom - marginTop);
+         deleteRows (marginTop, arg);
       }
       else
       {
          vscrollSelection (-arg);
-         for (uint16_t k = 0; k < arg; ++k)
-         {
-            ++cf->scrollHead;
-            if (cf->scrollHead == cf->marginBottom)
-               cf->scrollHead = cf->marginTop;
-            eraseRow (cf->marginBottom - 1);
-         }
-         cf->damage.add (cf->marginTop * nCols, cf->marginBottom * nCols);
-         setCur ();
+         cf->scrollUp (arg);
+         eraseRows (marginBottom - arg, arg);
+         curPosViaCharPlacement = false;
       }
       setState (InputState::Normal);
    }
@@ -1132,22 +1085,15 @@ namespace zutty {
       uint16_t arg = inputOps [0] ? inputOps [0] : 1;
       if (horizMarginMode)
       {
-         arg = std::min ((int)arg, cf->marginBottom - cf->marginTop);
-         insertRows (cf->marginTop, arg);
+         arg = std::min ((int)arg, marginBottom - marginTop);
+         insertRows (marginTop, arg);
       }
       else
       {
          vscrollSelection (arg);
-         for (uint16_t k = 0; k < arg; ++k)
-         {
-            if (cf->scrollHead >= cf->marginTop + 1)
-               --cf->scrollHead;
-            else
-               cf->scrollHead = cf->marginBottom - 1;
-            eraseRow (cf->marginTop);
-         }
-         cf->damage.add (cf->marginTop * nCols, cf->marginBottom * nCols);
-         setCur ();
+         cf->scrollDown (arg);
+         eraseRows (marginTop, arg);
+         curPosViaCharPlacement = false;
       }
       setState (InputState::Normal);
    }
@@ -1188,7 +1134,7 @@ namespace zutty {
             else
                posX = 0;
          }
-         setCur ();
+         curPosViaCharPlacement = false;
       }
       setState (InputState::Normal);
    }
@@ -1211,7 +1157,7 @@ namespace zutty {
       switch (inputOps [0])
       {
       case 0: // clear from cursor to end of screen
-         eraseRange (cur, startOfNextLine ());
+         cf->eraseInRow (posY, posX, nCols - posX, attrs);
          invalidateSelection (Rect (posX, posY, nCols, nRows));
          for (uint16_t pY = posY + 1; pY < nRows; ++pY)
             eraseRow (pY);
@@ -1219,7 +1165,7 @@ namespace zutty {
       case 1: // clear from beginning of screen to cursor
          for (uint16_t pY = 0; pY < posY; ++pY)
             eraseRow (pY);
-         eraseRange (startOfThisLine (), cur + 1);
+         cf->eraseInRow (posY, 0, posX + 1, attrs);
          invalidateSelection (Rect (0, 0, posX + 1, posY));
          break;
       case 2: // clear entire screen
@@ -1239,21 +1185,18 @@ namespace zutty {
    Vterm::csi_EL ()
    {
       TRACE_FUN;
-      uint32_t begin = cur;
-      uint32_t end = cur + 1;
       switch (inputOps [0])
       {
       case 0: // clear from cursor to end of line
-         end = startOfNextLine ();
+         cf->eraseInRow (posY, posX, nCols - posX, attrs);
          invalidateSelection (Rect (posX, posY, nCols, posY));
          break;
       case 1: // clear from cursor to beginning of line
-         begin = startOfThisLine ();
+         cf->eraseInRow (posY, 0, posX + 1, attrs);
          invalidateSelection (Rect (0, posY, posX + 1, posY));
          break;
       case 2: // clear entire line
-         begin = startOfThisLine ();
-         end = startOfNextLine ();
+         cf->eraseInRow (posY, 0, nCols, attrs);
          invalidateSelection (Rect (0, posY, nCols, posY));
          break;
       default:
@@ -1261,7 +1204,6 @@ namespace zutty {
               << inputOps [0] << std::endl;
          break;
       }
-      eraseRange (begin, end);
       setState (InputState::Normal);
    }
 
@@ -1272,7 +1214,7 @@ namespace zutty {
       if (isCursorInsideMargins ())
       {
          int arg = inputOps [0] ? inputOps [0] : 1;
-         arg = std::min (arg, cf->marginBottom - posY);
+         arg = std::min (arg, marginBottom - posY);
          insertRows (posY, arg);
          inp_CR ();
       }
@@ -1286,7 +1228,7 @@ namespace zutty {
       if (isCursorInsideMargins ())
       {
          int arg = inputOps [0] ? inputOps [0] : 1;
-         arg = std::min (arg, cf->marginBottom - posY);
+         arg = std::min (arg, marginBottom - posY);
          deleteRows (posY, arg);
          inp_CR ();
       }
@@ -1304,14 +1246,15 @@ namespace zutty {
          arg = std::min (arg, len);
          len -= arg;
 
-         if ((* cf) [cur + arg + len - 1].wrap)
+         if (cf->getCell (posY, posX + arg + len - 1).wrap)
          {
             // maintain wrap bit invariance at EOL
-            (* cf) [cur + arg + len - 1].wrap = 0;
-            (* cf) [cur + len - 1].wrap = 1;
+            cf->getCell (posY, posX + arg + len - 1).wrap = 0;
+            cf->getCell (posY, posX + len - 1).wrap = 1;
          }
-         cf->moveCells (cur + arg, cur, len);
-         eraseRange (cur, cur + arg);
+
+         cf->moveInRow (posY, posX + arg, posX, len);
+         cf->eraseInRow (posY, posX, arg, attrs);
       }
       setState (InputState::Normal);
    }
@@ -1326,8 +1269,9 @@ namespace zutty {
          uint32_t len = nColsEff - posX;
          arg = std::min (arg, len);
          len -= arg;
-         cf->moveCells (cur, cur + arg, len);
-         eraseRange (cur + len, cur + len + arg);
+
+         cf->moveInRow (posY, posX, posX + arg, len);
+         cf->eraseInRow (posY, posX + len, arg, attrs);
       }
       setState (InputState::Normal);
    }
@@ -1339,7 +1283,7 @@ namespace zutty {
       uint32_t arg = inputOps [0] ? inputOps [0] : 1;
       uint32_t len = nColsEff - posX;
       arg = std::min (arg, len);
-      eraseRange (cur, cur + arg);
+      cf->eraseInRow (posY, posX, arg, attrs);
       setState (InputState::Normal);
    }
 
@@ -1349,12 +1293,9 @@ namespace zutty {
       TRACE_FUN;
       if (nInputOps == 1 && inputOps [0] == 0)
       {
-         if (cf->marginTop != 0 || cf->marginBottom != nRows)
+         if (marginTop != 0 || marginBottom != nRows)
          {
-            cf->linearizeCellStorage ();
-            cf->marginTop = 0;
-            cf->marginBottom = nRows;
-            cf->scrollHead = 0;
+            cf->resetMargins (marginTop, marginBottom);
          }
       }
       else if (nInputOps == 2)
@@ -1367,13 +1308,11 @@ namespace zutty {
             logI << "Illegal arguments to SetTopBottomMargins: top="
                  << inputOps [0] << ", bottom=" << inputOps [1] << std::endl;
          }
-         else if (newMarginTop != cf->marginTop || newMarginBottom != cf->marginBottom)
+         else if (newMarginTop != marginTop || newMarginBottom != marginBottom)
          {
-            cf->linearizeCellStorage ();
-            cf->marginTop = newMarginTop;
-            cf->marginBottom = newMarginBottom;
-            cf->scrollHead = cf->marginTop;
-            cf->damage.add (0, nRows * nCols);
+            marginTop = newMarginTop;
+            marginBottom = newMarginBottom;
+            cf->setMargins (marginTop, marginBottom);
          }
       }
 
@@ -1385,9 +1324,9 @@ namespace zutty {
       else
       {
          posX = hMargin;
-         posY = cf->marginTop;
+         posY = marginTop;
       }
-      setCur ();
+      curPosViaCharPlacement = false;
       setState (InputState::Normal);
    }
 
@@ -1425,9 +1364,9 @@ namespace zutty {
       else
       {
          posX = hMargin;
-         posY = cf->marginTop;
+         posY = marginTop;
       }
-      setCur ();
+      curPosViaCharPlacement = false;
       setState (InputState::Normal);
    }
 
@@ -1786,7 +1725,7 @@ namespace zutty {
          if (originMode == OriginMode::Absolute)
             oss << "\e[" << (posY + 1) << ";" << (posX + 1) << "R";
          else
-            oss << "\e[" << (posY - cf->marginTop + 1) << ";" << (posX + 1) << "R";
+            oss << "\e[" << (posY - marginTop + 1) << ";" << (posX + 1) << "R";
          writePty (oss.str ().c_str ());
       }
          break;

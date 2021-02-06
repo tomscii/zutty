@@ -24,21 +24,34 @@ namespace zutty {
                       uint16_t nCols_, uint16_t nRows_);
 
       void resize (uint16_t winPx_, uint16_t winPy_,
-                   uint16_t nCols_, uint16_t nRows_);
+                   uint16_t nCols_, uint16_t nRows_,
+                   uint16_t& marginTop_, uint16_t& marginBottom_);
 
-      void linearizeCellStorage ();
+      void setMargins (uint16_t marginTop_, uint16_t marginBottom_);
+      void resetMargins (uint16_t& marginTop_, uint16_t& marginBottom_);
+
+      void fillCells (uint16_t ch, const CharVdev::Cell& attrs);
       void copyCells (CharVdev::Cell * const dest);
       void deltaCopyCells (CharVdev::Cell * const dest);
-      void damageDeltaCopy (CharVdev::Cell* dst, uint32_t start, uint32_t end);
+
       operator bool () const { return cells != nullptr; }
       void freeCells () { cells = nullptr; }
 
-      uint32_t getIdx (uint16_t pY, uint16_t pX);
+      const CharVdev::Cell & getCell (uint16_t pY, uint16_t pX) const;
       CharVdev::Cell & getCell (uint16_t pY, uint16_t pX);
-      CharVdev::Cell & operator [] (uint32_t idx);
 
-      void copyCells (uint32_t dstIx, uint32_t srcIx, uint32_t count);
-      void moveCells (uint32_t dstIx, uint32_t srcIx, uint32_t count);
+      void eraseInRow (uint16_t pY, uint16_t startX, uint16_t count,
+                       const CharVdev::Cell& attrs);
+      void moveInRow (uint16_t pY, uint16_t dstX, uint16_t srcX,
+                      uint16_t count);
+      void copyRow (uint16_t dstY, uint16_t srcY, uint16_t startX,
+                    uint16_t count);
+
+      void scrollUp (uint16_t count);
+      void scrollDown (uint16_t count);
+
+      void expose () { damage.add (0, nRows * nCols); };
+      void resetDamage () { damage.reset (); };
 
       uint64_t seqNo = 0; // update counter (used by Renderer)
 
@@ -50,10 +63,12 @@ namespace zutty {
       CharVdev::Cursor cursor;
       Rect selection;
 
-      // Ideally, these should be private, but they are closely coupled to Vterm
+   private:
       uint16_t scrollHead;   // scrolling area row offset of logical top row
       uint16_t marginTop;    // current margin top (number of rows above)
       uint16_t marginBottom; // current margin bottom (number of rows above + 1)
+
+      CharVdev::Cell::Ptr cells = nullptr;
 
       struct Damage
       {
@@ -82,8 +97,17 @@ namespace zutty {
       };
       Damage damage;
 
-   private:
-      CharVdev::Cell::Ptr cells = nullptr;
+      uint32_t getIdx (uint16_t pY, uint16_t pX) const;
+      const CharVdev::Cell & operator [] (uint32_t idx) const;
+      CharVdev::Cell & operator [] (uint32_t idx);
+
+      void eraseRange (uint32_t start, uint32_t end,
+                       const CharVdev::Cell& attrs);
+      void copyCells (uint32_t dstIx, uint32_t srcIx, uint32_t count);
+      void moveCells (uint32_t dstIx, uint32_t srcIx, uint32_t count);
+
+      void damageDeltaCopy (CharVdev::Cell* dst, uint32_t start, uint32_t end);
+      void unwrapCellStorage ();
    };
 
 } // namespace zutty
