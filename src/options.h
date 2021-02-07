@@ -44,7 +44,7 @@ namespace zutty {
       {"glinfo",    XrmoptionNoArg,    "true",  "false",     "Print OpenGL information"},
       {"help",      XrmoptionNoArg,    "true",  "false",     "Print usage information"},
       {"rv",        XrmoptionNoArg,    "true",  "false",     "Reverse video"},
-      {"shell",     XrmoptionSepArg,   nullptr, "bash",      "Shell program to run"},
+      {"shell",     XrmoptionSepArg,   nullptr, nullptr,     "Shell program to run"},
       {"title",     XrmoptionSepArg,   nullptr, "Zutty",     "Window title"},
       {"quiet",     XrmoptionNoArg,    "true",  "false",     "Silence logging output"},
       {"verbose",   XrmoptionNoArg,    "true",  "false",     "Output info messages"},

@@ -271,6 +271,7 @@ validateShell (char* progPath)
       if (strcmp (progPath, permShell) == 0)
       {
          endusershell ();
+         setenv ("SHELL", progPath, 1);
          return;
       }
       permShell = getusershell ();

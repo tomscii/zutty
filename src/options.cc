@@ -213,7 +213,9 @@ namespace zutty {
          convFontsize (fontsize);
          convGeometry (nCols, nRows);
          glinfo = getBool ("glinfo");
-         shell = get ("shell");
+         shell = get ("shell", getenv ("SHELL"));
+         if (!shell)
+            shell = "bash";
          title = get ("title");
          convColor ("fg", fg);
          convColor ("bg", bg);
