@@ -40,6 +40,8 @@ else
     DEBUG=no
 fi
 
+PLATFORM=$(uname -s)
+
 EXIT_CODE=0
 
 export TEST_NAME=$(basename -s .sh "$0")
@@ -115,8 +117,8 @@ CHECK_DEPS convert compare identify mogrify xvkbd wmctrl
 mkdir -p $(dirname ${UUT_LOG})
 mkdir -p ${UUT_SNAP}
 
-CON_PID=$(ps -p $$ -o ppid=;)
-CON_PID=$(ps -p ${CON_PID} -o ppid=;)
+CON_PID=$(ps -p $$ -o ppid=)
+CON_PID=$(ps -p ${CON_PID} -o ppid=)
 CON_WID=$(wmctrl -lp | grep ${CON_PID} | awk '{print $1}')
 if [ -z "${CON_WID}" ] ; then
     echo "Console pid: ${CON_PID}"
@@ -144,7 +146,7 @@ fi
 # wait until window opens and grab its X window id
 WID=''
 while true ; do
-    if [[ -z "$(ps --no-header -o pid ${PID})" ]] ; then
+    if [[ -z "$(ps -p ${PID} -o pid=)" ]] ; then
         echo "UUT process ${PID} gone, aborting."
         exit 1
     fi
@@ -160,9 +162,14 @@ which i3-msg >/dev/null && i3-msg floating enable >/dev/null;
 
 function FINISH_TEST {
     # display process statistics
-    ps -o pid,vsz,rss,trs,sz,time,maj_flt,min_flt,cmd ${PID} | tee -a ${TEST_LOG}
-    pmap -x ${PID} >> ${TEST_LOG}
-    echo "Process memory map appended to ${TEST_LOG}"
+    if [ "${PLATFORM}" == "Linux" ] ; then
+        ps -p ${PID} -o pid,vsz,rss,trs,sz,time,maj_flt,min_flt,args \
+            | tee -a ${TEST_LOG}
+        pmap -x ${PID} >> ${TEST_LOG}
+        echo "Process memory map appended to ${TEST_LOG}"
+    else
+        ps -p ${PID} -o pid,vsz,rss,time,args | tee -a ${TEST_LOG}
+    fi
     kill "${PID}"
     exit ${EXIT_CODE}
 }

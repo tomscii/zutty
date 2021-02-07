@@ -37,7 +37,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/termios.h>
 #include <termios.h>
 
 #if defined(MACOS) || !defined(TIOCGWINSZ)
@@ -132,6 +131,7 @@ namespace zutty {
          // Slave becomes stdin/stdout/stderr of child.
          redirectFds (fds);
 
+      #if defined(LINUX) || defined(MACOS)
          // Setup terminal attributes
          struct termios term;
          if (tcgetattr (STDIN_FILENO, &term) < 0)
@@ -139,6 +139,7 @@ namespace zutty {
          term.c_iflag |= IUTF8;
          if (tcsetattr (STDIN_FILENO, TCSANOW, &term) < 0)
             SYS_ERROR ("tcsetattr");
+      #endif
       }
       else // parent process
       {

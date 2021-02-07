@@ -2,20 +2,12 @@
 # encoding: utf-8
 
 import subprocess, sys
+from waflib import Logs
 
 top = '.'
 out = 'build'
 
 def options(opt):
-    opt.add_option('--libpath-egl', action='store', default=False,
-                   help='Path to libEGL.so')
-
-    opt.add_option('--libpath-gles', action='store', default=False,
-                   help='Path to libGLESv2.so')
-
-    opt.add_option('--libpath-pthread', action='store', default=False,
-                   help='Path to libpthread.so')
-
     opt.add_option('--debug', action='store_true', default=False,
                    dest='debug', help='Compile-in debug facilities')
 
@@ -33,9 +25,22 @@ def configure(cfg):
     cfg.msg('Zutty version', vsn)
     if cfg.options.debug:
         vsn = vsn + '-DEBUG'
-    cfg.env.append_value('CXXFLAGS', ['-DZUTTY_VERSION=\"' + vsn + '\"'])
 
     cfg.msg('Debug build', "yes" if cfg.options.debug else "no")
+
+    platform = cmd("uname -s")
+    cfg.msg('Target platform', platform)
+    if platform == 'Linux':
+        psym='LINUX'
+    elif platform == 'FreeBSD' or platform == 'OpenBSD' or platform == 'NetBSD':
+        psym='BSD'
+    elif platform == 'Darwin':
+        psym='MACOS'
+    elif platform == 'SunOS':
+        psym='SOLARIS'
+    else:
+        Logs.error ('Unknown platform: {}'.format (platform))
+        sys.exit (1)
 
     cfg.load('compiler_cxx')
 
@@ -46,37 +51,25 @@ def configure(cfg):
         '-Wall',
         '-Wextra',
         '-Wsign-compare',
-        '-Wno-unused-parameter'
+        '-Wno-unused-parameter',
+        '-I/usr/local/include',
+        '-D{}'.format (psym),
+        '-DZUTTY_VERSION="{}"'.format (vsn)
         ])
 
-    cfg.env.target = 'zutty'
+    cfg.env.append_value('LINKFLAGS',
+       ['-L/usr/local/lib'])
+
     if cfg.options.debug:
         cfg.env.target = 'zutty.dbg'
         cfg.env.append_value('CXXFLAGS',
-                             ['-DDEBUG',
-                              '-Og', '-g', '-ggdb',
-                             ])
+           ['-DDEBUG', '-Og', '-g', '-ggdb'])
     else:
+        cfg.env.target = 'zutty'
         cfg.env.append_value('CXXFLAGS',
-                             ['-Werror',
-                              '-O3', '-march=native', '-mtune=native',
-                              '-flto'
-                             ])
-        cfg.env.append_value('LINKFLAGS', ['-flto'])
-
-    default_libpath = cmd ("echo /usr/lib/$(gcc -dumpmachine)")
-    cfg.env.LIB_EGL     = ['EGL']
-    cfg.env.LIBPATH_EGL = [cfg.options.libpath_egl
-                           if cfg.options.libpath_egl
-                           else default_libpath]
-    cfg.env.LIB_GLES     = ['GLESv2']
-    cfg.env.LIBPATH_GLES = [cfg.options.libpath_gles
-                            if cfg.options.libpath_gles
-                            else default_libpath]
-    cfg.env.LIB_THREAD     = ['pthread']
-    cfg.env.LIBPATH_THREAD = [cfg.options.libpath_pthread
-                              if cfg.options.libpath_pthread
-                              else default_libpath]
+           ['-Werror', '-O3', '-march=native', '-mtune=native', '-flto'])
+        cfg.env.append_value('LINKFLAGS',
+           ['-flto'])
 
     cfg.check_cfg(package='freetype2', args=['--cflags', '--libs'],
                   uselib_store='FT')
@@ -84,8 +77,11 @@ def configure(cfg):
     cfg.check_cfg(package='xmu', args=['--cflags', '--libs'],
                   uselib_store='XMU')
 
-    cfg.check(header_name='EGL/egl.h', features='cxx')
-    cfg.check(header_name='GLES3/gl31.h', features='cxx')
+    cfg.check_cxx(header_name='EGL/egl.h')
+    cfg.check_cxx(header_name='GLES3/gl31.h')
+    cfg.check_cxx(lib='EGL', uselib_store='EGL')
+    cfg.check_cxx(lib='GLESv2', uselib_store='GLES')
+    cfg.check_cxx(lib='pthread', uselib_store='THREAD')
 
     cfg.recurse('src')
 
