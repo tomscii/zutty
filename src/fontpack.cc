@@ -200,7 +200,7 @@ namespace zutty {
          int flags = FTW_DEPTH;
          if (nftw (fontpath1.c_str (), fontFileFilter, 32, flags) == -1)
          {
-            SYS_ERROR ("Cannot walk file tree; nftw()");
+            SYS_WARN ("Cannot walk file tree at ", fontpath1);
          }
 
       } while (!sstate.regular.size () && nextpos != std::string::npos);

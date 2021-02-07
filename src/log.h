@@ -66,14 +66,21 @@ namespace zutty {
    void redirectFds (int fd);
    void restoreFds ();
 
-#define logS(...)    logE; zutty::printArgs(__VA_ARGS__)
+#define logSysE(...)    logE; zutty::printArgs(__VA_ARGS__)
+#define logSysW(...)    logW; zutty::printArgs(__VA_ARGS__)
 
 #define SYS_ERROR(...)                                                  \
    do {                                                                 \
       const auto ec = errno;                                            \
       zutty::restoreFds ();                                             \
-      logS(__VA_ARGS__, ": ", strerror(ec), " (errno=", ec, ")");       \
+      logSysE(__VA_ARGS__, ": ", strerror(ec), " (errno=", ec, ")");    \
       exit(1);                                                          \
+   } while (0);
+
+#define SYS_WARN(...)                                                   \
+   do {                                                                 \
+      const auto ec = errno;                                            \
+      logSysW(__VA_ARGS__, ": ", strerror(ec), " (errno=", ec, ")");    \
    } while (0);
 
 
