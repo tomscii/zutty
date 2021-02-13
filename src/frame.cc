@@ -16,7 +16,8 @@ namespace zutty {
    Frame::Frame () {}
 
    Frame::Frame (uint16_t winPx_, uint16_t winPy_,
-                 uint16_t nCols_, uint16_t nRows_)
+                 uint16_t nCols_, uint16_t nRows_,
+                 uint16_t& marginTop_, uint16_t& marginBottom_)
       : winPx (winPx_)
       , winPy (winPy_)
       , nCols (nCols_)
@@ -25,7 +26,10 @@ namespace zutty {
       , marginTop (0)
       , marginBottom (nRows)
       , cells (CharVdev::make_cells (nCols, nRows))
-   {}
+   {
+      marginTop_ = marginTop;
+      marginBottom_ = marginBottom;
+   }
 
    void
    Frame::setMargins (uint16_t marginTop_, uint16_t marginBottom_)
@@ -33,7 +37,7 @@ namespace zutty {
       unwrapCellStorage ();
       scrollHead = marginTop = marginTop_;
       marginBottom = marginBottom_;
-      damage.add (0, nRows * nCols);
+      expose ();
    }
 
    void
@@ -42,7 +46,7 @@ namespace zutty {
       unwrapCellStorage ();
       scrollHead = marginTop = marginTop_ = 0;
       marginBottom = marginBottom_ = nRows;
-      damage.add (0, nRows * nCols);
+      expose ();
    }
 
    void

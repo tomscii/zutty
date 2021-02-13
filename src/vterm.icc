@@ -348,7 +348,8 @@ namespace zutty {
 
       if (altScreenBufferMode_)
       {
-         frame_alt = Frame (winPx, winPy, nCols, nRows);
+         frame_alt = Frame (winPx, winPy, nCols, nRows,
+                            marginTop, marginBottom);
          cf = &frame_alt;
          cf->expose ();
 

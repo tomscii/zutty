@@ -500,7 +500,7 @@ namespace zutty {
       , onRefresh ([] (const Frame&) {})
       , onOsc ([] (int cmd, const std::string& arg)
                { logU << "OSC: '" << cmd << ";" << arg << "'" << std::endl; })
-      , frame_pri (winPx, winPy, nCols, nRows)
+      , frame_pri (winPx, winPy, nCols, nRows, marginTop, marginBottom)
       , cf (&frame_pri)
       , utf8dec ([this] () { placeGraphicChar (); })
       , nColsEff (nCols)
@@ -544,22 +544,23 @@ namespace zutty {
          cf->winPy = winPy;
          return;
       }
+      nCols = nCols_;
+      nRows = nRows_;
 
       hideCursor ();
 
       if (altScreenBufferMode)
       {
-         frame_alt = Frame (winPx, winPy, nCols_, nRows_);
+         frame_alt = Frame (winPx, winPy, nCols, nRows,
+                            marginTop, marginBottom);
       }
       else
       {
-         frame_pri.resize (winPx, winPy, nCols_, nRows_,
+         frame_pri.resize (winPx, winPy, nCols, nRows,
                            marginTop, marginBottom);
          frame_alt.freeCells ();
       }
 
-      nCols = nCols_;
-      nRows = nRows_;
       if (horizMarginMode)
       {
          nColsEff = std::min (nColsEff, nCols);

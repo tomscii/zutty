@@ -21,7 +21,8 @@ namespace zutty {
       explicit Frame ();
 
       explicit Frame (uint16_t winPx_, uint16_t winPy_,
-                      uint16_t nCols_, uint16_t nRows_);
+                      uint16_t nCols_, uint16_t nRows_,
+                      uint16_t& marginTop_, uint16_t& marginBottom_);
 
       void resize (uint16_t winPx_, uint16_t winPy_,
                    uint16_t nCols_, uint16_t nRows_,
