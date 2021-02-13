@@ -638,7 +638,7 @@ namespace zutty {
    Vterm::showCursor ()
    {
       TRACE_FUN;
-      if (showCursorMode)
+      if (showCursorMode && inputState == InputState::Normal)
       {
          cf->cursor.posX = posX;
          cf->cursor.posY = posY;

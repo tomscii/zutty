@@ -66,7 +66,9 @@ namespace zutty {
          if (done)
             return;
 
-         delta = (lastFrame.seqNo + 1 == nextFrame.seqNo);
+         if (lastFrame.seqNo + 1 != nextFrame.seqNo)
+            delta = false;
+
          lastFrame = nextFrame;
          lk.unlock ();
 
@@ -87,8 +89,18 @@ namespace zutty {
          charVdev->setDeltaFrame (delta);
          charVdev->setCursor (lastFrame.cursor);
          charVdev->setSelection (lastFrame.selection);
-         charVdev->draw ();
-         swapBuffers ();
+
+         if (lastFrame.seqNo == nextFrame.seqNo)
+         {
+            charVdev->draw ();
+            swapBuffers ();
+            delta = true;
+         }
+         else
+         {
+            // skip drawing outdated frame; force full redraw next time
+            delta = false;
+         }
       }
    }
 

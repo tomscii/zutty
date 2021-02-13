@@ -37,7 +37,7 @@ namespace zutty {
       std::unique_ptr <CharVdev> charVdev;
       const std::function <void ()> swapBuffers;
       Frame nextFrame;
-      uint64_t seqNo;
+      uint64_t seqNo = 0;
       bool done = false;
 
       std::condition_variable cond;
