@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [ "${BASH_SOURCE[0]}" -ef "$0" ]
 then
@@ -113,7 +113,7 @@ export TEST_LOG="$(pwd)/output/${PROFILE}/${TEST_NAME}.log"
 export UUT_LOG="$(pwd)/output/${PROFILE}/${TEST_NAME}.uut.log"
 export UUT_SNAP="$(pwd)/output/${PROFILE}"
 
-CHECK_DEPS convert compare identify mogrify xvkbd wmctrl
+CHECK_DEPS convert compare identify mogrify xrdb xvkbd wmctrl
 mkdir -p $(dirname ${UUT_LOG})
 mkdir -p ${UUT_SNAP}
 
@@ -129,6 +129,9 @@ fi
 
 # Add path to installed dependencies, if any
 export PATH="$(pwd)/deps/bin":$PATH
+
+# Remove any permanent configuration that could change how Zutty looks/behaves:
+[ -f ${HOME}/.Xresources ] && xrdb -remove
 
 # execute UUT and store its pid
 ${UUT_EXE} >${UUT_LOG} 2>&1 &
@@ -171,6 +174,7 @@ function FINISH_TEST {
         ps -p ${PID} -o pid,vsz,rss,time,args | tee -a ${TEST_LOG}
     fi
     kill "${PID}"
+    [ -f ${HOME}/.Xresources ] && xrdb ${HOME}/.Xresources
     exit ${EXIT_CODE}
 }
 
@@ -187,6 +191,7 @@ function check_uut {
         echo "---------- LOG TAIL ----------"
         tail ${UUT_LOG}
         trap - EXIT
+        [ -f ${HOME}/.Xresources ] && xrdb ${HOME}/.Xresources
         exit 1
     fi
 }

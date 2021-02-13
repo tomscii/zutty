@@ -30,6 +30,14 @@ namespace zutty {
       const char* helpDescr;
    };
 
+#if defined(FREEBSD)
+   static constexpr const char* fontpath = "/usr/local/share/fonts";
+#elif defined(OPENBSD)
+   static constexpr const char* fontpath = "/usr/X11R6/lib/X11/fonts";
+#else
+   static constexpr const char* fontpath = "/usr/share/fonts";
+#endif
+
    static const std::vector <OptionDesc> optionsTable = {
       {"altScroll", XrmoptionNoArg,    "true",  "false",     "Alternate scroll mode"},
       {"autoCopy",  XrmoptionNoArg,    "true",  "false",     "Sync primary to clipboard"},
@@ -39,7 +47,7 @@ namespace zutty {
       {"fg",        XrmoptionSepArg,   nullptr, "ffffff",    "Foreground color"},
       {"font",      XrmoptionSepArg,   nullptr, "9x18",      "Font to use"},
       {"fontsize",  XrmoptionSepArg,   nullptr, "16",        "Font size"},
-      {"fontpath",  XrmoptionSepArg,   nullptr, "/usr/share/fonts", "Font search path"},
+      {"fontpath",  XrmoptionSepArg,   nullptr, fontpath,    "Font search path"},
       {"geometry",  XrmoptionSepArg,   nullptr, "80x24",     "Terminal size in chars"},
       {"glinfo",    XrmoptionNoArg,    "true",  "false",     "Print OpenGL information"},
       {"help",      XrmoptionNoArg,    "true",  "false",     "Print usage information"},

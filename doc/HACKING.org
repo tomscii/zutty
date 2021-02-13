@@ -160,7 +160,7 @@ On a high level, testing consists of these steps:
   For reference, see: http://t-sato.in.coocan.jp/xvkbd/
 - Make a screenshot of the window via the window id
   : xwd -nobdrs -id <id> | convert xwd:- png:- > <shot-name>.png
-- Generate a digest of the screen content, to be compared against a reference value:
+- Generate a signature of the screen content, to be compared against a reference value:
   : identify -verbose <shot-name>.png | grep signature | awk '{print $2}' | cut -32
   (We cut the hash in half to make it less unwieldy.)
   Having consistent hashes that depend only on the rendered pixel
@@ -170,6 +170,18 @@ On a high level, testing consists of these steps:
 The above steps are automated by some fairly straightforward bash
 scripts under the =test/= subdirectory. These scripts all source the
 =testbase.sh= script, which constitutes the test library.
+
+*** CAVEATs
+
+While Zutty itself compiles and runs on Linux as well as BSD
+platforms, the test toolkit assumes a specific development environment
+(most notably: Linux platform with =bash= as the default shell, and
+the presence of a window manager with certain standard capabilities).
+
+Please also note that the reference signatures of screen captures are
+valid for ImageMagick version 6 only; version 7 has altered the image
+signature hash algorithm, which breaks the hashes included in the
+tests.
 
 *** Anatomy of a test script
 
@@ -181,7 +193,7 @@ color attributes to truecolor (24 bit) values. The full script is
 reproduced below:
 
 #+BEGIN_SRC sh
-#!/bin/bash
+#!/usr/bin/env bash
 
 cd $(dirname $0)
 source testbase.sh
@@ -209,8 +221,8 @@ terminal. Note the trailing =\r= that will result in a virtual =Enter=
 keypress.
 
 The subsequent =SNAP= will capture the resulting terminal window
-content under the name =truecolor_01= and generate a digest (hash) of
-it, comparing it with the supplied value. If the digest matches, the
+content under the name =truecolor_01=, generate a signature (hash) of
+it, and compare that with the supplied value. If there is a match, the
 output is verified to be correct; else a test failure is reported.
 
 The snap name is used to save the captured window image under
@@ -447,9 +459,14 @@ differences with red.
 ** Contribution guide
 
 There is no commercial entity behind Zutty. It is a volunteer effort
-with extremely limited resources. Your contributions are welcome.
-However, to make them actually useful, please keep the following in
-mind:
+with extremely limited resources. Your contributions will be duly
+considered, but please discuss your plans with us before starting out.
+Otherwise, you run the risk of being ignored after having put time and
+effort into the preparation of a patch.
+
+Not every aspect of what makes a good contribution can be codified (we
+believe having good taste plays an important role), but as a minimum,
+please keep the following in mind:
 
 *** Respect existing coding style
 

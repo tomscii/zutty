@@ -39,7 +39,7 @@
 #include <sys/stat.h>
 #include <termios.h>
 
-#if defined(MACOS) || !defined(TIOCGWINSZ)
+#if defined(BSD) || defined(MACOS) || !defined(TIOCGWINSZ)
 #include <sys/ioctl.h>
 #endif
 

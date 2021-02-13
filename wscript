@@ -28,20 +28,6 @@ def configure(cfg):
 
     cfg.msg('Debug build', "yes" if cfg.options.debug else "no")
 
-    platform = cmd("uname -s")
-    cfg.msg('Target platform', platform)
-    if platform == 'Linux':
-        psym='LINUX'
-    elif platform == 'FreeBSD' or platform == 'OpenBSD' or platform == 'NetBSD':
-        psym='BSD'
-    elif platform == 'Darwin':
-        psym='MACOS'
-    elif platform == 'SunOS':
-        psym='SOLARIS'
-    else:
-        Logs.error ('Unknown platform: {}'.format (platform))
-        sys.exit (1)
-
     cfg.load('compiler_cxx')
 
     cfg.env.append_value('CXXFLAGS',
@@ -52,13 +38,30 @@ def configure(cfg):
         '-Wextra',
         '-Wsign-compare',
         '-Wno-unused-parameter',
-        '-I/usr/local/include',
-        '-D{}'.format (psym),
         '-DZUTTY_VERSION="{}"'.format (vsn)
         ])
 
-    cfg.env.append_value('LINKFLAGS',
-       ['-L/usr/local/lib'])
+    platform = cmd("uname -s")
+    cfg.msg('Target platform', platform)
+    if platform == 'Linux':
+        cfg.env.append_value('CXXFLAGS', ['-DLINUX'])
+    elif platform == 'FreeBSD':
+        cfg.env.append_value('CXXFLAGS',
+                             ['-DBSD', '-DFREEBSD', '-I/usr/local/include'])
+        cfg.env.append_value('LINKFLAGS', ['-L/usr/local/lib'])
+    elif platform == 'OpenBSD':
+        cfg.env.append_value('CXXFLAGS',
+                             ['-DBSD', '-DOPENBSD', '-I/usr/X11R6/include'])
+        cfg.env.append_value('LINKFLAGS', ['-L/usr/X11R6/lib'])
+    elif platform == 'NetBSD':
+        cfg.env.append_value('CXXFLAGS', ['-DBSD'])
+    elif platform == 'Darwin':
+        cfg.env.append_value('CXXFLAGS', ['-DMACOS'])
+    elif platform == 'SunOS':
+        cfg.env.append_value('CXXFLAGS', ['-DSOLARIS'])
+    else:
+        Logs.error ('Unknown platform: {}'.format (platform))
+        sys.exit (1)
 
     if cfg.options.debug:
         cfg.env.target = 'zutty.dbg'
