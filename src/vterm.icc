@@ -166,9 +166,6 @@ namespace zutty {
       switchColMode (ColMode::C80);
 
       cf->resetMargins (marginTop, marginBottom);
-      cf->cursor.color = defaultFgPalIx < 0
-                       ? opts.fg
-                       : palette256 [defaultFgPalIx];
       posX = 0;
       posY = 0;
       curPosViaCharPlacement = false;
@@ -1533,7 +1530,7 @@ namespace zutty {
    {
       if (fgPalIx < 0)
          *fg = opts.fg;
-      else if (attrs.bold && fgPalIx >= 0 && fgPalIx <= 7)
+      else if (opts.boldColors && attrs.bold && fgPalIx >= 0 && fgPalIx <= 7)
          *fg = palette256 [fgPalIx + 8];
       else
          *fg = palette256 [fgPalIx];

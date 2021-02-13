@@ -2,9 +2,6 @@
 #+OPTIONS: author:nil timestamp:nil num:nil val:nil html-style:nil H:3 ^:{}
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="org.css"/>
 
-This document is aimed at all levels of users: experts and non-experts
-alike.
-
 * Installation
 
 You will probably need to install Zutty from source. This is not as
@@ -15,7 +12,8 @@ a relatively small program.
 
 On a recent (stable or testing) Debian, or a Debian-derivative such as
 Ubuntu, the following command will make sure everything you need to
-build Zutty is in place.
+build Zutty is in place. It also gives you an idea of what you need to
+install on other flavours of Linux.
 
 : sudo apt-get install \
 :    build-essential pkg-config python3 \
@@ -86,8 +84,7 @@ own right). A successful compile ends with a line like this:
 At this point, the =zutty= executable is complete and ready to be run
 at =build/src/zutty= and you might want to launch it just to see if it
 works. You can run it without arguments to start it up with defaults,
-or add =-h= (or =-help=) to learn about available options. (Don't
-worry, those will be covered in detail below.)
+or add =-h= (or =-help=) to learn about available options.
 
 ** 5. Install Zutty
 
@@ -118,7 +115,7 @@ terminal!
 
 * Configuration
 
-=zutty= has a set of configuration options, all of which have:
+Zutty has a set of configuration options, all of which have:
 - a command line option;
 - an X resource database (Xrdb) key;
 - a sensible hard default.
@@ -126,8 +123,11 @@ terminal!
 For each option, the above list defines the order of preference.  That
 is, the command line can be used to define a setting in a transient
 way; Xrdb entries may be used to persistently alter the default value
-for an option; and lastly, without any input from the user, =zutty=
-should still have a workable default.
+for an option; and lastly, without any option or configuration,
+Zutty will still have a workable default.
+
+There is also a set of [[Extra resources]] available for persistent
+configuration, but not settable via command line options.
 
 To view the list of options, issue =zutty -h= (short for =-help=):
 
@@ -135,34 +135,44 @@ To view the list of options, issue =zutty -h= (short for =-help=):
 :   zutty [-option ...] [shell]
 :
 : Options:
-:   -altScroll   Alternate scroll mode
-:   -autoCopy    Sync primary to clipboard
-:   -bg          Background color (default: 000000)
-:   -border      Border width in pixels (default: 2)
-:   -display     Display to connect to
-:   -fg          Foreground color (default: ffffff)
-:   -font        Font to use (default: 9x18)
-:   -fontsize    Font size (default: 16)
-:   -fontpath    Font search path (default: /usr/share/fonts)
-:   -geometry    Terminal size in chars (default: 80x24)
-:   -glinfo      Print OpenGL information
-:   -help        Print usage information
-:   -rv          Reverse video
-:   -shell       Shell program to run
-:   -title       Window title (default: Zutty)
-:   -quiet       Silence logging output
-:   -verbose     Output info messages
-:   -e           Command line to run
+:   -altScroll    Alternate scroll mode
+:   -autoCopy     Sync primary to clipboard
+:   -bg           Background color (default: #000)
+:   -boldColors   Enable bright for bold
+:   -border       Border width in pixels (default: 2)
+:   -cr           Cursor color
+:   -display      Display to connect to
+:   -fg           Foreground color (default: #fff)
+:   -font         Font to use (default: 9x18)
+:   -fontsize     Font size (default: 16)
+:   -fontpath     Font search path (default: /usr/share/fonts)
+:   -geometry     Terminal size in chars (default: 80x24)
+:   -glinfo       Print OpenGL information
+:   -help         Print usage listing and quit
+:   -listres      Print resource listing and quit
+:   -rv           Reverse video
+:   -shell        Shell program to run
+:   -title        Window title (default: Zutty)
+:   -quiet        Silence logging output
+:   -verbose      Output info messages
+:   -e            Command line to run
 
 All options can be abbreviated as long as they are non-ambiguous, so
 it's fine to write =-d= short for =-display=, =-gl= for =-glinfo=,
 =-fontp= for =-fontpath=, =-t= for =-title=, =-q= for =-quiet=, etc.
 
-Boolean options (=-altScroll=, =-autoCopy=, =-glinfo=, =-help=, =-rv=,
-=-quiet=, =-verbose=) do not expect an argument; the presence of these
-options amounts to a setting of "true". Other options expect exactly
-one argument, with the exception of =-e=, which must be the last
-option, to be followed by the command line to run.
+Boolean options (=-altScroll=, =-autoCopy=, =-boldColors=, =-glinfo=,
+=-rv=, =-quiet=, =-verbose=) do not expect an argument; the mere
+presence of these options amounts to a setting of "true". To set them
+to "false", change the leading dash to a plus sign. For example,
+=+boldColors= will /disable/ the "boldColors" option (which is enabled
+by default). This might also be useful to override an option that is
+by default false, but has been set to true in the X resource database
+(see [[Persistent configuration]]).
+
+All other options expect exactly one argument, with the exception of
+=-e=, which must be the last option, to be followed by the command
+line to run.
 
 The options are further documented below, grouped into sections by
 topic. To set up a persistent configuration (altered defaults), see
@@ -170,29 +180,30 @@ the next section [[Persistent configuration]].
 
 ** Basic configuration and mode switches
 
-:   -altScroll   Alternate scroll mode [boolean]
+:   -altScroll    Alternate scroll mode [boolean]
 
 If enabled, scroll up and down events (generated by the mouse scroll
-wheel) are converted to virtual up- and down-arrow keypresses. This
-might prove to be a convenient method of moving up/down one at a
-time in programs where one usually navigates with the keyboard arrows.
+wheel) on the alternate screen buffer are converted to virtual up- and
+down-arrow keypresses. This might prove to be a convenient method of
+moving up/down one at a time in programs where one usually navigates
+with the keyboard arrows.
 
-:   -autoCopy    Sync primary to clipboard [boolean]
+:   -autoCopy     Sync primary to clipboard [boolean]
 
 By enabling this option, Zutty will automatically propagate the
 primary selection to the clipboard each time a selection is completed,
 acting as if you pressed Control+Shift+C immediately after each
 selection. This might be convenient if you do not wish to use the dual
-selection capability (primary and clipboard), and expect to be able to
-paste into other programs that source their selection data from the
-clipboard.
+selection capability (primary plus clipboard), and expect to be able
+to paste into other programs that source the data from the clipboard.
 
-:   -display     Display to connect to
+:   -display      Display to connect to
 
 The X display to connect to. By default, the value of the environment
-variable DISPLAY is used.
+variable DISPLAY is used. This option is exceptional in that it cannot
+be configured via the X resource database, only the command line.
 
-:   -glinfo      Print OpenGL information [boolean]
+:   -glinfo       Print OpenGL information
 
 If enabled, Zutty will query and log some GL variables on program
 startup. These include EGL_VERSION, EGL_VENDOR, EGL_EXTENSIONS, as
@@ -201,12 +212,16 @@ limits on the Compute Shader implementation. This is mostly a
 debugging aid. The output is not affected by any verbosity changes
 made via =-v= / =-q=.
 
-:   -help        Print usage information [boolean]
+:   -help         Print usage listing and quit
 
 Print the help message containing the list of options documented here,
 and quit.
 
-:   -shell       Shell program to run
+:   -listres      Print resource listing and quit
+
+Print a listing of configurable [[Extra resources]] and quit.
+
+:   -shell        Shell program to run
 
 Specify the shell program to run in the terminal. As a bit of special
 syntax, this option can be passed both as a regular option (=-shell
@@ -237,7 +252,7 @@ the behaviour of =xterm=, and follows these steps:
    environment if the program is not listed as a valid shell.  Else,
    set =SHELL= to the resolved full program path.
 
-:   -e           Command line to run
+:   -e            Command line to run
 
 This option specifies the command line (program and arguments) to be
 run in the Zutty terminal window. It also sets the window title to the
@@ -247,8 +262,8 @@ Note that this must be the last option on the command line, as
 everything after it will be passed verbatim to the spawned child
 process.
 
-:   -quiet       Silence logging output [boolean]
-:   -verbose     Output info messages [boolean]
+:   -quiet        Silence logging output [boolean]
+:   -verbose      Output info messages [boolean]
 
 These options control the verbosity of log output emitted by
 Zutty. You will only observe the effects of these if you run Zutty
@@ -278,7 +293,7 @@ wins.
 
 ** General appearance
 
-:   -geometry    Terminal size in chars (default: 80x24)
+:   -geometry     Terminal size in chars (default: 80x24)
 
 This option defines the desired initial size of the terminal as
 measured in characters. (The pixel size of the window will be a
@@ -290,15 +305,24 @@ work with whatever final window size it gets. Setting this will in no
 way interfere with your ability to resize =zutty= once it is up and
 running.
 
-:   -bg          Background color (default: 000000)
-:   -fg          Foreground color (default: ffffff)
+:   -bg           Background color (default: #000)
+:   -fg           Foreground color (default: #fff)
+:   -cr           Cursor color
 
-These options accept a hexadecimal RRGGBB color specification, similar
-to how you can define a color in many other places, e.g., CSS.
-Both lower- and uppercase hexadecimals (a-f, A-F) are accepted, but
-note that names (e.g., "red" instead of "ff0000") are *not* supported.
+These options accept a hexadecimal RGB or RRGGBB color specification,
+similar to how you can define a color in many other places, e.g., CSS.
+The leading =#= is optional (supported mainly to provide compatibility
+with established conventions); take care to protect it from the shell
+if passing it on the command line. Both lower- and uppercase
+hexadecimal digits (a-f, A-F) are accepted, but note that names (e.g.,
+=red= instead of =#f00=) are *not* supported.
 
-:   -rv          Reverse video [boolean]
+If not explicitly set, the cursor color defaults to the foreground
+color. In case the cursor is placed on a cell with a background color
+set to the cursor color, the cursor color is automatically inverted to
+ensure it stays visible.
+
+:   -rv           Reverse video [boolean]
 
 Using this option will swap the effective foreground and background
 color, specified either via =-fg= and =-bg=, or the corresponding
@@ -306,13 +330,22 @@ resources, or the defaults. It will *not* swap the meaning of color
 codes and such; if a program explicitly specifies the color green, it
 will be rendered green with and without =-rv=.
 
-:   -border      Border width in pixels (default: 2)
+:   -boldColors   Enable bright for bold [boolean]
+
+This option enables combining the bold attribute with a brightening of
+base colors. That is, when printing bold text, colors 0 through 7 will
+be mapped to colors 8 through 15 by adding 8 to the color number.
+These normally correspond to the brighter variants of the same colors.
+This is enabled by default; supply =+boldColors= on the command line
+to turn it off.
+
+:   -border       Border width in pixels (default: 2)
 
 Specify the border width, specifically, the border that is part of the
 client area of the Zutty window and not part of any window decoration
 itself (this is equivalent to what Xterm calls internal border width).
 
-:   -title       Window title (default: Zutty)
+:   -title        Window title (default: Zutty)
 
 Set the title of the Zutty window. This might be overridden by usage
 of the =-e= option (setting the title to the basename of the program
@@ -468,43 +501,97 @@ want to change.
 : Zutty.title:                   Zero Cost TTY
 : Zutty.geometry:                120x45
 : Zutty.altScroll:               true
+: Zutty.boldColors:              false
 : Zutty.font:                    Inconsolata
 : Zutty.fontsize:                18
 : Zutty.fontpath:                /home/tom/root/share/fonts:/usr/share/fonts
-: Zutty.fg:                      00ff80
-: Zutty.bg:                      203040
+: Zutty.fg:                      #00ff80
+: Zutty.bg:                      #234
+: Zutty.cr:                      #0f0
 
 As you can see, the general pattern is simple: one setting per line,
-starting with a key that looks like =Zutty.<option-name>=, a colon,
-and the desired value in a second column. The option names are exactly
-as documented in the previous chapter.
+starting with a key that looks like =Zutty.<option>=, a colon, and the
+desired value in a second column. The option names are exactly as
+documented in the previous chapter.
 
 Note that no quoting is necessary around string values containing a
-space, and that the value =true= is explicit unlike on the command
+space, and that boolean values are explicit, unlike on the command
 line.
 
-Once you are satisfied with your settings, save your =~/.Xresources=
-and run the command =xrdb -merge ~/.Xresources= to instruct Xrdb to
-merge the new settings from your file to the in-memory resource
-database. Alternatively, just restart your X session (log out and back
-in to your graphics desktop).
+After saving your =~/.Xresources=, run the command =xrdb -merge
+~/.Xresources= to merge the new settings from your file to the
+in-memory resource database. Alternatively, just restart your X
+session (log out and back in to your graphical desktop).
 
-The configured values will show up in the output of =zutty -h=, to
+The configured values will show up in the output of =zutty -h= to
 confirm that your settings have taken effect. For example, if you were
 following along, you should now see
 
-:   -title       Window title (configured: Zero Cost TTY)
+:   -title        Window title (configured: Zero Cost TTY)
 
 instead of the original version that read
 
-:   -title       Window title (default: Zutty)
+:   -title        Window title (default: Zutty)
 
-Removing a configuration is a bit tricky. Even if you remove a setting
-from =~/.Xresources= and merge that into Xrdb, the previous setting
-will still persist in-memory until you restart your X session. To get
-around this, you might issue =xrdb -remove Zutty.title= (change
-=title= to the name of the option you want to reset to its default).
+** Extra resources
+
+Zutty can be configured via some extra resources not available as
+command line options. To get a printout of all these extra resources
+available for configuration, pass the =-listres= option to Zutty. The
+result will look like this:
+
+: Resources:
+:   color0    Palette color 0 (default: #000000)
+:   color1    Palette color 1 (default: #cd0000)
+:   ...
+:   color15   Palette color 15 (default: #ffffff)
+
+To customize =<resource>=, put an entry into =~/.Xresources= under the
+key =Zutty.<resource>=.
+
+*** Base palette colors
+
+The default 256-color palette of Zutty is identical to =xterm='s
+default colors. You may override the base 16 colors via the resources
+=color0= to =color15=.  Feel free to configure none, a couple, or all
+of them.  Here is an example configuration for installing the colors
+of the [[https://srcery-colors.github.io][Srcery]] palette:
+
+: Zutty.color0:                  #1c1b19
+: Zutty.color1:                  #ef2f27
+: Zutty.color2:                  #519f50
+: Zutty.color3:                  #fbb829
+: Zutty.color4:                  #2c78bf
+: Zutty.color5:                  #e02c6d
+: Zutty.color6:                  #0aaeb3
+: Zutty.color7:                  #d0bfa1
+: Zutty.color8:                  #918175
+: Zutty.color9:                  #f75341
+: Zutty.color10:                 #98bc37
+: Zutty.color11:                 #fed06e
+: Zutty.color12:                 #68a8e4
+: Zutty.color13:                 #ff5c8f
+: Zutty.color14:                 #53fde9
+: Zutty.color15:                 #fce8c3
+
+Note that the default foreground and background colors are separate
+from the palette: resetting the text color (via SGR 39) will set it to
+the default foreground color (configurable via =fg=), which might or
+might not be identical to =color15=. The same is true when resetting
+the background color (via SGR 49): the default background color (via
+=bg=) will be used, which might or might not be identical to =color0=.
+
+** Removing and overriding persistent configuration
+
+Removing a piece of configuration is a bit tricky. If you remove a
+setting from =~/.Xresources= and merge that into Xrdb, it will have no
+immediate effect, since the existing setting will still persist
+in-memory until you restart your X session. To get around this, you
+might issue =xrdb -remove= to drop all your customizations (and then
+reload them from file).
 
 Now that you have a tailored baseline of how you expect Zutty to start
 up without any explicit options, remember that you can still override
-any of these on the command line!
+all options on the command line! For example, if you have
+=Zutty.altScroll: true= in your config, you might start Zutty with the
+=+altScroll= option to turn it off only in that instance.

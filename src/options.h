@@ -30,6 +30,13 @@ namespace zutty {
       const char* helpDescr;
    };
 
+   struct ResourceDesc
+   {
+      const char* resource;
+      const char* hardDefault;
+      const char* helpDescr;
+   };
+
 #if defined(FREEBSD)
    static constexpr const char* fontpath = "/usr/local/share/fonts";
 #elif defined(OPENBSD)
@@ -38,25 +45,55 @@ namespace zutty {
    static constexpr const char* fontpath = "/usr/share/fonts";
 #endif
 
+#define NoArg  XrmoptionNoArg
+#define SepArg XrmoptionSepArg
+#define SkipLn XrmoptionSkipLine
    static const std::vector <OptionDesc> optionsTable = {
-      {"altScroll", XrmoptionNoArg,    "true",  "false",     "Alternate scroll mode"},
-      {"autoCopy",  XrmoptionNoArg,    "true",  "false",     "Sync primary to clipboard"},
-      {"bg",        XrmoptionSepArg,   nullptr, "000000",    "Background color"},
-      {"border",    XrmoptionSepArg,   nullptr, "2",         "Border width in pixels"},
-      {"display",   XrmoptionSepArg,   nullptr, nullptr,     "Display to connect to"},
-      {"fg",        XrmoptionSepArg,   nullptr, "ffffff",    "Foreground color"},
-      {"font",      XrmoptionSepArg,   nullptr, "9x18",      "Font to use"},
-      {"fontsize",  XrmoptionSepArg,   nullptr, "16",        "Font size"},
-      {"fontpath",  XrmoptionSepArg,   nullptr, fontpath,    "Font search path"},
-      {"geometry",  XrmoptionSepArg,   nullptr, "80x24",     "Terminal size in chars"},
-      {"glinfo",    XrmoptionNoArg,    "true",  "false",     "Print OpenGL information"},
-      {"help",      XrmoptionNoArg,    "true",  "false",     "Print usage information"},
-      {"rv",        XrmoptionNoArg,    "true",  "false",     "Reverse video"},
-      {"shell",     XrmoptionSepArg,   nullptr, nullptr,     "Shell program to run"},
-      {"title",     XrmoptionSepArg,   nullptr, "Zutty",     "Window title"},
-      {"quiet",     XrmoptionNoArg,    "true",  "false",     "Silence logging output"},
-      {"verbose",   XrmoptionNoArg,    "true",  "false",     "Output info messages"},
-      {"e",         XrmoptionSkipLine, nullptr, nullptr,     "Command line to run"},
+      // option       parseType implValue hardDefault helpDescr
+      {"altScroll",   NoArg,    "true",    "false",   "Alternate scroll mode"},
+      {"autoCopy",    NoArg,    "true",    "false",   "Sync primary to clipboard"},
+      {"bg",          SepArg,   nullptr,   "#000",    "Background color"},
+      {"boldColors",  NoArg,    "true",    "true",    "Enable bright for bold"},
+      {"border",      SepArg,   nullptr,   "2",       "Border width in pixels"},
+      {"cr",          SepArg,   nullptr,   nullptr,   "Cursor color"},
+      {"display",     SepArg,   nullptr,   nullptr,   "Display to connect to"},
+      {"fg",          SepArg,   nullptr,   "#fff",    "Foreground color"},
+      {"font",        SepArg,   nullptr,   "9x18",    "Font to use"},
+      {"fontsize",    SepArg,   nullptr,   "16",      "Font size"},
+      {"fontpath",    SepArg,   nullptr,   fontpath,  "Font search path"},
+      {"geometry",    SepArg,   nullptr,   "80x24",   "Terminal size in chars"},
+      {"glinfo",      NoArg,    "true",    "false",   "Print OpenGL information"},
+      {"help",        NoArg,    "true",    "false",   "Print usage listing and quit"},
+      {"listres",     NoArg,    "true",    "false",   "Print resource listing and quit"},
+      {"rv",          NoArg,    "true",    "false",   "Reverse video"},
+      {"shell",       SepArg,   nullptr,   nullptr,   "Shell program to run"},
+      {"title",       SepArg,   nullptr,   "Zutty",   "Window title"},
+      {"quiet",       NoArg,    "true",    "false",   "Silence logging output"},
+      {"verbose",     NoArg,    "true",    "false",   "Output info messages"},
+      {"e",           SkipLn,   nullptr,   nullptr,   "Command line to run"},
+   };
+#undef NoArg
+#undef SepArg
+#undef SkipL
+
+   static const std::vector <ResourceDesc> resourceTable = {
+      // resource    hardDefault    helpDescr
+      {"color0",     "#000000",     "Palette color 0"},
+      {"color1",     "#cd0000",     "Palette color 1"},
+      {"color2",     "#00cd00",     "Palette color 2"},
+      {"color3",     "#cdcd00",     "Palette color 3"},
+      {"color4",     "#0000ee",     "Palette color 4"},
+      {"color5",     "#cd00cd",     "Palette color 5"},
+      {"color6",     "#00cdcd",     "Palette color 6"},
+      {"color7",     "#e5e5e5",     "Palette color 7"},
+      {"color8",     "#7f7f7f",     "Palette color 8"},
+      {"color9",     "#ff0000",     "Palette color 9"},
+      {"color10",    "#00ff00",     "Palette color 10"},
+      {"color11",    "#ffff00",     "Palette color 11"},
+      {"color12",    "#5c5cff",     "Palette color 12"},
+      {"color13",    "#ff00ff",     "Palette color 13"},
+      {"color14",    "#00ffff",     "Palette color 14"},
+      {"color15",    "#ffffff",     "Palette color 15"},
    };
 
    struct Options
@@ -74,18 +111,25 @@ namespace zutty {
       const char* title;
       Color fg;
       Color bg;
+      Color cr;
       bool rv;
       bool altScrollMode;
       bool autoCopyMode;
+      bool boldColors;
       bool quiet;
       bool verbose;
 
       void initialize (int* argc, char** argv);
       void setDisplay (Display* dpy);
+      void handlePrintOpts ();
       void parse ();
 
       void printVersion () const;
       void printUsage () const;
+      void printResources () const;
+
+      // getters for resources not automatically parsed by parse ()
+      void getColor (const char* name, zutty::Color& outColor);
    };
 
 } // namespace zutty

@@ -332,24 +332,22 @@ namespace {
    makePalette256 (Color p[])
    {
       // Standard colors
-      p[  0] = {  0,   0,   0};
-      p[  1] = {205,   0,   0};
-      p[  2] = {  0, 205,   0};
-      p[  3] = {205, 205,   0};
-      p[  4] = {  0,   0, 238};
-      p[  5] = {205,   0, 205};
-      p[  6] = {  0, 205, 205};
-      p[  7] = {229, 229, 229};
-
-      // High-intensity colors
-      p[  8] = {127, 127, 127};
-      p[  9] = {255,   0,   0};
-      p[ 10] = {  0, 255,   0};
-      p[ 11] = {255, 255,   0};
-      p[ 12] = { 92,  92, 255};
-      p[ 13] = {255,   0, 255};
-      p[ 14] = {  0, 255, 255};
-      p[ 15] = {255, 255, 255};
+      opts.getColor ("color0", p[0]);
+      opts.getColor ("color1", p[1]);
+      opts.getColor ("color2", p[2]);
+      opts.getColor ("color3", p[3]);
+      opts.getColor ("color4", p[4]);
+      opts.getColor ("color5", p[5]);
+      opts.getColor ("color6", p[6]);
+      opts.getColor ("color7", p[7]);
+      opts.getColor ("color8", p[8]);
+      opts.getColor ("color9", p[9]);
+      opts.getColor ("color10", p[10]);
+      opts.getColor ("color11", p[11]);
+      opts.getColor ("color12", p[12]);
+      opts.getColor ("color13", p[13]);
+      opts.getColor ("color14", p[14]);
+      opts.getColor ("color15", p[15]);
 
       // 216 colors
       for (uint8_t r = 0; r < 6; ++r)

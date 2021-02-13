@@ -37,7 +37,7 @@ namespace {
    std::vector <XrmOptionDescRec> xrmOptionsTable =
       [] {
          // prevent realloc that would invalidate ptrs
-         strRefs.reserve (3 * optionsTable.size ());
+         strRefs.reserve (4 * optionsTable.size ());
          std::vector <XrmOptionDescRec> rv;
          for (const auto& e: optionsTable)
          {
@@ -54,6 +54,26 @@ namespace {
                rec.value = (XPointer)strRefs.back ().c_str ();
             }
             rv.push_back (rec);
+
+            // For boolean options, generate sibling option to negate value
+            // (activated via +option). Reuse already populated rec.
+            if (e.parseType == XrmoptionNoArg)
+            {
+               if (strcmp (e.implValue, "true") == 0)
+               {
+                  strRefs.push_back (std::string ("+") + e.option);
+                  rec.option = (char *)strRefs.back ().c_str ();
+                  rec.value = (XPointer)"false";
+                  rv.push_back (rec);
+               }
+               else if (strcmp (e.implValue, "false") == 0)
+               {
+                  strRefs.push_back (std::string ("+") + e.option);
+                  rec.option = (char *)strRefs.back ().c_str ();
+                  rec.value = (XPointer)"true";
+                  rv.push_back (rec);
+               }
+            }
          }
          return rv;
       } ();
@@ -72,9 +92,14 @@ namespace {
       if (xDefault)
          return xDefault;
       else
+      {
          for (const auto& e: optionsTable)
             if (strcmp (e.option, name) == 0 && e.hardDefault)
                return e.hardDefault;
+         for (const auto& r: resourceTable)
+            if (strcmp (r.resource, name) == 0 && r.hardDefault)
+               return r.hardDefault;
+      }
       return fallback;
    }
 
@@ -88,7 +113,7 @@ namespace {
    }
 
    void
-   convBorder (uint16_t& outBorder)
+   getBorder (uint16_t& outBorder)
    {
       const char* opt = get ("border");
       if (!opt)
@@ -103,7 +128,7 @@ namespace {
    }
 
    void
-   convFontsize (uint8_t& outFontsize)
+   getFontsize (uint8_t& outFontsize)
    {
       const char* opt = get ("fontsize");
       if (!opt)
@@ -118,7 +143,7 @@ namespace {
    }
 
    void
-   convGeometry (uint16_t& outCols, uint16_t& outRows)
+   getGeometry (uint16_t& outCols, uint16_t& outRows)
    {
       const char* opt = get ("geometry");
       if (!opt)
@@ -148,27 +173,33 @@ namespace {
 
       throw std::runtime_error (std::string ("-") + name +
                                 ": illegal hex digit '" + ch +
-                                "'; expected six-digit hex RGB color");
+                                "'; expected hex RGB color");
    }
 
    void
-   convColor (const char* name, zutty::Color& outColor)
+   convColor (const char* name, const char* opt, zutty::Color& outColor)
    {
-      const char* opt = get (name);
-      if (!opt)
+      const char* val = (opt [0] == '#') ? opt + 1 : opt;
+      switch (strlen (val))
+      {
+      case 3:
+         // N.B.: 17 == (1 << 4) + 1
+         outColor.red = 17 * convHexDigit (name, val [0]);
+         outColor.green =  17 * convHexDigit (name, val [1]);
+         outColor.blue = 17 * convHexDigit (name, val [2]);
+         break;
+      case 6:
+         outColor.red =
+            (convHexDigit (name, val [0]) << 4) + convHexDigit (name, val [1]);
+         outColor.green =
+            (convHexDigit (name, val [2]) << 4) + convHexDigit (name, val [3]);
+         outColor.blue =
+            (convHexDigit (name, val [4]) << 4) + convHexDigit (name, val [5]);
+         break;
+      default:
          throw std::runtime_error (std::string ("-") + name +
-                                   ": missing value");
-
-      if (strlen (opt) != 6)
-         throw std::runtime_error (std::string ("-") + name +
-                                   ": expected six-digit hex RGB color");
-
-      outColor.red =
-         (convHexDigit (name, opt [0]) << 4) + convHexDigit (name, opt [1]);
-      outColor.green =
-         (convHexDigit (name, opt [2]) << 4) + convHexDigit (name, opt [3]);
-      outColor.blue =
-         (convHexDigit (name, opt [4]) << 4) + convHexDigit (name, opt [5]);
+                                   ": expected hex RGB color");
+      }
    }
 
 } // namespace
@@ -185,9 +216,8 @@ namespace zutty {
                        xrmOptionsTable.data (), xrmOptionsTable.size (),
                        "zutty", argc, argv);
       display = get ("display", getenv ("DISPLAY"));
-      if (!display)
-         throw std::runtime_error ("DISPLAY not set!");
-      setenv ("DISPLAY", display, 1);
+      if (display)
+         setenv ("DISPLAY", display, 1);
    }
 
    void
@@ -197,7 +227,17 @@ namespace zutty {
    }
 
    void
-   Options::parse ()
+   Options::getColor (const char* name, zutty::Color& outColor)
+   {
+      const char* opt = get (name);
+      if (!opt)
+         throw std::runtime_error (std::string ("-") + name +
+                                   ": missing value");
+      convColor (name, opt, outColor);
+   }
+
+   void
+   Options::handlePrintOpts ()
    {
       if (getBool ("help"))
       {
@@ -205,25 +245,41 @@ namespace zutty {
          exit (0);
       }
 
+      if (getBool ("listres"))
+      {
+         printResources ();
+         exit (0);
+      }
+   }
+
+   void
+   Options::parse ()
+   {
+      handlePrintOpts ();
       try
       {
-         convBorder (border);
+         getBorder (border);
          fontname = get ("font");
          fontpath = get ("fontpath");
-         convFontsize (fontsize);
-         convGeometry (nCols, nRows);
+         getFontsize (fontsize);
+         getGeometry (nCols, nRows);
          glinfo = getBool ("glinfo");
          shell = get ("shell", getenv ("SHELL"));
          if (!shell)
             shell = "bash";
          title = get ("title");
-         convColor ("fg", fg);
-         convColor ("bg", bg);
+         getColor ("fg", fg);
+         getColor ("bg", bg);
          rv = getBool ("rv");
          if (rv)
             std::swap (fg, bg);
+         if (get ("cr"))
+            getColor ("cr", cr);
+         else
+            cr = fg;
          altScrollMode = getBool ("altScroll");
          autoCopyMode = getBool ("autoCopy");
+         boldColors = getBool ("boldColors");
          quiet = getBool ("quiet");
          verbose = getBool ("verbose");
       }
@@ -267,6 +323,30 @@ namespace zutty {
             std::cout << " (configured: " << xDefault << ")";
          else if (e.hardDefault && e.parseType != XrmoptionNoArg)
             std::cout << " (default: " << e.hardDefault << ")";
+         std::cout << "\n";
+      }
+      std::cout << std::endl;
+   }
+
+   void
+   Options::printResources () const
+   {
+      printVersion ();
+      std::cout << "Resources:\n";
+      size_t maxw = 0;
+      for (const auto& r: resourceTable)
+         maxw = std::max (maxw, strlen (r.resource));
+      for (const auto& r: resourceTable)
+      {
+         std::cout << "  " << std::left << std::setw (maxw + 3) << r.resource;
+         std::cout << r.helpDescr;
+         const char* xDefault = dpy
+                              ? XGetDefault (dpy, "Zutty", r.resource)
+                              : nullptr;
+         if (xDefault)
+            std::cout << " (configured: " << xDefault << ")";
+         else if (r.hardDefault)
+            std::cout << " (default: " << r.hardDefault << ")";
          std::cout << "\n";
       }
       std::cout << std::endl;

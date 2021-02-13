@@ -1133,11 +1133,19 @@ main (int argc, char* argv[])
    XSetIOErrorHandler(handleXIOError);
 
    opts.initialize (&argc, argv);
+   if (!opts.display)
+   {
+      opts.handlePrintOpts ();
+      std::cout << "Error: DISPLAY not set!" << std::endl;
+      return -1;
+   }
 
    x_dpy = XOpenDisplay (opts.display);
    if (!x_dpy)
    {
-      std::cout << "Error: couldn't open display " << opts.display << std::endl;
+      opts.handlePrintOpts ();
+      std::cout << "Error: couldn't open display '" << opts.display << "'"
+                << std::endl;
       return -1;
    }
    opts.setDisplay (x_dpy);

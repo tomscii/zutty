@@ -87,7 +87,7 @@ namespace zutty {
 
       struct Cursor
       {
-         Color color = {255, 255, 255};
+         Color color = opts.cr;
          uint16_t posX = 0;
          uint16_t posY = 0;
 
