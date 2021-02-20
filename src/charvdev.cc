@@ -34,6 +34,7 @@ uniform lowp ivec4 selectRect;
 uniform lowp int selectRectMode;
 uniform highp ivec2 selectDamage;
 uniform lowp int deltaFrame;
+uniform lowp int showWraps;
 
 struct Cell
 {
@@ -71,6 +72,7 @@ void main ()
    uint fontIdx = bitfieldExtract (cell.charData, 16, 2);
    uint underline = bitfieldExtract (cell.charData, 18, 1);
    uint inverse = bitfieldExtract (cell.charData, 19, 1);
+   uint wrap = bitfieldExtract (cell.charData, 20, 1);
 
    ivec2 atlasPos = ivec2 (vec2 (256) * texelFetch (atlasMap, charCode, 0).zw);
 
@@ -97,21 +99,26 @@ void main ()
         (charPos.y > selectRect.y || charPos.x > selectRect.x)))
       inverse ^= 1u;
 
-   if (inverse == uint (1)) {
+   if (inverse == 1u)
+   {
       vec3 tmp = fgColor;
       fgColor = bgColor;
       bgColor = tmp;
    }
-   if (crColor == bgColor) {
+   if (crColor == bgColor)
+   {
       crColor = vec3 (1.0) - crColor;
    }
-   if (charPos == cursorPos.xy && cursorStyle == 1) {
+   if (charPos == cursorPos.xy && cursorStyle == 1)
+   {
       fgColor = bgColor;
       bgColor = crColor;
    }
 
-   for (int j = 0; j < glyphPixels.x; j++) {
-      for (int k = 0; k < glyphPixels.y; k++) {
+   for (int j = 0; j < glyphPixels.x; j++)
+   {
+      for (int k = 0; k < glyphPixels.y; k++)
+      {
          ivec2 txCoords = atlasPos * glyphPixels + ivec2 (j, k);
          ivec3 txc = ivec3 (txCoords, fontIdx);
          float lumi = texelFetch (atlas, txc, 0).r;
@@ -121,23 +128,38 @@ void main ()
       }
    }
 
-   if (underline == uint (1)) {
-      for (int j = 0; j < glyphPixels.x; j++) {
+   if (underline == 1u)
+   {
+      for (int j = 0; j < glyphPixels.x; j++)
+      {
          vec4 pixel = vec4 (fgColor, 1.0);
          ivec2 pxCoords = charPos * glyphPixels + ivec2 (j, glyphPixels.y - 1);
          imageStore (imgOut, pxCoords, pixel);
       }
    }
 
-   if (charPos == cursorPos.xy && cursorStyle == 2) {
+   if (showWraps == 1 && wrap == 1u)
+   {
+      vec4 pixel = vec4 (fgColor, 1.0);
+      for (int k = 0; k < glyphPixels.y; k += 2)
+      {
+         ivec2 pxCoords = charPos * glyphPixels + ivec2 (glyphPixels.x - 1, k);
+         imageStore (imgOut, pxCoords, pixel);
+      }
+   }
+
+   if (charPos == cursorPos.xy && cursorStyle == 2)
+   {
       vec4 pixel = vec4 (crColor, 1.0);
-      for (int j = 0; j < glyphPixels.x; j++) {
+      for (int j = 0; j < glyphPixels.x; j++)
+      {
          ivec2 pxCoords = charPos * glyphPixels + ivec2 (j, 0);
          imageStore (imgOut, pxCoords, pixel);
          pxCoords += ivec2 (0, glyphPixels.y - 1);
          imageStore (imgOut, pxCoords, pixel);
       }
-      for (int k = 1; k < glyphPixels.y - 1; k++) {
+      for (int k = 1; k < glyphPixels.y - 1; k++)
+      {
          ivec2 pxCoords = charPos * glyphPixels + ivec2 (0, k);
          imageStore (imgOut, pxCoords, pixel);
          pxCoords += ivec2 (glyphPixels.x - 1, 0);
@@ -301,6 +323,7 @@ namespace zutty {
       glUseProgram (P_compute);
       glUniform2i (compU_glyphPixels, fontpk.getPx (), fontpk.getPy ());
       glUniform2i (compU_sizeChars, nCols, nRows);
+      glUniform1i (compU_showWraps, opts.showWraps ? 1 : 0);
 
       // Setup atlas texture
       setupTexture (GL_TEXTURE1, GL_TEXTURE_2D_ARRAY, T_atlas);
@@ -537,6 +560,7 @@ namespace zutty {
       compU_selectRectMode = glGetUniformLocation (P_compute, "selectRectMode");
       compU_selectDamage = glGetUniformLocation (P_compute, "selectDamage");
       compU_deltaFrame = glGetUniformLocation (P_compute, "deltaFrame");
+      compU_showWraps = glGetUniformLocation (P_compute, "showWraps");
 
       logT << "compute program:"
            << " uniform glyphPixels=" << compU_glyphPixels
@@ -548,6 +572,7 @@ namespace zutty {
            << " selectRectMode=" << compU_selectRectMode
            << " selectDamage=" << compU_selectDamage
            << " deltaFrame=" << compU_deltaFrame
+           << " showWraps=" << compU_showWraps
            << std::endl;
 
       P_draw = glCreateProgram ();

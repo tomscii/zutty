@@ -120,7 +120,7 @@ namespace zutty {
       GLint compU_glyphPixels, compU_sizeChars, compU_cursorColor;
       GLint compU_cursorPos, compU_cursorStyle;
       GLint compU_selectRect, compU_selectRectMode, compU_selectDamage;
-      GLint compU_deltaFrame;
+      GLint compU_deltaFrame, compU_showWraps;
       GLint drawU_viewPixels;
 
       const Fontpack& fontpk;

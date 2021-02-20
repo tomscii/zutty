@@ -280,6 +280,7 @@ namespace zutty {
          altScrollMode = getBool ("altScroll");
          autoCopyMode = getBool ("autoCopy");
          boldColors = getBool ("boldColors");
+         showWraps = getBool ("showWraps");
          quiet = getBool ("quiet");
          verbose = getBool ("verbose");
       }

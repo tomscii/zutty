@@ -152,6 +152,7 @@ To view the list of options, issue =zutty -h= (short for =-help=):
 :   -listres      Print resource listing and quit
 :   -rv           Reverse video
 :   -shell        Shell program to run
+:   -showWraps    Show wrap marks at right margin
 :   -title        Window title (default: Zutty)
 :   -quiet        Silence logging output
 :   -verbose      Output info messages
@@ -162,13 +163,13 @@ it's fine to write =-d= short for =-display=, =-gl= for =-glinfo=,
 =-fontp= for =-fontpath=, =-t= for =-title=, =-q= for =-quiet=, etc.
 
 Boolean options (=-altScroll=, =-autoCopy=, =-boldColors=, =-glinfo=,
-=-rv=, =-quiet=, =-verbose=) do not expect an argument; the mere
-presence of these options amounts to a setting of "true". To set them
-to "false", change the leading dash to a plus sign. For example,
-=+boldColors= will /disable/ the "boldColors" option (which is enabled
-by default). This might also be useful to override an option that is
-by default false, but has been set to true in the X resource database
-(see [[Persistent configuration]]).
+=-rv=, =-showWraps=, =-quiet=, =-verbose=) do not expect an argument;
+the mere presence of these options amounts to a setting of "true". To
+set them to "false", change the leading dash to a plus sign. For
+example, =+boldColors= will /disable/ the "boldColors" option (which
+is enabled by default). This might also be useful to override an
+option that is by default false, but has been set to true in the X
+resource database (see [[Persistent configuration]]).
 
 All other options expect exactly one argument, with the exception of
 =-e=, which must be the last option, to be followed by the command
@@ -344,6 +345,21 @@ to turn it off.
 Specify the border width, specifically, the border that is part of the
 client area of the Zutty window and not part of any window decoration
 itself (this is equivalent to what Xterm calls internal border width).
+
+:   -showWraps    Show wrap marks at right margin [boolean]
+
+Specify whether to draw a vertical mark on the right edge of cells
+having the =wrap= bit set. This bit is set in case an auto-wrap occurs
+just after the given position, so it only gets set on the right
+margin.  However, following an increase of the window size, cells with
+a set =wrap= bit might reside inside the right margin.
+
+When selecting text, line breaks are suppressed depending on the
+=wrap= bit (wrapped text is copied without the breaks introduced by
+the wraps), so a visual indicator of this status bit might be useful
+to better understand (or predict) behaviour. It might also be useful
+to see this when debugging Zutty or an application writing text at the
+right margin.
 
 :   -title        Window title (default: Zutty)
 

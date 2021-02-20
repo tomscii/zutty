@@ -67,6 +67,7 @@ namespace zutty {
       {"listres",     NoArg,    "true",    "false",   "Print resource listing and quit"},
       {"rv",          NoArg,    "true",    "false",   "Reverse video"},
       {"shell",       SepArg,   nullptr,   nullptr,   "Shell program to run"},
+      {"showWraps",   NoArg,    "true",    "false",   "Show wrap marks at right margin"},
       {"title",       SepArg,   nullptr,   "Zutty",   "Window title"},
       {"quiet",       NoArg,    "true",    "false",   "Silence logging output"},
       {"verbose",     NoArg,    "true",    "false",   "Output info messages"},
@@ -116,6 +117,7 @@ namespace zutty {
       bool altScrollMode;
       bool autoCopyMode;
       bool boldColors;
+      bool showWraps;
       bool quiet;
       bool verbose;
 
