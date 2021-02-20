@@ -19,8 +19,8 @@
 #include <stdexcept>
 #include <string>
 
-namespace zutty {
-
+namespace zutty
+{
    Font::Font (const std::string& filename_)
       : filename (filename_)
       , overlay (false)

@@ -15,8 +15,8 @@
 
 #include <X11/Xmu/Atoms.h>
 
-namespace zutty {
-
+namespace zutty
+{
    SelectionManager::SelectionManager (Display* dpy_, Window win_)
       : dpy (dpy_)
       , win (win_)

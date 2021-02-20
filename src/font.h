@@ -19,9 +19,10 @@
 #include <vector>
 #include <map>
 
-namespace zutty {
-
-   class Font {
+namespace zutty
+{
+   class Font
+   {
    public:
       /* Load a primary font, determining the atlas geometry and setting up
        * a mapping from unicode code points to atlas grid positions.
@@ -55,7 +56,8 @@ namespace zutty {
          return supportedCodes;
       };
 
-      struct AtlasPos {
+      struct AtlasPos
+      {
          uint8_t x;
          uint8_t y;
       };

@@ -17,8 +17,8 @@
 #include <iostream>
 #include <sstream>
 
-namespace zutty {
-
+namespace zutty
+{
 // log streams that are runtime switchable via command line options
 // [ -quiet = none; default = zlog only; -verbose = both ]
 #define zlog                                    \

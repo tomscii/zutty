@@ -21,8 +21,8 @@
 #include <memory>
 #include <string>
 
-namespace zutty {
-
+namespace zutty
+{
    class CharVdev
    {
    public:

@@ -13,8 +13,8 @@
 
 #include <cstdint>
 
-namespace zutty {
-
+namespace zutty
+{
    struct Color
    {
       uint8_t red;

@@ -22,8 +22,8 @@
 #include <sys/types.h>
 #include <signal.h>
 
-namespace zutty {
-
+namespace zutty
+{
 #ifdef DEBUG
 
    inline void

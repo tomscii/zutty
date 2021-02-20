@@ -14,8 +14,8 @@
 #include <string.h>
 #include <unistd.h>
 
-namespace zutty {
-
+namespace zutty
+{
    int origFds [3] = {0, 0, 0};
    int targetFds [3] = {STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO};
 

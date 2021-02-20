@@ -18,8 +18,8 @@
 #include <functional>
 #include <memory>
 
-namespace zutty {
-
+namespace zutty
+{
    enum class VtKey
    {
       NONE,

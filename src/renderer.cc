@@ -13,8 +13,8 @@
 
 #include <cassert>
 
-namespace zutty {
-
+namespace zutty
+{
    Renderer::Renderer (const std::function <void ()>& initDisplay,
                        const std::function <void ()>& swapBuffers_,
                        const Fontpack* fontpk)

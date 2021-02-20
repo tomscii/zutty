@@ -20,8 +20,8 @@
 #include <unordered_map>
 #include <vector>
 
-namespace zutty {
-
+namespace zutty
+{
    class SelectionManager
    {
    public:

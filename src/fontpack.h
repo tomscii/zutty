@@ -18,9 +18,10 @@
 #include <stdexcept>
 #include <string>
 
-namespace zutty {
-
-   class Fontpack {
+namespace zutty
+{
+   class Fontpack
+   {
    public:
       /* Initialize a Fontpack by locating and loading fonts under fontpath.
        * Four styles are looked for: Regular, Bold, Italic and Bold Italic;
@@ -69,4 +70,5 @@ namespace zutty {
       std::unique_ptr <Font> fontItalic = nullptr;
       std::unique_ptr <Font> fontBoldItalic = nullptr;
    };
-}
+
+} // namespace zutty

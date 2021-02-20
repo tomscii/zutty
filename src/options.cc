@@ -23,8 +23,8 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace {
-
+namespace
+{
    using namespace zutty;
 
    Display* dpy = nullptr;
@@ -206,8 +206,8 @@ namespace {
 
 zutty::Options opts;
 
-namespace zutty {
-
+namespace zutty
+{
    void
    Options::initialize (int* argc, char** argv)
    {

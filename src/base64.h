@@ -17,8 +17,8 @@
 
 // Inspired by: https://stackoverflow.com/a/34571089
 
-namespace {
-
+namespace
+{
    static constexpr const char* syms =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
@@ -31,8 +31,10 @@ namespace {
          } ();
 }
 
-namespace zutty {
-namespace base64 {
+namespace zutty
+{
+namespace base64
+{
 
    static std::string
    encode (const std::string& in)

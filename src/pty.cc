@@ -47,8 +47,8 @@
 #include <stropts.h>
 #endif
 
-namespace zutty {
-
+namespace zutty
+{
    int
    ptym_open (char* pts_name, int pts_namesz)
    {

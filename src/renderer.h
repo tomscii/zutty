@@ -21,9 +21,10 @@
 #include <mutex>
 #include <thread>
 
-namespace zutty {
-
-   class Renderer {
+namespace zutty
+{
+   class Renderer
+   {
    public:
       explicit Renderer (const std::function <void ()>& initDisplay,
                          const std::function <void ()>& swapBuffers,

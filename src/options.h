@@ -19,8 +19,8 @@
 #include <string>
 #include <vector>
 
-namespace zutty {
-
+namespace zutty
+{
    struct OptionDesc
    {
       const char* option;

@@ -23,8 +23,8 @@
 #define glCheckError()
 #endif
 
-namespace gl {
-
-void CheckError_(const char* file, int line);
+namespace gl
+{
+   void CheckError_ (const char* file, int line);
 
 } // namespace

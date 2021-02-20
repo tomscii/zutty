@@ -11,8 +11,8 @@
 
 #include "frame.h"
 
-namespace zutty {
-
+namespace zutty
+{
    Frame::Frame () {}
 
    Frame::Frame (uint16_t winPx_, uint16_t winPy_,

@@ -14,8 +14,8 @@
 #include <sstream>
 #endif
 
-namespace zutty {
-
+namespace zutty
+{
    inline void
    Frame::scrollUp (uint16_t count)
    {

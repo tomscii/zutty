@@ -17,8 +17,8 @@
 #include <cassert>
 #include <iostream>
 
-namespace {
-
+namespace
+{
    static const char *computeShaderSource = R"(#version 310 es
 
 layout (local_size_x = 1, local_size_y = 1) in;
@@ -279,10 +279,11 @@ void main ()
       std::size_t size = sizeof (T) * n_items;
       glBufferData (GL_SHADER_STORAGE_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
    }
-}
 
-namespace zutty {
+} // namespace
 
+namespace zutty
+{
    CharVdev::CharVdev (const Fontpack* fontpk_)
       : fontpk (* fontpk_)
    {

@@ -13,8 +13,8 @@
 
 #include "charvdev.h"
 
-namespace zutty {
-
+namespace zutty
+{
    class Frame
    {
    public:

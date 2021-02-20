@@ -17,8 +17,8 @@
 #include <string.h>
 #include <strings.h>
 
-namespace {
-
+namespace
+{
    struct SearchState
    {
       // input
@@ -171,10 +171,11 @@ namespace {
    #endif
       return 0;
    }
-}
 
-namespace zutty {
+} // namespace
 
+namespace zutty
+{
    Fontpack::Fontpack (const std::string& fontpath,
                        const std::string& fontname)
    {
@@ -228,4 +229,4 @@ namespace zutty {
             std::make_unique <Font> (sstate.boldItalic, * fontRegular.get ());
    }
 
-}
+} // namespace zutty
