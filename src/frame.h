@@ -12,6 +12,7 @@
 #pragma once
 
 #include "charvdev.h"
+#include "utf8.h"
 
 namespace zutty
 {
@@ -22,17 +23,19 @@ namespace zutty
 
       explicit Frame (uint16_t winPx_, uint16_t winPy_,
                       uint16_t nCols_, uint16_t nRows_,
-                      uint16_t& marginTop_, uint16_t& marginBottom_);
+                      uint16_t& marginTop_, uint16_t& marginBottom_,
+                      uint16_t saveLines_ = 0);
 
       void resize (uint16_t winPx_, uint16_t winPy_,
                    uint16_t nCols_, uint16_t nRows_,
                    uint16_t& marginTop_, uint16_t& marginBottom_);
 
+      void dropScrollbackHistory ();
       void setMargins (uint16_t marginTop_, uint16_t marginBottom_);
       void resetMargins (uint16_t& marginTop_, uint16_t& marginBottom_);
 
       void fillCells (uint16_t ch, const CharVdev::Cell& attrs);
-      void copyCells (CharVdev::Cell * const dest);
+      void fullCopyCells (CharVdev::Cell * const dest);
       void deltaCopyCells (CharVdev::Cell * const dest);
 
       operator bool () const { return cells != nullptr; }
@@ -51,8 +54,33 @@ namespace zutty
       void scrollUp (uint16_t count);
       void scrollDown (uint16_t count);
 
-      void expose () { damage.add (0, nRows * nCols); };
-      void resetDamage () { damage.reset (); };
+      void pageUp (uint16_t count);
+      void pageDown (uint16_t count);
+      void pageToBottom ();
+
+      void expose ();
+      void resetDamage ();
+
+      const CharVdev::Cursor& getCursor () const { return cursor; };
+      void setCursorPos (uint16_t pY, uint16_t pX);
+      void setCursorStyle (CharVdev::Cursor::Style cs);
+
+      // selection state
+      enum class SelectSnapTo: uint8_t
+      {
+         Char = 0, Word = 1, Line = 2
+      };
+      static void cycleSelectSnapTo (SelectSnapTo& snapTo)
+      {
+         snapTo = static_cast <SelectSnapTo> (
+            (static_cast <uint8_t> (snapTo) + 1) % 3);
+      }
+      Rect& getSelection () { return selection; };
+      const Rect& getSelection () const { return selection; };
+      void snapSelection (SelectSnapTo snapTo);
+      bool getSelectedUtf8 (std::string& utf8_selection) const;
+
+      constexpr const static size_t cellSize = sizeof (CharVdev::Cell);
 
       uint64_t seqNo = 0; // update counter (used by Renderer)
 
@@ -60,44 +88,34 @@ namespace zutty
       uint16_t winPy = 0;
       uint16_t nCols = 0;
       uint16_t nRows = 0;
-
-      CharVdev::Cursor cursor;
-      Rect selection;
+      uint16_t saveLines = 0;
 
    private:
-      uint16_t scrollHead;   // scrolling area row offset of logical top row
+      uint16_t scrollHead;   // row offset of scrolling area's logical top row
       uint16_t marginTop;    // current margin top (number of rows above)
       uint16_t marginBottom; // current margin bottom (number of rows above + 1)
+      uint16_t historyRows;  // number of history (off-screen) rows with data
+      uint16_t viewOffset;   // how many rows above top row does the view start?
+      bool margins = false;  // are there (non-default) top/bottom margins set?
 
       CharVdev::Cell::Ptr cells = nullptr;
+      CharVdev::Cursor cursor;
+      Rect selection;
 
       struct Damage
       {
          uint32_t start = 0;
          uint32_t end = 0;
+         uint32_t totalCells = 0;
 
-         void reset ()
-         {
-            start = 0;
-            end = 0;
-         }
-
-         void add (uint32_t start_, uint32_t end_)
-         {
-            if (start == end) // null state
-            {
-               start = start_;
-               end = end_;
-            }
-            else
-            {
-               start = std::min (start, start_);
-               end = std::max (end, end_);
-            }
-         }
+         void reset ();
+         void add (uint32_t start_, uint32_t end_);
       };
       Damage damage;
 
+      int getPhysicalRow (int pY) const;
+      const CharVdev::Cell * getPhysRowPtr (int pY) const;
+      const CharVdev::Cell * getViewRowPtr (int pY) const;
       uint32_t getIdx (uint16_t pY, uint16_t pX) const;
       const CharVdev::Cell & operator [] (uint32_t idx) const;
       CharVdev::Cell & operator [] (uint32_t idx);
@@ -107,8 +125,14 @@ namespace zutty
       void copyCells (uint32_t dstIx, uint32_t srcIx, uint32_t count);
       void moveCells (uint32_t dstIx, uint32_t srcIx, uint32_t count);
 
-      void damageDeltaCopy (CharVdev::Cell* dst, uint32_t start, uint32_t end);
+      void damageDeltaCopy (CharVdev::Cell* dst, uint32_t start, uint32_t count);
+      void copyAllCells (CharVdev::Cell * const dest);
       void unwrapCellStorage ();
+
+      void vscrollSelection (int vertOffset);
+      void invalidateSelection (const Rect&& damage);
+
+      void highMemUsageReport ();
    };
 
 } // namespace zutty

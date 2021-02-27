@@ -83,12 +83,12 @@ namespace zutty
             if (delta)
                lastFrame.deltaCopyCells (m.cells);
             else
-               lastFrame.copyCells (m.cells);
+               lastFrame.fullCopyCells (m.cells);
          }
 
          charVdev->setDeltaFrame (delta);
-         charVdev->setCursor (lastFrame.cursor);
-         charVdev->setSelection (lastFrame.selection);
+         charVdev->setCursor (lastFrame.getCursor ());
+         charVdev->setSelection (lastFrame.getSelection ());
 
          if (lastFrame.seqNo == nextFrame.seqNo)
          {

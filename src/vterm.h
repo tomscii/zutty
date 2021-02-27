@@ -113,6 +113,8 @@ namespace zutty
       void setHasFocus (bool);
       void mouseWheelUp ();
       void mouseWheelDown ();
+      void pageUp ();
+      void pageDown ();
 
       void selectStart (int pX, int pY, bool cycleSnapTo);
       void selectExtend (int pX, int pY, bool cycleSnapTo);
@@ -423,25 +425,9 @@ namespace zutty
       SavedCursor_DEC savedCursor_DEC_alt;
       SavedCursor_DEC* savedCursor_DEC = &savedCursor_DEC_pri;
 
-      // selection state
-      enum class SelectSnapTo: uint8_t
-      {
-         Char = 0, Word = 1, Line = 2
-      };
-      static void cycleSelectSnapTo (SelectSnapTo& snapTo)
-      {
-         snapTo = static_cast <SelectSnapTo> (
-            (static_cast <uint8_t> (snapTo) + 1) % 3);
-      }
-
-      Rect selection;
-      SelectSnapTo selectSnapTo = SelectSnapTo::Char;
+      Frame::SelectSnapTo selectSnapTo = Frame::SelectSnapTo::Char;
       bool selectUpdatesTop = false;
       bool selectUpdatesLeft = false;
-
-      Rect snapSelection (Rect selection, SelectSnapTo snapTo);
-      void invalidateSelection (const Rect&& damage);
-      void vscrollSelection (int vertOffset);
 
       MouseTrackingState mouseTrk;
 

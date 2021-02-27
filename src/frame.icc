@@ -17,20 +17,85 @@
 namespace zutty
 {
    inline void
+   Frame::expose ()
+   {
+      damage.add (getIdx (0, 0), getIdx (nRows - 1, nCols - 1) + 1);
+   }
+
+   inline void
+   Frame::resetDamage ()
+   {
+      damage.reset ();
+   }
+
+   inline void
+   Frame::setCursorPos (uint16_t pY, uint16_t pX)
+   {
+      cursor.posY = pY + viewOffset;
+      cursor.posX = pX;
+   }
+
+   inline void
+   Frame::setCursorStyle (CharVdev::Cursor::Style cs)
+   {
+      cursor.style = cs;
+   }
+
+   inline void
+   Frame::pageUp (uint16_t count)
+   {
+      uint16_t viewOffset_ = std::min (viewOffset + count, (int)historyRows);
+      int delta = viewOffset_ - viewOffset;
+      cursor.posY += delta;
+      selection.br.y += delta;
+      selection.tl.y += delta;
+      viewOffset = viewOffset_;
+      expose ();
+   }
+
+   inline void
+   Frame::pageDown (uint16_t count)
+   {
+      uint16_t viewOffset_ = std::max (0, viewOffset - count);
+      int delta = viewOffset_ - viewOffset;
+      cursor.posY += delta;
+      selection.br.y += delta;
+      selection.tl.y += delta;
+      viewOffset = viewOffset_;
+      expose ();
+   }
+
+   inline void
+   Frame::pageToBottom ()
+   {
+      if (!viewOffset)
+         return;
+
+      cursor.posY -= viewOffset;
+      selection.br.y -= viewOffset;
+      selection.tl.y -= viewOffset;
+      viewOffset = 0;
+      expose ();
+   }
+
+   inline void
    Frame::scrollUp (uint16_t count)
    {
+      vscrollSelection (-count);
       for (uint16_t k = 0; k < count; ++k)
       {
          ++scrollHead;
          if (scrollHead == marginBottom)
             scrollHead = marginTop;
       }
+      historyRows = std::min (historyRows + count, (int)saveLines);
       damage.add (marginTop * nCols, marginBottom * nCols);
    }
 
    inline void
    Frame::scrollDown (uint16_t count)
    {
+      vscrollSelection (count);
       for (uint16_t k = 0; k < count; ++k)
       {
          if (scrollHead >= marginTop + 1)
@@ -38,6 +103,7 @@ namespace zutty
          else
             scrollHead = marginBottom - 1;
       }
+      historyRows = std::max (0, historyRows - count);
       damage.add (marginTop * nCols, marginBottom * nCols);
    }
 
@@ -52,18 +118,24 @@ namespace zutty
    {
       uint32_t idx = getIdx (pY, pX);
       damage.add (idx, idx + 1);
+      invalidateSelection (Rect (pX, pY));
       return operator [] (idx);
    }
 
    inline void
    Frame::fillCells (uint16_t ch, const CharVdev::Cell& attrs)
    {
-      for (int k = 0; k < nRows * nCols; ++k)
+      for (uint16_t r = 0; r < nRows; ++r)
       {
-         cells.get () [k] = attrs;
-         cells.get () [k].uc_pt = ch;
+         uint32_t start = getIdx (r, 0);
+         uint32_t end = start + nCols;
+         for (uint32_t k = start; k < end; ++k)
+         {
+            cells.get () [k] = attrs;
+            cells.get () [k].uc_pt = ch;
+         }
+         damage.add (start, end);
       }
-      damage.add (0, nRows * nCols);
    }
 
    inline void
@@ -85,6 +157,7 @@ namespace zutty
 #endif
       uint32_t idx = getIdx (pY, startX);
       eraseRange (idx, idx + count, attrs);
+      invalidateSelection (Rect (startX, pY, startX + count, pY));
    }
 
    inline void
@@ -107,6 +180,7 @@ namespace zutty
       uint32_t dstIdx = getIdx (pY, dstX);
       uint32_t srcIdx = getIdx (pY, srcX);
       moveCells (dstIdx, srcIdx, count);
+      invalidateSelection (Rect (dstX, pY, dstX + count, pY));
    }
 
    inline void
@@ -129,9 +203,112 @@ namespace zutty
       uint32_t dstIdx = getIdx (dstY, startX);
       uint32_t srcIdx = getIdx (srcY, startX);
       copyCells (dstIdx, srcIdx, count);
+      invalidateSelection (Rect (startX, dstY, startX + count, dstY));
+   }
+
+   inline void
+   Frame::snapSelection (SelectSnapTo snapTo)
+   {
+      if (selection.empty ())
+         return;
+
+      if (selection.rectangular)
+         return;
+
+      switch (snapTo)
+      {
+      case SelectSnapTo::Char:
+         break;
+      case SelectSnapTo::Word:
+      {
+         const auto* cp = getViewRowPtr (selection.tl.y);
+         while (selection.tl.x < nCols && cp [selection.tl.x].uc_pt == ' ')
+            ++selection.tl.x;
+         while (selection.tl.x > 0 && cp [selection.tl.x - 1].uc_pt != ' ')
+            --selection.tl.x;
+
+         cp = getViewRowPtr (selection.br.y);
+         while (selection.br.x > 0 && cp [selection.br.x].uc_pt == ' ')
+            --selection.br.x;
+         while (selection.br.x < nCols && cp [selection.br.x].uc_pt != ' ')
+            ++selection.br.x;
+      }
+         break;
+      case SelectSnapTo::Line:
+         selection.tl.x = 0;
+         selection.br.x = nCols;
+         break;
+      default: break;
+      }
    }
 
    // private functions
+
+   inline void
+   Frame::invalidateSelection (const Rect&& damage)
+   {
+      if (selection.empty ())
+         return;
+
+      if (selection.br <= damage.tl || damage.br <= selection.tl)
+         return;
+
+      selection.clear ();
+   }
+
+   inline void
+   Frame::vscrollSelection (int vertOffset)
+   {
+      if (selection.empty ())
+         return;
+
+      int y1 = selection.tl.y + vertOffset;
+      int y2 = selection.br.y + vertOffset;
+
+      if ((margins && y1 < marginTop) || y1 < -saveLines ||
+          y2 > marginBottom || (y2 == marginBottom && selection.br.x > 0))
+      {
+         selection.clear ();
+         return;
+      }
+
+      selection.tl.y = y1;
+      selection.br.y = y2;
+   }
+
+   inline int
+   Frame::getPhysicalRow (int pY) const
+   {
+      if (pY < 0)
+      {
+         if (!margins)
+            pY += scrollHead;
+         if (pY < 0)
+            pY += nRows + saveLines;
+         return pY;
+      }
+
+      if (margins && (pY < marginTop || pY >= marginBottom))
+         return pY;
+
+      pY += scrollHead - marginTop;
+      if (pY >= marginBottom)
+         pY -= marginBottom - marginTop;
+
+      return pY;
+   }
+
+   inline const CharVdev::Cell *
+   Frame::getPhysRowPtr (int pY) const
+   {
+      return & operator [] (nCols * getPhysicalRow (pY));
+   }
+
+   inline const CharVdev::Cell *
+   Frame::getViewRowPtr (int pY) const
+   {
+      return getPhysRowPtr (pY - viewOffset);
+   }
 
    inline uint32_t
    Frame::getIdx (uint16_t pY, uint16_t pX) const
@@ -148,14 +325,7 @@ namespace zutty
          throw std::runtime_error (oss.str ());
       }
 #endif
-      if (pY < marginTop || pY >= marginBottom)
-         return nCols * pY + pX;
-
-      pY += scrollHead - marginTop;
-      if (pY >= marginBottom)
-          pY -= marginBottom - marginTop;
-
-      return nCols * pY + pX;
+      return nCols * getPhysicalRow (pY - viewOffset) + pX;
    }
 
    inline const CharVdev::Cell &
@@ -184,17 +354,43 @@ namespace zutty
    inline void
    Frame::copyCells (uint32_t dstIx, uint32_t srcIx, uint32_t count)
    {
-      memcpy (cells.get () + dstIx, cells.get () + srcIx,
-              count * sizeof (CharVdev::Cell));
+      memcpy (cells.get () + dstIx, cells.get () + srcIx, count * cellSize);
       damage.add (dstIx, dstIx + count);
    }
 
    inline void
    Frame::moveCells (uint32_t dstIx, uint32_t srcIx, uint32_t count)
    {
-      memmove (cells.get () + dstIx, cells.get () + srcIx,
-               count * sizeof (CharVdev::Cell));
+      memmove (cells.get () + dstIx, cells.get () + srcIx, count * cellSize);
       damage.add (dstIx, dstIx + count);
+   }
+
+   inline void
+   Frame::Damage::reset ()
+   {
+      start = 0;
+      end = 0;
+   }
+
+   inline void
+   Frame::Damage::add (uint32_t start_, uint32_t end_)
+   {
+      if (end_ < start_)
+      {
+         start_ = 0;
+         end_ = totalCells;
+      }
+
+      if (start == end) // null state
+      {
+         start = start_;
+         end = end_;
+      }
+      else
+      {
+         start = std::min (start, start_);
+         end = std::max (end, end_);
+      }
    }
 
 } // namespace zutty

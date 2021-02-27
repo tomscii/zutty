@@ -66,6 +66,7 @@ namespace zutty
       {"help",        NoArg,    "true",    "false",   "Print usage listing and quit"},
       {"listres",     NoArg,    "true",    "false",   "Print resource listing and quit"},
       {"rv",          NoArg,    "true",    "false",   "Reverse video"},
+      {"saveLines",   SepArg,   nullptr,   "500",     "Lines of scrollback history"},
       {"shell",       SepArg,   nullptr,   nullptr,   "Shell program to run"},
       {"showWraps",   NoArg,    "true",    "false",   "Show wrap marks at right margin"},
       {"title",       SepArg,   nullptr,   "Zutty",   "Window title"},
@@ -100,25 +101,26 @@ namespace zutty
    struct Options
    {
       // N.B.: no static initializers - will decode hardDefault fields above!
+      uint8_t fontsize;
       uint16_t border;
+      uint16_t nCols;
+      uint16_t nRows;
+      uint16_t saveLines;
       const char* display;
       const char* fontname;
       const char* fontpath;
-      uint8_t fontsize;
-      uint16_t nCols;
-      uint16_t nRows;
-      bool glinfo;
       const char* shell;
       const char* title;
-      Color fg;
       Color bg;
       Color cr;
-      bool rv;
+      Color fg;
       bool altScrollMode;
       bool autoCopyMode;
       bool boldColors;
+      bool glinfo;
       bool showWraps;
       bool quiet;
+      bool rv;
       bool verbose;
 
       void initialize (int* argc, char** argv);

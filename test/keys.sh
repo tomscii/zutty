@@ -15,7 +15,8 @@ function INS_DEL_PGUPDN {
 
     IN "Shift: \D1"
     # Exclude Shift-Insert b/c it is bound to "Paste"
-    IN "\S\[Delete] \S\[Page_Up] \S\[Page_Down] \D1"
+    # Exclude Shift-PageUp and Shift-PageDown (bound to scroll up/down)
+    IN "\S\[Delete] \D1"
     # N.B.: Shift state is not set on XKeyPressedEvent for keypad keys
     # (may be a xvkbd limitation), so omit testing those
 
@@ -40,7 +41,7 @@ function INS_DEL_PGUPDN {
     IN "Control-Alt-Shift: \D1"
     IN "\C\A\S\[Delete] \C\A\S\[Page_Up] \C\A\S\[Page_Down] \D1"
 
-    SNAP keys_01 c5f7e954e68cec59e4ad1e22d4aa519b
+    SNAP keys_01 9f9018f1f830f45f0850ddd01446c527
 
     IN "\Cd\Cd\D3"
 }

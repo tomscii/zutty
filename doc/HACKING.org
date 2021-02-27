@@ -325,6 +325,7 @@ The list of correctness tests (automatically run in sequence by
 - =keys.sh=: Keyboard input handling (see [[./KEYS.org][Key mapping sequences]] for
   further documentation). Note: This test might fail if your computer
   is configured to use a non-US keyboard.
+- =scrollback.sh=: Scrollback (page history) support
 - =title.sh=: Setting the window title from within the terminal via
   escape sequences
 - =truecolor.sh=: True color support
@@ -699,7 +700,7 @@ straightforward way. All the work of computing the terminal window
 content is done by the compute shader that sets color values of
 individual pixels in the output texture.
 
-**  Frame
+** Frame
 
 The Frame is an abstraction on top of a cell array compatible with the
 one provided by the CharVdev, and provides access to cells based on
@@ -730,31 +731,33 @@ encoding the ringbuffer state are =marginTop=, =marginBottom= and
 by multiplying them with the number of characters in each row
 (=nCols=).
 
+*** The base case: no scrollback history
+
 To understand the memory layout of cells mapped to the screen grid,
 consider the below figure:
 
 #+BEGIN_EXAMPLE
-            0 --> +-----------------------+
-                  |                       |
-                  .          (1)          .
-                  |                       |
-                  +-----------------------+
-    marginTop --> +-----------------------+    <
-                  |                       |    <
-                  .          (3)          .    <
-                  |                       |    <
-                  +-----------------------+    < scrolling
-   scrollHead --> +-----------------------+    <   area
-                  |                       |    <
-                  .          (2)          .    <
-                  |                       |    <
-                  +-----------------------+    <
- marginBottom --> +-----------------------+
-                  |                       |
-                  .          (4)          .
-                  |                       |
-                  +-----------------------+
-        nRows -->
+                0 --> +-----------------------+
+                      |                       |
+                      .          (1)          .
+                      |                       |
+                      +-----------------------+
+        marginTop --> +-----------------------+    <
+                      |                       |    <
+                      .          (3)          .    <
+                      |                       |    <
+                      +-----------------------+    < scrolling
+       scrollHead --> +-----------------------+    <   area
+                      |                       |    <
+                      .          (2)          .    <
+                      |                       |    <
+                      +-----------------------+    <
+     marginBottom --> +-----------------------+
+                      |                       |
+                      .          (4)          .
+                      |                       |
+                      +-----------------------+
+            nRows -->
 #+END_EXAMPLE
 
 The storage can be conceptually divided into four consecutive areas.
@@ -775,8 +778,9 @@ that starts with the row =marginTop=, ending with the last row above
 When a new row is appended to the scrolling area, =scrollHead= is
 moved down, unless it would become equal to =marginBottom=, in which
 case it jumps back up to =marginTop=. In any case, newly written
-content will overwrite the logically-topmost scrolling row, which has
-conceptually dropped off the top of the scrolling area.
+content will overwrite the row marked by the original position of
+=scrollHead=, which has conceptually dropped off the top of the
+scrolling area.
 
 The method =Frame::copyCells ()= copies all the cell content from a
 frame, in logical order =(1)(2)(3)(4)=, into linear (straight) storage
@@ -786,6 +790,138 @@ when the scrolling limits =marginTop= or =marginBottom= are
 changed. In the reset state, =scrollHead= equals =marginTop=, which
 means area =(2)= fills the space between =(1)= and =(4)=, while =(3)=
 is empty.
+
+*** The complete truth: in the presence of scrollback
+
+The buffer allocated for the frame contains space for a total of
+=nRows= plus an additional =saveLines= rows' worth of cells. Apart
+from that, operational aspects of filling the buffer with data are
+exactly as described above: the scrolling area is delimited by
+=marginTop= and =marginBottom=, and =scrollHead= points to the
+logically top-most row within the scrolling area (moved downwards as
+the content at the top edge scrolls out of the window). Note that
+this architecture guarantees that the computational complexity of
+scrolling is O(1) with respect to the size of the scrollback buffer.
+Having a large scrollback buffer will certainly cost memory, but it
+will have zero impact on performance.
+
+If there are no top/bottom margins set, the whole storage acts as a
+(potentially very large) scrolling area, of which only =nRows= rows
+are active (available to the Vterm) at any point in time:
+
+#+BEGIN_EXAMPLE
+                0 --> +-----------------------+    <
+                      |                       |    <
+                      .          (3)          .    < scrolling
+                      |     [off-screen]      |    <   area
+                      +-----------------------+    <
+       scrollHead --> +-----------------------+    <   <--------- posY = 0
+                      |                       |    <   < active      ...
+                      .          (2)          .    <   <  area       ...
+                      |                       |    <   <             ...
+                      +-----------------------+    <   <--------- posY = nRows - 1
+scrollHead + nRows -> +-----------------------+    <
+                      |                       |    <
+                      .          (2)          .    <
+                      |     [off-screen]      |    <
+                      +-----------------------+    <
+nRows + saveLines -->
+#+END_EXAMPLE
+
+The second part of area =(2)= and the entirety of area =(3)= contain
+saved lines. The number of saved history rows with valid data is
+maintained in the private counter =historyRows=, so that scrolling the
+view up into any still unused, blank buffer area can be avoided.
+
+The Vterm continues to "see" the active area as if it was the whole
+buffer, its topmost row having =posY = 0=. Naturally, the active area
+might wrap around the end of the buffer. In this case, it is the
+second part of area =(3)= that contains saved (off-screen) lines:
+
+#+BEGIN_EXAMPLE
+                0 --> +-----------------------+    <   <
+                      |                       |    <   < active      ...
+                      .          (3)          .    <   <  area       ...
+                      |                       |    <   < (pt. 2)     ...
+                      +-----------------------+    <   <--------- posY = nRows - 1
+scrollHead + nRows -> +-----------------------+    <
+(mod buffer length)   |                       |    <
+                      .          (3)          .    < scrolling
+                      |     [off-screen]      |    <   area
+                      +-----------------------+    <
+       scrollHead --> +-----------------------+    <   <--------- posY = 0
+                      |                       |    <   < active      ...
+                      .          (2)          .    <   <  area       ...
+                      |                       |    <   < (pt. 1)     ...
+                      +-----------------------+    <   <
+nRows + saveLines -->
+#+END_EXAMPLE
+
+Note that internally, =marginTop= will be 0 and =marginBottom= will be
+=nRows + saveLines= (reflecting the physical extent of the buffer).
+The externally reflected value of =marginBottom= will continue to be
+=nRows=, so Vterm can continue to use the margin settings in its own
+logic, mostly to establish whether the cursor position is within
+the margins.
+
+In case the Vterm sets top/bottom margins (meaning that at least one
+of them differs from its reset value of 0 / =nRows=, respectively),
+the Frame will rearrange its storage so that the physical start of the
+buffer contains the active area with parts =(1)= to =(4)=, and the
+rest contains the lines of saved history. This has the advantage that
+=marginTop=, =marginBottom= and =scrollHead= continue to be valid with
+the active area as a frame of reference (pun not intended), without
+having to apply offsets to them.
+
+#+BEGIN_EXAMPLE
+                0 --> +-----------------------+    <
+                      |                       |    <  active
+                      .          (1)          .    <   area
+                      |                       |    <
+                      +-----------------------+    <
+        marginTop --> +-----------------------+    <    <
+                      |                       |    <    <
+                      .          (3)          .    <    <
+                      |                       |    <    <
+                      +-----------------------+    <    < scrolling
+       scrollHead --> +-----------------------+    <    <   area
+                      |                       |    <    <
+                      .          (2)          .    <    <
+                      |                       |    <    <
+                      +-----------------------+    <    <
+     marginBottom --> +-----------------------+    <
+                      |                       |    <
+                      .          (4)          .    <
+                      |                       |    <
+                      +-----------------------+    <
+            nRows --> +-----------------------+
+                      |                       |
+                      .          (0)          .
+                      |                       |
+                      +-----------------------+
+nRows + saveLines -->
+#+END_EXAMPLE
+
+The initial status of the above layout is when =scrollHead= equals
+=marginTop=, meaning that area =(3)= is empty. This is the layout that
+calling =unwrapCellStorage ()= will set up, and is done every time
+prior to the frame being resized, or the top/bottom margins adjusted.
+
+*** Exercising scrollback -- defining what is visible
+
+Given the above defined memory layouts, it is easy to see how the
+screen can be directed to display something other than the active
+area. The view position is defined by a single row offset
+=viewOffset= that can take values from 0 (display the active area)
+up to and including =saveLines= (display the top of history).
+
+Essentially, when copying frame data into the CharVdev for display,
+the =viewOffset= row offset has to be subtracted from the start of
+the frame (=scrollHead= in case of no margins, or 0 if there are
+margins), wrapping around the buffer limits as necessary. Then, the
+data has to be copied from that starting point in order, following the
+numbering of data sections =(0)= through =(4)=, until =nRows= rows
+have been copied.
 
 ** Renderer
 

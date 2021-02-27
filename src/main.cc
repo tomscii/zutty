@@ -409,6 +409,16 @@ onKeyPress (XEvent& event, XIC& xic, int pty_fd)
    buffer [nbytes] = '\0';
 
    // Special key combinations that are handled by Zutty itself:
+   if (ks == XK_Page_Up && (xkevt.state == ShiftMask))
+   {
+      vt->pageUp ();
+      return false;
+   }
+   if (ks == XK_Page_Down && (xkevt.state == ShiftMask))
+   {
+      vt->pageDown ();
+      return false;
+   }
    if (ks == XK_C && (xkevt.state & ControlMask) && (xkevt.state & ShiftMask))
    {
       selMgr->copySelection (selMgr->getClipboard (), selMgr->getPrimary ());

@@ -122,9 +122,24 @@ namespace
       std::stringstream iss (opt);
       int bw;
       iss >> bw;
-      if (iss.fail () || bw < 0 || bw > 32767)
-         throw std::runtime_error ("-border: expected unsigned short");
+      if (iss.fail () || bw < 0 || bw > 3000)
+         throw std::runtime_error ("-border: expected unsigned, max. 3000");
       outBorder = bw;
+   }
+
+   void
+   getSaveLines (uint16_t& outSaveLines)
+   {
+      const char* opt = get ("saveLines");
+      if (!opt)
+         throw std::runtime_error ("-saveLines: missing value");
+
+      std::stringstream iss (opt);
+      int sl;
+      iss >> sl;
+      if (iss.fail () || sl < 0 || sl > 50000)
+         throw std::runtime_error ("-saveLines: expected unsigned, max. 50000");
+      outSaveLines = sl;
    }
 
    void
@@ -138,7 +153,7 @@ namespace
       int fs;
       iss >> fs;
       if (iss.fail () || fs < 1 || fs > 255)
-         throw std::runtime_error ("-fontsize: expected unsigned nonzero byte");
+         throw std::runtime_error ("-fontsize: expected integer within 1..255");
       outFontsize = fs;
    }
 
@@ -259,6 +274,7 @@ namespace zutty
       try
       {
          getBorder (border);
+         getSaveLines (saveLines);
          fontname = get ("font");
          fontpath = get ("fontpath");
          getFontsize (fontsize);

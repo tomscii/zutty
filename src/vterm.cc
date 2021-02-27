@@ -499,7 +499,8 @@ namespace zutty
       , onRefresh ([] (const Frame&) {})
       , onOsc ([] (int cmd, const std::string& arg)
                { logU << "OSC: '" << cmd << ";" << arg << "'" << std::endl; })
-      , frame_pri (winPx, winPy, nCols, nRows, marginTop, marginBottom)
+      , frame_pri (winPx, winPy, nCols, nRows, marginTop, marginBottom,
+                   opts.saveLines)
       , cf (&frame_pri)
       , utf8dec ([this] () { placeGraphicChar (); })
       , nColsEff (nCols)
@@ -778,6 +779,7 @@ namespace zutty
       lastNormalBegin = 0;
       lastStopPos = 0;
       hideCursor ();
+      cf->pageToBottom ();
       for (readPos = 0; readPos < inputSize; ++readPos)
       {
          const unsigned char& ch = input [readPos];
@@ -1180,9 +1182,10 @@ namespace zutty
       pY = std::min (std::max (0, pY), (int)winPy);
       Point pt (pX / glyphPx, pY / glyphPy);
 
+      Rect& selection = cf->getSelection ();
       selection.tl = pt;
-      selection.br = selection.tl;
-      selectSnapTo = SelectSnapTo::Char;
+      selection.br = pt;
+      selectSnapTo = Frame::SelectSnapTo::Char;
       selectUpdatesTop = false;
       selectUpdatesLeft = false;
 
@@ -1201,7 +1204,9 @@ namespace zutty
       Point pt (pX / glyphPx, pY / glyphPy);
 
       if (cycleSnapTo)
-         cycleSelectSnapTo (selectSnapTo);
+         Frame::cycleSelectSnapTo (selectSnapTo);
+
+      Rect& selection = cf->getSelection ();
 
       if (selection.rectangular)
       {
@@ -1238,6 +1243,8 @@ namespace zutty
       pX = std::min (std::max (0, pX), (int)winPx);
       pY = std::min (std::max (0, pY), (int)winPy);
       Point pt (pX / glyphPx, pY / glyphPy);
+
+      Rect& selection = cf->getSelection ();
 
       if (selection.rectangular)
       {
@@ -1315,84 +1322,14 @@ namespace zutty
       showCursor ();
       redraw ();
 
-      Rect& sel = cf->selection;
-      if (sel.empty ())
-         return false;
-
-      using utf16str = std::vector <uint16_t>;
-      std::vector <utf16str> lines;
-      bool wrap = false;
-
-      // save lines from the selected range of the frame cell buffer
-      auto addLine =
-         [&] (uint16_t y, uint16_t x1, uint16_t x2)
-         {
-            utf16str line;
-            bool wrapBack = wrap;
-            wrap = false;
-            for (uint16_t x = x1; x < x2; ++x)
-            {
-               line.push_back (cf->getCell (y, x).uc_pt);
-               if (x == nColsEff - 1 || x == nCols - 1)
-                  wrap = cf->getCell (y, x).wrap;
-            }
-
-            while (!wrap && line.size () && line.back () == ' ')
-               line.pop_back (); // discard trailing whitespace
-
-            if (wrapBack && lines.size ())
-               lines.back ().insert (lines.back ().end (),
-                                     line.begin (), line.end ());
-            else
-               lines.push_back (line);
-         };
-
-      if (sel.br.y == nRows)
-      {
-         sel.br.y -= 1;
-         sel.br.x = nCols;
-      }
-
-      if (sel.tl.y == sel.br.y)
-      {
-         addLine (sel.tl.y, sel.tl.x, sel.br.x);
-      }
-      else if (sel.rectangular)
-      {
-         for (uint16_t y = sel.tl.y; y <= sel.br.y; ++y)
-            addLine (y, sel.tl.x, sel.br.x);
-      }
-      else
-      {
-         addLine (sel.tl.y, sel.tl.x, nCols);
-         for (uint16_t y = sel.tl.y + 1; y < sel.br.y; ++y)
-            addLine (y, 0, nCols);
-         addLine (sel.br.y, 0, sel.br.x);
-      }
-
-      // convert to UTF-8
-      std::vector <char> utf8_out;
-      for (const auto& u16s: lines)
-      {
-         for (uint16_t cp: u16s)
-            Utf8Encoder::pushUnicode (cp, [&] (char ch)
-                                          {
-                                             utf8_out.push_back (ch);
-                                          });
-         utf8_out.push_back ('\n');
-      }
-      while (utf8_out.size () && utf8_out.back () == '\n')
-         utf8_out.pop_back (); // discard trailing empty lines
-
-      utf8_selection = std::string (utf8_out.data (), utf8_out.size ());
-      return true;
+      return  cf->getSelectedUtf8 (utf8_selection);
    }
 
    void
    Vterm::selectClear ()
    {
       logT << "selectClear ()" << std::endl;
-      selection.clear ();
+      cf->getSelection ().clear ();
       redraw ();
    }
 
@@ -1400,7 +1337,7 @@ namespace zutty
    Vterm::selectRectangularModeToggle ()
    {
       logT << "selectRectangularModeToggle ()" << std::endl;
-      selection.toggleRectangular ();
+      cf->getSelection ().toggleRectangular ();
       redraw ();
    }
 

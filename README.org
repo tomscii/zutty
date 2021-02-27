@@ -150,6 +150,12 @@ double clicks. Compared with =xterm=, one notable difference is a
 built-in, simpler rule for word boundaries (as opposed to
 user-adjustable definitions of character classes).
 
+It is possible to adjust the selection while navigating scrollback.
+Thus, the complete content of the screen buffer (page history plus
+on-screen lines), or any part of it, can be copied as a single
+selection. No need to switch back and forth between source and
+destination programs when copying large amounts of terminal output!
+
 Selecting a region with the mouse will set the primary selection, and
 pressing Control+Shift+C will copy that to the clipboard. This
 mechanism is useful because it allows holding two separate pieces of
@@ -201,14 +207,6 @@ completeness here). The below list gives an overview of what is
 missing.  Some of them are considered out of scope for Zutty, but some
 are marked as possibly being implemented in the future.
 
-- Zutty currently does not support scroll-back. It is easy and
-  straightforward to use programs such as =screen= or =tmux= if you
-  want persistent tty sessions with scrollback and lots of other bells
-  and whistles, and Zutty supports this kind of usage very well.
-  Therefore, scrollback has always been low on the list of priorities.
-  However, we are not ideological about this and there might come a
-  time when scroll-back will be implemented.
-
 - Zutty is opinionated about the primacy of UTF-8, which means that
   non-UTF-8 interaction is generally not supported, not even via
   bridges such as =luit=.  DEC builtin character sets (such as the DEC
@@ -225,8 +223,7 @@ are marked as possibly being implemented in the future.
   - Bidirectional (right-to-left) text;
   - Composing characters (things that can only be represented as a
     base glyph plus one or more composing glyphs superimposed, even in
-    Unicode NFC representation). This might possibly be implemented
-    later if there is sufficient interest.
+    Unicode NFC representation).
   - Possibly more esoteric features.
 
 - Double-width characters (necessary for e.g., drawing CJK glyphs) are

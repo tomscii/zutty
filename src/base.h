@@ -29,11 +29,11 @@ namespace zutty
 
    struct Point
    {
-      uint16_t x = 0;
-      uint16_t y = 0;
+      int x = 0;
+      int y = 0;
 
       explicit Point () = default;
-      explicit Point (uint16_t x_, uint16_t y_): x (x_), y (y_) {}
+      explicit Point (int x_, int y_): x (x_), y (y_) {}
 
       bool operator < (const Point& rhs) const
       {
@@ -60,9 +60,9 @@ namespace zutty
       explicit Rect () = default;
       explicit Rect (Point tl_, Point br_):
          tl (tl_), br (br_) {}
-      explicit Rect (uint16_t x, uint16_t y):
+      explicit Rect (int x, int y):
          tl (x, y), br (x + 1, y) {}
-      explicit Rect (uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2):
+      explicit Rect (int x1, int y1, int x2, int y2):
          tl (x1, y1), br (x2, y2) {}
 
       bool empty () const

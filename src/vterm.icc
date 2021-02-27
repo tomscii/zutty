@@ -115,7 +115,7 @@ namespace zutty
    inline void
    Vterm::redraw ()
    {
-      cf->selection = snapSelection (selection, selectSnapTo);
+      cf->snapSelection (selectSnapTo);
       onRefresh (* cf);
       cf->resetDamage ();
    }
@@ -135,6 +135,40 @@ namespace zutty
    }
 
    inline void
+   Vterm::pageUp ()
+   {
+      if (altScrollMode && altScreenBufferMode)
+      {
+         inputOps [0] = 1;
+         nInputOps = 1;
+         for (int k = 0; k < (marginBottom - marginTop) / 2; ++k)
+            writePty (VtKey::Up);
+      }
+      else
+      {
+         cf->pageUp (nRows / 2);
+         redraw ();
+      }
+   }
+
+   inline void
+   Vterm::pageDown ()
+   {
+      if (altScrollMode && altScreenBufferMode)
+      {
+         inputOps [0] = 1;
+         nInputOps = 1;
+         for (int k = 0; k < (marginBottom - marginTop) / 2; ++k)
+            writePty (VtKey::Down);
+      }
+      else
+      {
+         cf->pageDown (nRows / 2);
+         redraw ();
+      }
+   }
+
+   inline void
    Vterm::mouseWheelUp ()
    {
       if (altScrollMode && altScreenBufferMode)
@@ -142,6 +176,11 @@ namespace zutty
          inputOps [0] = 1;
          nInputOps = 1;
          writePty (VtKey::Up);
+      }
+      else
+      {
+         cf->pageUp (5);
+         redraw ();
       }
    }
 
@@ -154,6 +193,11 @@ namespace zutty
          nInputOps = 1;
          writePty (VtKey::Down);
       }
+      else
+      {
+         cf->pageDown (5);
+         redraw ();
+      }
    }
 
    inline void
@@ -161,14 +205,12 @@ namespace zutty
    {
       resetScreen ();
       resetAttrs ();
-      fillScreen (' ');
 
       switchColMode (ColMode::C80);
 
+      cf->dropScrollbackHistory ();
       cf->resetMargins (marginTop, marginBottom);
-      posX = 0;
-      posY = 0;
-      curPosViaCharPlacement = false;
+      clearScreen ();
 
       switchScreenBufferMode (false);
       altScrollMode = opts.altScrollMode;
@@ -214,7 +256,7 @@ namespace zutty
       mouseTrk = MouseTrackingState {};
 
       tabStops.clear ();
-      selection.clear ();
+      cf->getSelection ().clear ();
    }
 
    inline void
@@ -242,78 +284,6 @@ namespace zutty
    Vterm::fillScreen (uint16_t ch)
    {
       cf->fillCells (ch, attrs);
-   }
-
-   inline void
-   Vterm::invalidateSelection (const Rect&& damage)
-   {
-      if (selection.empty ())
-         return;
-
-      const Rect& sel = cf->selection;
-      if (sel.br <= damage.tl || damage.br <= sel.tl)
-         return;
-
-      selection.clear ();
-   }
-
-   inline void
-   Vterm::vscrollSelection (int vertOffset)
-   {
-      if (selection.empty ())
-         return;
-
-      int y1 = selection.tl.y + vertOffset;
-      int y2 = selection.br.y + vertOffset;
-
-      if (y1 < marginTop ||
-          y2 > marginBottom ||
-          (y2 == marginBottom && selection.br.x > 0))
-      {
-         selection.clear ();
-         return;
-      }
-
-      // N.B.: y-coord is snap-invariant; need to keep these in sync here
-      cf->selection.tl.y = selection.tl.y = y1;
-      cf->selection.br.y = selection.br.y = y2;
-   }
-
-   inline Rect
-   Vterm::snapSelection (Rect sel, SelectSnapTo snapTo)
-   {
-      if (sel.empty ())
-         return sel;
-
-      if (sel.rectangular)
-         return sel;
-
-      switch (snapTo)
-      {
-      case SelectSnapTo::Char:
-         break;
-      case SelectSnapTo::Word:
-         while (sel.tl.x < nCols &&
-                cf->getCell (sel.tl.y, sel.tl.x).uc_pt == ' ')
-            ++sel.tl.x;
-         while (sel.tl.x > 0 &&
-                cf->getCell (sel.tl.y, sel.tl.x - 1).uc_pt != ' ')
-            --sel.tl.x;
-
-         while (sel.br.x > 0 &&
-                cf->getCell (sel.br.y, sel.br.x).uc_pt == ' ')
-            --sel.br.x;
-         while (sel.br.x < nCols &&
-                cf->getCell (sel.br.y, sel.br.x).uc_pt != ' ')
-            ++sel.br.x;
-         break;
-      case SelectSnapTo::Line:
-         sel.tl.x = 0;
-         sel.br.x = nCols;
-         break;
-      default: break;
-      }
-      return sel;
    }
 
    inline void
@@ -364,7 +334,7 @@ namespace zutty
          savedCursor_DEC_alt.isSet = false;
          savedCursor_DEC = &savedCursor_DEC_pri;
          altScreenBufferMode = false;
-         selection.clear ();
+         cf->getSelection ().clear ();
       }
    }
 
@@ -454,7 +424,6 @@ namespace zutty
    Vterm::eraseRow (uint16_t pY)
    {
       cf->eraseInRow (pY, hMargin, nColsEff - hMargin, attrs);
-      invalidateSelection (Rect (hMargin, pY, nColsEff, pY));
    }
 
    inline void
@@ -468,7 +437,6 @@ namespace zutty
    Vterm::copyRow (uint16_t dstY, uint16_t srcY)
    {
       cf->copyRow (dstY, srcY, hMargin, nColsEff - hMargin);
-      invalidateSelection (Rect (hMargin, dstY, nColsEff, dstY));
    }
 
    // insert blank rows at and below startY, within the scrolling area
@@ -505,7 +473,6 @@ namespace zutty
          cf->moveInRow (r, startX + count, startX, nColsEff - startX - count);
          cf->eraseInRow (r, startX, count, attrs);
       }
-      invalidateSelection (Rect (startX, marginTop, nColsEff, marginBottom));
    }
 
    // delete cols at and to the right of startX, within the scrolling area
@@ -517,7 +484,6 @@ namespace zutty
          cf->moveInRow (r, startX, startX + count, nColsEff - startX - count);
          cf->eraseInRow (r, nColsEff - count, count, attrs);
       }
-      invalidateSelection (Rect (startX, marginTop, nColsEff, marginBottom));
    }
 
    inline void
@@ -574,7 +540,6 @@ namespace zutty
       auto& c = cf->getCell (posY, posX);
       c = attrs;
       c.uc_pt = utf8dec.getUnicode ();
-      invalidateSelection (Rect (posX, posY));
 
       ++posX;
       curPosViaCharPlacement = true;
@@ -640,10 +605,9 @@ namespace zutty
       TRACE_FUN;
       if (showCursorMode && inputState == InputState::Normal)
       {
-         cf->cursor.posX = posX;
-         cf->cursor.posY = posY;
+         cf->setCursorPos (posY, posX);
          using CS = CharVdev::Cursor::Style;
-         cf->cursor.style = hasFocus ? CS::filled_block : CS::hollow_block;
+         cf->setCursorStyle (hasFocus ? CS::filled_block : CS::hollow_block);
       }
    }
 
@@ -652,7 +616,7 @@ namespace zutty
    {
       TRACE_FUN;
       using CS = CharVdev::Cursor::Style;
-      cf->cursor.style = CS::hidden;
+      cf->setCursorStyle (CS::hidden);
    }
 
    inline void
@@ -1068,7 +1032,6 @@ namespace zutty
       }
       else
       {
-         vscrollSelection (-arg);
          cf->scrollUp (arg);
          eraseRows (marginBottom - arg, arg);
          curPosViaCharPlacement = false;
@@ -1088,7 +1051,6 @@ namespace zutty
       }
       else
       {
-         vscrollSelection (arg);
          cf->scrollDown (arg);
          eraseRows (marginTop, arg);
          curPosViaCharPlacement = false;
@@ -1156,7 +1118,6 @@ namespace zutty
       {
       case 0: // clear from cursor to end of screen
          cf->eraseInRow (posY, posX, nCols - posX, attrs);
-         invalidateSelection (Rect (posX, posY, nCols, nRows));
          for (uint16_t pY = posY + 1; pY < nRows; ++pY)
             eraseRow (pY);
          break;
@@ -1164,12 +1125,10 @@ namespace zutty
          for (uint16_t pY = 0; pY < posY; ++pY)
             eraseRow (pY);
          cf->eraseInRow (posY, 0, posX + 1, attrs);
-         invalidateSelection (Rect (0, 0, posX + 1, posY));
          break;
       case 2: // clear entire screen
          for (uint16_t pY = 0; pY < nRows; ++pY)
             eraseRow (pY);
-         invalidateSelection (Rect (0, 0, nCols, nRows));
          break;
       default:
          logI << "Erase in Display with illegal param: "
@@ -1187,15 +1146,12 @@ namespace zutty
       {
       case 0: // clear from cursor to end of line
          cf->eraseInRow (posY, posX, nCols - posX, attrs);
-         invalidateSelection (Rect (posX, posY, nCols, posY));
          break;
       case 1: // clear from cursor to beginning of line
          cf->eraseInRow (posY, 0, posX + 1, attrs);
-         invalidateSelection (Rect (0, posY, posX + 1, posY));
          break;
       case 2: // clear entire line
          cf->eraseInRow (posY, 0, nCols, attrs);
-         invalidateSelection (Rect (0, posY, nCols, posY));
          break;
       default:
          logI << "Erase in Line with illegal param: "
@@ -1310,7 +1266,10 @@ namespace zutty
          {
             marginTop = newMarginTop;
             marginBottom = newMarginBottom;
-            cf->setMargins (marginTop, marginBottom);
+            if (marginTop == 0 && marginBottom == nRows)
+               cf->resetMargins (marginTop, marginBottom);
+            else
+               cf->setMargins (marginTop, marginBottom);
          }
       }
 
