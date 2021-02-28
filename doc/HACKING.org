@@ -1,4 +1,4 @@
-#+TITLE: Zutty development guide
+#+TITLE: Zutty developer guide
 #+OPTIONS: author:nil timestamp:nil num:nil val:nil html-style:nil H:3 ^:{}
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="org.css"/>
 
@@ -29,11 +29,11 @@ a debug build from the same source side by side each other, which
 might prove useful while working on some debugging-intensive problem.
 
 Normally, you will not want to install the development build
-system-wide. Run it from an existing terminal as =./build/src/zutty.dbg
+system-wide. Run it from an existing terminal as =build/src/zutty.dbg
 -v= (plus any other options) to receive verbose debugging logs in the
 console.
 
-As stated in the [[./USAGE.org][Usage guide]], by default (if neither =-quiet= nor
+As stated in the [[./USAGE.org][User guide]], by default (if neither =-quiet= nor
 =-verbose= is given), Zutty will print errors and warnings, but not
 info messages. Those have to be enabled with =-verbose=, and in case
 of a debug build, that will enable Trace messages as well.
@@ -66,16 +66,16 @@ itself on every completed escape sequence. To test this, type
 something (I am typing the letter =k=) and then hit Backspace. This
 will trigger the Debug Stop, and the log will look similar to this:
 
-: T [vterm.icc:392] pty write (mod=0): 'k' (1 bytes)
-: T [vterm.icc:439] pty read: 'k' (1 bytes)
-: T [vterm.icc:683] hideCursor []         p(0,48)  d(42,103)  mgn[0,42)  hmgn:0 [0,103)  cur=48  head=0
-: T [vterm.icc:109] Inserted: 'k' (1 bytes)
-: T [vterm.icc:670] showCursor []         p(0,49)  d(42,103)  mgn[0,42)  hmgn:0 [0,103)  cur=49  head=0
-: T [vterm.icc:428] pty write: '\x7f' (1 bytes)
-: T [vterm.icc:439] pty read: '\b\e[K' (4 bytes)
-: T [vterm.icc:683] hideCursor []         p(0,49)  d(42,103)  mgn[0,42)  hmgn:0 [0,103)  cur=49  head=0
-: T [vterm.icc:983] csi_CUB []    p(0,49)  d(42,103)  mgn[0,42)  hmgn:0 [0,103)  cur=49  head=0
-: T [vterm.icc:1229] csi_EL [0]   p(0,48)  d(42,103)  mgn[0,42)  hmgn:0 [0,103)  cur=48  head=0
+: T [vterm.icc:366] pty write (mod=0): 'k' (1 bytes)
+: T [vterm.icc:400] pty read: 'k' (1 bytes)
+: T [vterm.icc:617] hideCursor []         p(0,48)  d(42,103)  mgn[0,42)  hmgn:0 [0,103)
+: T [vterm.icc:108] Inserted: 'k' (1 bytes)
+: T [vterm.icc:605] showCursor []         p(0,49)  d(42,103)  mgn[0,42)  hmgn:0 [0,103)
+: T [vterm.icc:389] pty write: '\x7f' (1 bytes)
+: T [vterm.icc:400] pty read: '\b\e[K' (4 bytes)
+: T [vterm.icc:617] hideCursor []         p(0,49)  d(42,103)  mgn[0,42)  hmgn:0 [0,103)
+: T [vterm.icc:914] csi_CUB []    p(0,49)  d(42,103)  mgn[0,42)  hmgn:0 [0,103)
+: T [vterm.icc:1144] csi_EL [0]   p(0,48)  d(42,103)  mgn[0,42)  hmgn:0 [0,103)
 : T [vterm.icc: 50] *** DEBUG STOP (step=1), 4 bytes since last:
 :         '\b\e[K' (4 bytes)
 : T [vterm.icc: 55] Issue 'kill -CONT 5429' or 'fg' to continue.
@@ -106,10 +106,9 @@ argument.
 Also worth noting is that on each trace point (such as =hideCursor=,
 =showCursor=, =csi_CUB=, etc.) several state variables are printed.
 These include the current cursor position =(0,49)=, the dimensions
-=(42,103)=, the horizontal scrolling margin top and bottom =[0,42)=
+=(42,103)=, and the scrolling area top and bottom margins =[0,42)=
 (the mismatched brackets denote that the top row of scrolling is
 inclusive of the scrolling range, while the bottom row is exclusive).
-Also dumped are Frame-internal offsets =cur= and =head=.
 
 To resume Zutty, send a continue signal (SIGCONT) via kill, or just
 type =fg= into the terminal running Zutty. The latter is a neat trick
@@ -337,11 +336,11 @@ The list of correctness tests (automatically run in sequence by
   message, and you should be good to go.
 
 Apart from running all the tests via [[The CI test script]] (which you
-should routinely run during development, and especially before opening
-a pull request), it is also possible to run any of the above tests
-manually. For example, to run the test automating a traversal of
-Vttest's menu system (and in case of running against Zutty, also
-verifying that results are as expected):
+should routinely run during development, and especially before sending
+a patch or opening a pull request), it is also possible to run any of
+the above tests manually. For example, to run the test automating a
+traversal of Vttest's menu system (and in case of running against
+Zutty, also verifying that results are as expected):
 
 : test/vttest.sh
 
@@ -370,11 +369,13 @@ compare Zutty with another terminal emulator.
 Needless to say: when running the below scripts, your machine should
 be otherwise idle.
 
-Another consideration is that instead of the usual (debug) build used
-for running tests, make sure to reconfigure and recompile Zutty to
-obtain a regular (production) build to run the performance tests with,
-otherwise the results will be meaningless due to excessive logging and
+While correctness tests should ideally be run on both the debug build
+(do this by passing =--debug= to the test scripts) and the normal
+build, it does not make sense to run performance tests on the debug
+build. The results would be meaningless due to excessive logging and
 hitting other debug-only code paths.
+
+Current performance tests:
 
 - =cat_dict.sh=: Arguably the dumbest possible performance test of any
   text terminal, this test consists of outputting a very long text
@@ -402,13 +403,15 @@ hitting other debug-only code paths.
 *** The CI test script
 
 The script =test/run_ci.sh= will run all automated [[Correctness tests]]
-in sequence with the ==--ci-mode= option, stopping and exiting with a
+in sequence with the =--ci-mode= option, stopping and exiting with a
 nonzero return code if any of them exits with an error, and concluding
 with a confirmatory message and zero return code otherwise.
 
 You should always run this at a convenient time (it will occupy your
-screen for about 20 minutes) and observe the successful result before
-opening a pull request with your changes.
+screen for about 25 minutes) and observe the successful result before
+sending a patch or submitting a pull request with your changes. For
+extra confidence, build Zutty both with and without debug, and run the
+CI script both with and without the =--debug= option.
 
 *** Test profiles
 
@@ -442,8 +445,8 @@ sequences). Examples: =MISSING_ANSWERBACK=, =MISSING_DSR=,
 =MISSING_SECONDARY_DA=, =SUPPORTS_VT52=, =SUPPORTS_VT220=. Please
 check the script files for details.
 
-Note that validation against the stored image hashes does not make too
-much sense, unless preparations are made to ensure that the terminal
+Note that validation against the stored image hashes does not make
+sense, unless preparations are made to ensure that the terminal
 settings (size, font, etc.) are perfectly identical. Even then,
 differences from the valid output stored for Zutty do not necessarily
 constitute bugs in any other terminal, unless the rendered screen
@@ -538,12 +541,13 @@ A short rundown of the modules of Zutty:
   an atlas texture for the CharVdev to load into graphics memory.
 - =fontpack=: Locates the font name's variants (regular, bold, ...)
   under a search path and provides a unified point of contact to deal
-  with the whole bunch.
-- =frame=: A Frame represents a snapshot of the content to be rendered
-  by the CharVdev, and is the rendering target of the Vterm. It
-  provides an abstraction based on character grid coordinates on top
-  of the raw cell storage, plus support for passing around said
-  storage cheaply via reference-counted pointers.
+  with all of them.
+- =frame=: The interface between Vterm and CharVdev, providing a
+  rendering target to the former, and acting as a data source to the
+  latter. It provides an abstraction based on character grid
+  coordinates on top of the raw cell storage, supports efficient
+  scrollback buffering, plus support for cheaply passing around the
+  underlying cell storage via reference-counted pointers.
 - =gl=: Low level GL utils.
 - =log=: Logging facility.
 - =main=: Main module for top-level tasks such as instantiating the
@@ -553,22 +557,22 @@ A short rundown of the modules of Zutty:
   (mainly around the keyboard, mouse and selection) as well as feeding
   the stream of output bytes from the shell subprocess into the Vterm.
 - =options=: Unified handling and support for command line switches
-  and X resource database entries (the former take precedence over
-  the latter).
+  and X resource database entries (with the former taking precedence
+  over the latter).
 - =pty=: Code for spawning a pseudo-terminal and communicating resize
   events to it.
 - =renderer=: The Renderer runs a separate thread to feed the CharVdev
   with Frames handed off by the Vterm.
-- =selmgr=: The Selection Manager contains all code that glues
-  together the Vterm (which is completely agnostic of any windowing
-  system) and the X Selection API.
+- =selmgr=: The Selection Manager contains code interfacing between
+  the Vterm (which is completely agnostic of any windowing system) and
+  the X Selection API.
 - =utf8=: Support for producing and consuming UTF-encoded Unicode code
   points.
 - =vterm=: The Vterm implements the Virtual Terminal itself. That is,
   it consumes a stream of bytes output by the shell. The Vterm
   interprets the stream of text destined for the screen, interspersed
-  with escape sequences to control the terminal, and produces Frames
-  that are handed off to the Renderer.
+  with escape sequences to control the terminal, and produces
+  snapshots captured as Frame updates handed off to the Renderer.
 
 The major modules in the architecture of Zutty are sufficiently
 interesting to have their own expanded sections that follow.
@@ -782,32 +786,35 @@ content will overwrite the row marked by the original position of
 =scrollHead=, which has conceptually dropped off the top of the
 scrolling area.
 
-The method =Frame::copyCells ()= copies all the cell content from a
-frame, in logical order =(1)(2)(3)(4)=, into linear (straight) storage
-elsewhere.  This is employed by =Frame::unwrapCellStorage ()=,
-which in turn is used to reset the logical-to-physical mapping, e.g.,
-when the scrolling limits =marginTop= or =marginBottom= are
-changed. In the reset state, =scrollHead= equals =marginTop=, which
-means area =(2)= fills the space between =(1)= and =(4)=, while =(3)=
-is empty.
+Due to this storage scheme, lines on the screen (logically numbered
+from 0 to =nRows - 1= will not always be physically stored in
+consecutive order.  The method =Frame::unwrapCellStorage ()= resets
+(straightens out) this logical-to-physical mapping, which is necessary
+before the scrolling limits =marginTop= and =marginBottom= can be
+changed or the frame can be resized. In the reset state, =scrollHead=
+equals =marginTop=, which means area =(2)= fills the space between
+=(1)= and =(4)=, while =(3)= is empty.
 
 *** The complete truth: in the presence of scrollback
 
-The buffer allocated for the frame contains space for a total of
-=nRows= plus an additional =saveLines= rows' worth of cells. Apart
-from that, operational aspects of filling the buffer with data are
-exactly as described above: the scrolling area is delimited by
-=marginTop= and =marginBottom=, and =scrollHead= points to the
-logically top-most row within the scrolling area (moved downwards as
-the content at the top edge scrolls out of the window). Note that
-this architecture guarantees that the computational complexity of
-scrolling is O(1) with respect to the size of the scrollback buffer.
-Having a large scrollback buffer will certainly cost memory, but it
-will have zero impact on performance.
+The above scheme is a special case with the number of off-screen lines
+(defined by the =saveLines= configuration value) being zero.  In
+reality, the buffer allocated for the frame contains space for a total
+of (visible) =nRows= plus an additional (off-screen) =saveLines= rows'
+worth of cells. Apart from that, operational aspects of filling the
+buffer with data are exactly as described above: the scrolling area is
+delimited by =marginTop= and =marginBottom=, and =scrollHead= points
+to the logically top-most row within the scrolling area (moved
+downwards as the content at the top edge scrolls out of the
+window). Note that this architecture guarantees that the computational
+complexity of scrolling is O(1) with respect to the size of the
+scrollback buffer.  Having a large scrollback buffer will certainly
+cost memory, but it will have zero impact on performance.
 
 If there are no top/bottom margins set, the whole storage acts as a
 (potentially very large) scrolling area, of which only =nRows= rows
-are active (available to the Vterm) at any point in time:
+are visible (available to the Vterm via screen-based coordinates) at
+any point in time:
 
 #+BEGIN_EXAMPLE
                 0 --> +-----------------------+    <
@@ -829,7 +836,7 @@ nRows + saveLines -->
 #+END_EXAMPLE
 
 The second part of area =(2)= and the entirety of area =(3)= contain
-saved lines. The number of saved history rows with valid data is
+off-screen lines. The number of saved history rows with valid data is
 maintained in the private counter =historyRows=, so that scrolling the
 view up into any still unused, blank buffer area can be avoided.
 
@@ -859,7 +866,7 @@ nRows + saveLines -->
 
 Note that internally, =marginTop= will be 0 and =marginBottom= will be
 =nRows + saveLines= (reflecting the physical extent of the buffer).
-The externally reflected value of =marginBottom= will continue to be
+The externally reported value of =marginBottom= will continue to be
 =nRows=, so Vterm can continue to use the margin settings in its own
 logic, mostly to establish whether the cursor position is within
 the margins.
@@ -897,7 +904,7 @@ having to apply offsets to them.
             nRows --> +-----------------------+
                       |                       |
                       .          (0)          .
-                      |                       |
+                      |     [off-screen]      |
                       +-----------------------+
 nRows + saveLines -->
 #+END_EXAMPLE
@@ -916,12 +923,12 @@ area. The view position is defined by a single row offset
 up to and including =saveLines= (display the top of history).
 
 Essentially, when copying frame data into the CharVdev for display,
-the =viewOffset= row offset has to be subtracted from the start of
-the frame (=scrollHead= in case of no margins, or 0 if there are
-margins), wrapping around the buffer limits as necessary. Then, the
-data has to be copied from that starting point in order, following the
-numbering of data sections =(0)= through =(4)=, until =nRows= rows
-have been copied.
+=viewOffset= has to be subtracted from the start of the frame
+(=scrollHead= in case of no margins, or 0 if there are margins),
+wrapping around the buffer limits as necessary. Then, the data has to
+be copied from that starting point in order, following the numbering
+of data sections =(0)= through =(4)=, until =nRows= rows have been
+copied.
 
 ** Renderer
 
@@ -945,15 +952,16 @@ laptops).
 
 ** Vterm (virtual terminal)
 
-The Vterm module is the actual virtual terminal implementation. That
-is, its task is to convert a stream of incoming characters containing
-visual characters to display as well as control characters and escape
-sequences to interpret, and alter the screen content according to the
-relevant standards and specifications.
+The Vterm module is the actual virtual terminal implementation. It
+consumes a stream of incoming characters containing printable
+characters to place on-screen as well as control characters and escape
+sequences to interpret according to the relevant standards and
+specifications, and alter the screen content.
 
-The stream of input characters are written by the pseudoterminal (pty)
-slave running in a process spawned by Zutty. This is most commonly a
-shell program (unless Zutty was instructed otherwise).
+The stream of input characters is read from the pseudoterminal,
+written by the pty slave running in an inferior process spawned by
+Zutty. This process is most commonly running a shell program (unless
+Zutty was instructed otherwise).
 
 Parsing and interpretation of the input is fairly straightforward and
 implemented (on the highest conceptual level) by a state machine that

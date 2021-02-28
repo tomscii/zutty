@@ -1,4 +1,4 @@
-#+TITLE: Zutty usage guide
+#+TITLE: Zutty user guide
 #+OPTIONS: author:nil timestamp:nil num:nil val:nil html-style:nil H:3 ^:{}
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="org.css"/>
 
@@ -41,7 +41,7 @@ working directory. Issue this command:
 
 You should see some output with a confirmation of the Zutty version
 you are going to build, and whether you are creating a Debug build (it
-should say "no" at this point; read the [[./HACKING.org][Development guide]] if you are
+should say "no" at this point; read the [[./HACKING.org][Developer guide]] if you are
 interested in debugging Zutty).
 
 By default, g++ (the gcc compiler for C++) will be used to compile
@@ -113,6 +113,42 @@ At the end, you should see something like this:
 Congratulations, you are now ready to start using Zutty as your
 terminal!
 
+* Usage reference
+
+** User interface actions
+
+The following list summarizes user-triggered actions. Note that these
+are hooks handled by the terminal itself, and will not reach the
+program running in the terminal. For the specification of how the
+terminal encodes keypresses to the program running inside it, see the
+[[./KEYS.org][Key mapping sequences]] reference.
+
+| Trigger                                               | Action                                                                                                                                                                                                                    |
+|-------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Shift+PageUp, Shift+PageDown                          | Page screen upwards (into earlier scrollback history) or downwards by half the page height. If on the alternate screen with =-altScroll= enabled, emit synthetic arrow key events to move up/down half the screen height. |
+| Scroll wheel up/down                                  | Page screen up/down by 5 lines; if on the alternate screen with =-altScroll= enabled, emit a single synthetic up/down arrow key event.                                                                                    |
+| Left mouse button press (and hold)                    | Start a new selection. Adjust by moving the mouse with the button held down.                                                                                                                                              |
+| Right mouse button press (and hold)                   | Adjust current selection (will grab the edge closest to the pointer); adjust by moving the mouse with the button held down.                                                                                               |
+| Quickly release and re-engage left/right mouse button | While a selection is in progress, this will cycle between snap-to-char, snap-to-word and snap-to-line. (In rectangular selection mode, only snap-to-char exists.)                                                         |
+| Space key while left/right mouse button is held       | Toggle between /regular/ and /rectangular/ selection mode.                                                                                                                                                                |
+| Middle mouse button, Shift+Insert                     | Paste the current content of the primary selection into the terminal.                                                                                                                                                     |
+| Control+Shift+C                                       | Copy the current content of the primary selection into the clipboard selection. (With =-autoCopy= enabled, this happens automatically whenever the primary selection is set.)                                             |
+| Control+Shift+V                                       | Paste the current content of the clipboard selection into the terminal.                                                                                                                                                   |
+|-------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+
+** Environment variables
+
+Zutty sets or alters the below environment variables in the process
+spawned to run the shell. All other environment variables accessible
+to Zutty will be passed unaltered to the shell program.
+
+| Environment variable | Treatment                                                                                                                   |
+|----------------------+-----------------------------------------------------------------------------------------------------------------------------|
+| =DISPLAY=            | Set to the current X display.                                                                                               |
+| =SHELL=              | Set to the full (resolved) pathname of the shell being run; unset if the program is not a valid shell as per =/etc/shells=. |
+| =TERM=               | Set to =xterm-256color=.                                                                                                    |
+| =WINDOWID=           | Set to the current X window id of the Zutty window.                                                                         |
+| =ZUTTY_VERSION=      | Set to the build version of Zutty.                                                                                          |
 * Configuration
 
 Zutty has a set of configuration options, all of which have:
@@ -121,10 +157,10 @@ Zutty has a set of configuration options, all of which have:
 - a sensible hard default.
 
 For each option, the above list defines the order of preference.  That
-is, the command line can be used to define a setting in a transient
-way; Xrdb entries may be used to persistently alter the default value
-for an option; and lastly, without any option or configuration,
-Zutty will still have a workable default.
+is, the command line can be used to define or override a setting in a
+transient way; Xrdb entries may be used to persistently alter the
+default value for an option; and lastly, without any option or
+configuration, Zutty will still have a workable default.
 
 There is also a set of [[Extra resources]] available for persistent
 configuration, but not settable via command line options.
@@ -184,16 +220,17 @@ the next section [[Persistent configuration]].
 
 :   -altScroll    Alternate scroll mode [boolean]
 
-If enabled, mouse scroll up and down events on the alternate screen
-buffer are converted to synthetic up- and down-arrow keypresses. This
-might prove to be a convenient way of moving up/down one at a time
-in programs where one usually navigates with the keyboard arrows.
+If enabled, mouse scroll up and down events while on the alternate
+screen buffer are translated into synthetic up- and down-arrow key
+events. This might prove to be a convenient way of moving up/down
+one-by-one in programs usually navigated with the keyboard arrows.
 
-Another, similar effect is that the keys normally used to scroll the
-terminal page history (Shift+PageUp, Shift+PageDown) will generate the
-same synthetic up- and down-arrow keypresses as above, only in
-multiples, to scroll half the amount of scrollable lines. This might
-be convenient in the same situations, but for larger jumps.
+Another, similar effect (also on the alternate screen) is that the
+keys normally used to page through the screen buffer (Shift+PageUp,
+Shift+PageDown) will generate the same synthetic up- and down-arrow
+key events as above, but in multiples, to scroll half the amount of
+scrollable lines. This might be convenient in the same situations,
+only for larger jumps.
 
 :   -autoCopy     Sync primary to clipboard [boolean]
 
@@ -217,7 +254,7 @@ startup. These include EGL_VERSION, EGL_VENDOR, EGL_EXTENSIONS, as
 well as GL_RENDERER, GL_VERSION, GL_VENDOR, GL_EXTENSIONS, and numeric
 limits on the Compute Shader implementation. This is mostly a
 debugging aid. The output is not affected by any verbosity changes
-made via =-v= / =-q=.
+made via =-v= or =-q=.
 
 :   -help         Print usage listing and quit
 
@@ -243,7 +280,7 @@ allowed value is 50,000. Note that while the performance of scrolling
 itself (and Zutty in general) will /not/ degrade with a larger
 setting, the screen buffer /will/ consume proportional amounts of
 memory.  With very large settings, this will dominate the total memory
-usage of Zutty. For example, 1024 buffered lines (24 lines on-screen
+usage of Zutty! For example, 1024 buffered lines (24 lines on-screen
 and 1000 lines of scrollback) with 80 columns will consume 960 KiB;
 this will balloon to 10 MiB with 10,000 lines of scrollback.
 Adjusting the column width will have a similar (proportional) effect;
@@ -251,8 +288,7 @@ Adjusting the column width will have a similar (proportional) effect;
 
 Note that the alternate screen buffer does not have scrollback; this
 is by design and in conformance with the relevant specs (but see
-=-altScroll= for enabling synthetic up- and down-arrow keypress
-events).
+=-altScroll= for enabling synthetic up- and down-arrow key events).
 
 :   -shell        Shell program to run
 
@@ -263,8 +299,8 @@ at the end of the command line, mutually exclusive with using the =-e=
 option. If both forms are present, the last item on the command line
 will take precedence over the value supplied after =-shell=.
 
-The algorithm to determine the actual shell program to spawn resembles
-the behaviour of =xterm=, and follows these steps:
+The algorithm to resolve the executable to spawn resembles the
+behaviour of =xterm=, and follows these steps:
 
 0. Start with the value of =shell= (the last argument given after all
    valid options, if present, or the value supplied after =-shell=).
@@ -313,7 +349,7 @@ that looks like this:
 The first letter is an indication of the log level or "severity"; =E=
 means Error, =W= stands for Warning, =I= is Info and =T= is Trace.
 Trace will only be output if you compile Zutty into a debug build; see
-the [[./HACKING.org][Development guide]] for details. Next, the origin of the log message
+the [[./HACKING.org][Developer guide]] for details. Next, the origin of the log message
 is shown in square brackets, indicating the source code location
 (filename and line number) where the message was printed. Then comes
 the actual message.
@@ -333,9 +369,9 @@ measured in characters. (The pixel size of the window will be a
 function of this plus the font geometry, and cannot be specified
 directly.)
 
-This is just a request to the window manager; =zutty= will accept and
+This is just a request to the window manager; Zutty will accept and
 work with whatever final window size it gets. Setting this will in no
-way interfere with your ability to resize =zutty= once it is up and
+way interfere with your ability to resize Zutty once it is up and
 running.
 
 :   -bg           Background color (default: #000)
@@ -346,9 +382,9 @@ These options accept a hexadecimal RGB or RRGGBB color specification,
 similar to how you can define a color in many other places, e.g., CSS.
 The leading =#= is optional (supported mainly to provide compatibility
 with established conventions); take care to protect it from the shell
-if passing it on the command line. Both lower- and uppercase
+when passing it on the command line. Both lower- and uppercase
 hexadecimal digits (a-f, A-F) are accepted, but note that names (e.g.,
-=red= instead of =#f00=) are *not* supported.
+=red= instead of =#f00=) are /not/ supported.
 
 If not explicitly set, the cursor color defaults to the foreground
 color. In case the cursor is placed on a cell with a background color
@@ -358,10 +394,11 @@ ensure it stays visible.
 :   -rv           Reverse video [boolean]
 
 Using this option will swap the effective foreground and background
-color, specified either via =-fg= and =-bg=, or the corresponding
-resources, or the defaults. It will *not* swap the meaning of color
-codes and such; if a program explicitly specifies the color green, it
-will be rendered green with and without =-rv=.
+color, regardless of whether their values originate from =-fg= and
+=-bg=, or the corresponding resources, or the defaults. It will /not/
+swap the meaning of color codes and such; if a program explicitly
+specifies the color green, it will be rendered green with and without
+=-rv=.
 
 :   -boldColors   Enable bright for bold [boolean]
 
@@ -374,9 +411,10 @@ to turn it off.
 
 :   -border       Border width in pixels (default: 2)
 
-Specify the border width, specifically, the border that is part of the
+Specify the border width; specifically, the border that is part of the
 client area of the Zutty window and not part of any window decoration
-itself (this is equivalent to what Xterm calls internal border width).
+outside of the program's direct control. (This is equivalent to what
+Xterm calls internal border width.)
 
 :   -showWraps    Show wrap marks at right margin [boolean]
 
@@ -447,9 +485,9 @@ respective variants of the chosen font.
 :   -fontsize    Font size (default: 16)
 
 For scaled fonts, such as Liberation Mono above, this setting controls
-the height, measured in pixels, to rasterize the glyphs to. The actual
-character grid size will almost always be more, due to the fact that
-typefaces have some spacing around the actual glyphs.
+the height, measured in integer pixels, to rasterize the glyphs to.
+The actual character grid size will almost always be more, due to the
+fact that typefaces have some spacing around the glyphs themselves.
 
 The specified size, if within one pixel of the size of a bitmap
 strike, will result in picking that strike (pre-rasterized version)
@@ -473,16 +511,17 @@ found.
 
 *** Recommended fonts
 
-The author of Zutty prefers the so-called "misc fixed" fonts that were
-created in the '80s in an era of much inferior computer displays.
-These are the original fonts designed to be used with the X Window
-System, and their availability is universal -- you probably have them
-already installed. These fonts are highly optimized for readability at
-low resolutions. There is a convenient range of sizes, several fonts
-have bold variants and support thousands of international characters
-and symbols outside ASCII. Zutty will work best with any of misc-fixed
-6x13, 7x13, 7x14, 8x13, 9x15 and 9x18 (there are more, but the ones
-listed have a bold-face variant as well).
+The author of Zutty prefers the so-called [[https://www.cl.cam.ac.uk/~mgk25/ucs-fonts.html][misc-fixed]] fonts. These are
+upgraded, extended versions of the bitmap fonts originally designed
+for the X Window System, created in the '80s in an era of much
+inferior computer displays. Their availability is universal; you
+probably have them installed already. These fonts are highly optimized
+for readability at low resolutions. There is a convenient range of
+sizes, several fonts have bold variants and support thousands of
+international characters and symbols outside ASCII. Zutty will work
+best with any of misc-fixed 6x13, 7x13, 7x14, 8x13, 9x15 and 9x18
+(there are more, but the ones listed have a bold-face variant as
+well).
 
 If you prefer scalable fonts (e.g., because you have a high-resolution
 HiDPI display or prefer LARGE glyphs with a more modern look), Zutty
@@ -490,7 +529,7 @@ works well with freely available scaled terminal fonts such as
 Anonymous Pro, Deja Vu Sans Mono, Free Mono, Hack, Inconsolata,
 Liberation Mono, Source Code Pro, and possibly many more.
 
-On Debian (and derived) distributions, the following list of package
+On Debian (and derived distributions), the following list of package
 names might serve as a useful starting point to obtain some usable
 fonts. For each package, install it and pass the specified name(s) to
 =-font= to check them out:
@@ -541,12 +580,12 @@ and semantics of all options; here we show how to add entries for them
 to your X resource database (Xrdb).
 
 Open the file =.Xresources= in your home directory, or create it if
-you do not have one. Use the following snippet as a starting point;
-feel free to remove any lines with options you do not want to change
-from the hard default, and add lines for any further options you do
-want to change.
+you do not have one. Use the following snippet merely as a starting
+point; its purpose is to help you with enough examples to get what you
+want, with the right syntax. Hint: you will /not/ want to set exactly
+these options.
 
-: Zutty.title:                   Zero Cost TTY
+: Zutty.title:                   The Big Zutty
 : Zutty.geometry:                120x45
 : Zutty.altScroll:               true
 : Zutty.boldColors:              false
@@ -575,7 +614,7 @@ The configured values will show up in the output of =zutty -h= to
 confirm that your settings have taken effect. For example, if you were
 following along, you should now see
 
-:   -title        Window title (configured: Zero Cost TTY)
+:   -title        Window title (configured: The Big Zutty)
 
 instead of the original version that read
 
@@ -595,7 +634,9 @@ result will look like this:
 :   color15   Palette color 15 (default: #ffffff)
 
 To customize =<resource>=, put an entry into =~/.Xresources= under the
-key =Zutty.<resource>=.
+key =Zutty.<resource>=. After merging into Xrdb, the above output will
+reflect the configured values, similar to the output of =zutty -h= for
+options as shown above.
 
 *** Base palette colors
 
@@ -634,9 +675,13 @@ the background color (via SGR 49): the default background color (via
 Removing a piece of configuration is a bit tricky. If you remove a
 setting from =~/.Xresources= and merge that into Xrdb, it will have no
 immediate effect, since the existing setting will still persist
-in-memory until you restart your X session. To get around this, you
-might issue =xrdb -remove= to drop all your customizations (and then
-reload them from file).
+in-memory until you restart your X session.
+
+To get around this, you might issue =xrdb -remove= to drop all your
+customizations (and then reload them from file). Another solution is
+to use =xrdb ~/.Xresources= (without the =-merge=) to load exactly
+what is in that file (as opposed to merging). Useful if you have no
+other sources of configuration!
 
 Now that you have a tailored baseline of how you expect Zutty to start
 up without any explicit options, remember that you can still override
