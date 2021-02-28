@@ -57,9 +57,10 @@ namespace zutty
       void pageUp (uint16_t count);
       void pageDown (uint16_t count);
       void pageToBottom ();
+      uint16_t getHistoryRows () const { return historyRows; };
 
-      void expose ();
-      void resetDamage ();
+      void expose () { damage.expose (); };
+      void resetDamage () { damage.reset (); };
 
       const CharVdev::Cursor& getCursor () const { return cursor; };
       void setCursorPos (uint16_t pY, uint16_t pX);
@@ -109,6 +110,7 @@ namespace zutty
          uint32_t totalCells = 0;
 
          void reset ();
+         void expose ();
          void add (uint32_t start_, uint32_t end_);
       };
       Damage damage;

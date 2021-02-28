@@ -17,18 +17,6 @@
 namespace zutty
 {
    inline void
-   Frame::expose ()
-   {
-      damage.add (getIdx (0, 0), getIdx (nRows - 1, nCols - 1) + 1);
-   }
-
-   inline void
-   Frame::resetDamage ()
-   {
-      damage.reset ();
-   }
-
-   inline void
    Frame::setCursorPos (uint16_t pY, uint16_t pX)
    {
       cursor.posY = pY + viewOffset;
@@ -370,6 +358,13 @@ namespace zutty
    {
       start = 0;
       end = 0;
+   }
+
+   inline void
+   Frame::Damage::expose ()
+   {
+      start = 0;
+      end = totalCells;
    }
 
    inline void

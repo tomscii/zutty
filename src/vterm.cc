@@ -544,22 +544,37 @@ namespace zutty
          cf->winPy = winPy;
          return;
       }
-      nCols = nCols_;
-      nRows = nRows_;
 
       hideCursor ();
 
       if (altScreenBufferMode)
       {
-         frame_alt = Frame (winPx, winPy, nCols, nRows,
+         frame_alt = Frame (winPx, winPy, nCols_, nRows_,
                             marginTop, marginBottom);
       }
       else
       {
-         frame_pri.resize (winPx, winPy, nCols, nRows,
+         if (nRows_ < posY + 1)
+         {
+            int nScroll = nRows - nRows_;
+            cf->scrollUp (nScroll);
+            posY -= nScroll;
+         }
+
+         frame_pri.resize (winPx, winPy, nCols_, nRows_,
                            marginTop, marginBottom);
+
+         if (nRows < nRows_)
+         {
+            int nScroll = std::min (nRows_ - nRows, (int)cf->getHistoryRows ());
+            cf->scrollDown (nScroll);
+            posY += nScroll;
+         }
+
          frame_alt.freeCells ();
       }
+      nCols = nCols_;
+      nRows = nRows_;
 
       if (horizMarginMode)
       {
