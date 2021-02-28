@@ -3,7 +3,7 @@
 cd $(dirname $0)
 
 urlbase=ftp://ftp.invisible-island.net/vttest
-vttest=vttest-20201225
+vttest=vttest-20210210
 instdir=$(pwd)
 
 echo "===[ Downloading archive:"

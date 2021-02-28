@@ -4,7 +4,7 @@ cd $(dirname $0)
 source testbase.sh
 
 CHECK_DEPS vttest setxkbmap
-VttestReqVsn="VT100 test program, version 2.7 (20201225)"
+VttestReqVsn="VT100 test program, version 2.7 (20210210)"
 if [[ $(vttest -V) != $VttestReqVsn ]]
 then
     printf "${RED}Error: vttest version mismatch${DFLT}\n"
@@ -469,7 +469,7 @@ function VT_11 {
     SNAP vt_11_03_02_09_06 fb66ea22e6c9684e2b0ddb88f95e2547
     IN "\r"
     IN "10\r" # Test other movement within margins
-    SNAP vt_11_03_02_10_06 f094abe9e6342f2b8473124b606c8fba
+    SNAP vt_11_03_02_10_06 d57bcc097ad7229f71855682ee7bba22
     IN "\r"
     IN "5\r" # Left/Right margins are set to middle half of screen
     IN "7\r" # Test Back Index (BI)
@@ -482,7 +482,7 @@ function VT_11 {
     SNAP vt_11_03_02_09_07 d6b8514303928a596f8593719bae7af8
     IN "\r"
     IN "10\r" # Test other movement within margins
-    SNAP vt_11_03_02_10_07 1141581f474964fe0dcbd40b230b815c
+    SNAP vt_11_03_02_10_07 9b5dd2a33f79a98fea7fa6cbf46bafb9
     IN "\r"
     IN "0\r"
 

@@ -3,7 +3,7 @@
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="org.css"/>
 
 Version of test program:
-: VT100 test program, version 2.7 (20201225)
+: VT100 test program, version 2.7 (20210210)
 
 Section numbering reflects Vttest menu options.
 

@@ -113,6 +113,10 @@ export TEST_LOG="$(pwd)/output/${PROFILE}/${TEST_NAME}.log"
 export UUT_LOG="$(pwd)/output/${PROFILE}/${TEST_NAME}.uut.log"
 export UUT_SNAP="$(pwd)/output/${PROFILE}"
 
+export TEST_COUNT=0
+export NRES_COUNT=0
+export FAIL_COUNT=0
+
 CHECK_DEPS convert compare identify mogrify xrdb xvkbd wmctrl
 mkdir -p $(dirname ${UUT_LOG})
 mkdir -p ${UUT_SNAP}
@@ -163,7 +167,29 @@ wmctrl -ia "${WID}"
 # set it to float (this is i3 specific):
 which i3-msg >/dev/null && i3-msg floating enable >/dev/null;
 
+function COUNT_PASS {
+    TEST_COUNT=$((TEST_COUNT + 1))
+    echo -n "$(test_counters)"
+}
+
+function COUNT_FAIL {
+    TEST_COUNT=$((TEST_COUNT + 1))
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    echo -n "$(test_counters)"
+}
+
+function COUNT_NRES {
+    TEST_COUNT=$((TEST_COUNT + 1))
+    NRES_COUNT=$((NRES_COUNT + 1))
+    echo -n "$(test_counters)"
+}
+
+function test_counters {
+    echo "(${TEST_COUNT}/${NRES_COUNT}/${FAIL_COUNT}) "
+}
+
 function FINISH_TEST {
+    echo "Total tests: ${TEST_COUNT}  No result: ${NRES_COUNT}  Failed: ${FAIL_COUNT}"
     # display process statistics
     if [ "${PLATFORM}" == "Linux" ] ; then
         ps -p ${PID} -o pid,vsz,rss,trs,sz,time,maj_flt,min_flt,args \
@@ -173,6 +199,8 @@ function FINISH_TEST {
     else
         ps -p ${PID} -o pid,vsz,rss,time,args | tee -a ${TEST_LOG}
     fi
+
+    trap - EXIT
     kill "${PID}"
     [ -f ${HOME}/.Xresources ] && xrdb ${HOME}/.Xresources
     exit ${EXIT_CODE}
@@ -190,6 +218,7 @@ function check_uut {
         echo "UUT window gone, exiting"
         echo "---------- LOG TAIL ----------"
         tail ${UUT_LOG}
+
         trap - EXIT
         [ -f ${HOME}/.Xresources ] && xrdb ${HOME}/.Xresources
         exit 1
@@ -269,13 +298,16 @@ function SNAP {
             sig=$(identify -verbose ${imgfile} | grep signature | \
                       awk '{print $2}' | cut -c -32)
             if [ -z "${refsig}" ] ; then
+                COUNT_NRES
                 printf "${name}: ${YELLOW}NEW${DFLT} ${sig}\n"
                 if [ ${STEP_MODE} == "new" ] ; then
                     step_prompt
                 fi
             elif [ "${sig}" == "${refsig}" ] ; then
+                COUNT_PASS
                 printf "${name}: ${GREEN}OK${DFLT}\n"
             else
+                COUNT_FAIL
                 printf "${name}: ${RED}FAIL${DFLT} sig ${sig} ref ${refsig}\n"
                 update_sig ${name} ${sig}
                 EXIT_CODE=1
@@ -290,8 +322,10 @@ function SNAP {
             imgerr=${UUT_SNAP}/${name}.error.png
             if [ "${sig}" == "${refsig}" ] ; then
                 rm -f ${imgerr}
+                COUNT_PASS
                 printf "${name}: ${GREEN}MATCH${DFLT}\n"
             else
+                COUNT_NRES
                 if [ ! -z ${IMAGE_DIFF_TO} ] ; then
                     imgref="$(pwd)/output/${IMAGE_DIFF_TO}/${name}.png"
                     rm -f ${imgerr}
@@ -307,6 +341,7 @@ function SNAP {
             fi
             ;;
         *)
+            COUNT_NRES
             printf "${name}: ${WHITE}DONE${DFLT}\n"
             ;;
     esac

@@ -12,8 +12,10 @@ function title {
     exp_title=$(echo ${title} | cut -c -${len})
     read_title=$(wmctrl -lp | awk "/${WID}/ {\$1=\$2=\$3=\$4=\"\"; print \$0}" | cut -c 5-)
     if [[ "${read_title}" == "${exp_title}" ]] ; then
+        COUNT_PASS
         echo "Title set OK: \"${exp_title}\""
     else
+        COUNT_FAIL
         echo "Title set FAIL:"
         echo "   Read as: \"${read_title}\""
         echo "  Expected: \"${exp_title}\""
