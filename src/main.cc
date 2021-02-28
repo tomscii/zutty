@@ -123,10 +123,7 @@ make_x_window (Display* x_dpy, EGLDisplay egl_dpy,
    logI << "Window ID: " << win << " / 0x" << std::hex << win << std::dec
         << std::endl;
    if (setenv ("WINDOWID", std::to_string (win).c_str (), 1) < 0)
-   {
-      logE << "Can't setenv (WINDOWID)" << std::endl;
-      exit (1);
-   }
+      SYS_ERROR ("setenv (WINDOWID)");
 
    {
       // set NET_WM_PID to the the process ID to link the window to the pid
@@ -1166,10 +1163,7 @@ main (int argc, char* argv[])
       opts.printVersion ();
 
    if (setenv ("ZUTTY_VERSION", ZUTTY_VERSION, 1) < 0)
-   {
-      logE << "Can't setenv (ZUTTY_VERSION)" << std::endl;
-      exit (1);
-   }
+      SYS_ERROR ("setenv (ZUTTY_VERSION)");
 
    char progPath [PATH_MAX];
    strncpy (progPath, opts.shell, PATH_MAX-1);
@@ -1189,8 +1183,6 @@ main (int argc, char* argv[])
    {
       validateShell (progPath);
    }
-   setupSignals ();
-   int pty_fd = startShell (shArgv);
 
    egl_dpy = eglGetDisplay ((EGLNativeDisplayType)x_dpy);
    if (!egl_dpy)
@@ -1290,6 +1282,8 @@ main (int argc, char* argv[])
       },
       fontpk.get ());
 
+   setupSignals ();
+   int pty_fd = startShell (shArgv);
    vt = std::make_unique <Vterm> (fontpk->getPx (), fontpk->getPy (),
                                   win_width, win_height, pty_fd);
    vt->setRefreshHandler ([] (const zutty::Frame& f) { renderer->update (f); });
