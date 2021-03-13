@@ -1108,6 +1108,7 @@ namespace zutty
             {
             COLLECT_NUMERIC_PARAMS;
             case 'c': csi_secDA (); break;
+            case 'm': csi_XTMODKEYS (); break;
             default: unhandledInput (ch); break;
             }
             break;
@@ -1139,7 +1140,7 @@ namespace zutty
          case InputState::DCS_Esc:
             switch (ch)
             {
-            case '\\': traceNormalInput (); handle_DCS (); break;
+            case '\\': handle_DCS (); break;
             default:
                argBuf.push_back ('\e');
                argBuf.push_back (ch);
@@ -1150,7 +1151,7 @@ namespace zutty
          case InputState::OSC:
             switch (ch)
             {
-            case '\a': traceNormalInput (); handle_OSC (); break;
+            case '\a': handle_OSC (); break;
             case '\e': setState (InputState::OSC_Esc); break;
             default:
                if (argBuf.size () < 4095)
@@ -1166,7 +1167,7 @@ namespace zutty
          case InputState::OSC_Esc:
             switch (ch)
             {
-            case '\\': traceNormalInput (); handle_OSC (); break;
+            case '\\': handle_OSC (); break;
             default:
                argBuf.push_back ('\e');
                argBuf.push_back (ch);

@@ -1746,6 +1746,22 @@ namespace zutty
    {
       TRACE_FUN;
       auto arg = std::string ((char*)argBuf.data (), argBuf.size ());
+      if (arg.substr (0, 2) == "$q")
+      {
+         dcs_DECRQSS (arg);
+      }
+      else
+      {
+         logU << "DCS: '" << arg << "'" << std::endl;
+      }
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::dcs_DECRQSS (const std::string& arg)
+   {
+      TRACE_FUN;
+
       if (arg == "$q\"p")
       {
          // DECSCL
@@ -1754,14 +1770,10 @@ namespace zutty
       }
       else
       {
-         logU << "DCS: '" << arg << "'" << std::endl;
          std::ostringstream oss;
-         oss << "\eP0$r";
-         oss << arg.substr (2);
-         oss << "\e\\";
+         oss << "\eP0$r" << arg.substr (2) << "\e\\";
          writePty (oss.str ().c_str ());
       }
-      setState (InputState::Normal);
    }
 
    inline void
@@ -1830,6 +1842,44 @@ namespace zutty
    {
       TRACE_FUN;
       // ignore
+      setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::csi_XTMODKEYS ()
+   {
+      TRACE_FUN;
+
+      switch (nInputOps)
+      {
+      case 0:
+         // Reset all options to initial values
+         break;
+      case 1:
+         inputOps [1] = 0;
+         // fall through
+      case 2:
+         switch (inputOps [0])
+         {
+         case 0:
+            logU << "XTMODKEYS: modifyKeyboard = " << inputOps [1]
+                 << std::endl;
+            break;
+         case 1:
+            logU << "XTMODKEYS: modifyCursorKeys = " << inputOps [1]
+                 << std::endl;
+            break;
+         case 2:
+            logU << "XTMODKEYS: modifyFunctionKeys = " << inputOps [1]
+                 << std::endl;
+            break;
+         case 4:
+            logU << "XTMODKEYS: modifyOtherKeys = " << inputOps [1]
+                 << std::endl;
+            break;
+         }
+      }
+
       setState (InputState::Normal);
    }
 
