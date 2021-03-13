@@ -75,7 +75,7 @@ namespace zutty
 
       struct Mapping
       {
-         explicit Mapping (uint16_t nCols_, uint16_t nRows_, Cell *& cells_);
+         Mapping (uint16_t nCols_, uint16_t nRows_, Cell *& cells_);
          ~Mapping ();
 
          uint16_t nCols;

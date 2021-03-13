@@ -19,12 +19,12 @@ namespace zutty
    class Frame
    {
    public:
-      explicit Frame ();
+      Frame ();
 
-      explicit Frame (uint16_t winPx_, uint16_t winPy_,
-                      uint16_t nCols_, uint16_t nRows_,
-                      uint16_t& marginTop_, uint16_t& marginBottom_,
-                      uint16_t saveLines_ = 0);
+      Frame (uint16_t winPx_, uint16_t winPy_,
+             uint16_t nCols_, uint16_t nRows_,
+             uint16_t& marginTop_, uint16_t& marginBottom_,
+             uint16_t saveLines_ = 0);
 
       void resize (uint16_t winPx_, uint16_t winPy_,
                    uint16_t nCols_, uint16_t nRows_,

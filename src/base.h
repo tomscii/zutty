@@ -32,8 +32,8 @@ namespace zutty
       int x = 0;
       int y = 0;
 
-      explicit Point () = default;
-      explicit Point (int x_, int y_): x (x_), y (y_) {}
+      Point () = default;
+      Point (int x_, int y_): x (x_), y (y_) {}
 
       bool operator < (const Point& rhs) const
       {
@@ -57,12 +57,12 @@ namespace zutty
       Point br; // bottom right corner
       bool rectangular = false;
 
-      explicit Rect () = default;
-      explicit Rect (Point tl_, Point br_):
+      Rect () = default;
+      Rect (Point tl_, Point br_):
          tl (tl_), br (br_) {}
-      explicit Rect (int x, int y):
+      Rect (int x, int y):
          tl (x, y), br (x + 1, y) {}
-      explicit Rect (int x1, int y1, int x2, int y2):
+      Rect (int x1, int y1, int x2, int y2):
          tl (x1, y1), br (x2, y2) {}
 
       bool empty () const

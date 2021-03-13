@@ -28,8 +28,8 @@ namespace zutty
        * all but the first are optional. If not even a regular variant of
        * the requested font can be loaded, an exception is thrown.
        */
-      explicit Fontpack (const std::string& fontpath,
-                         const std::string& fontname);
+      Fontpack (const std::string& fontpath,
+                const std::string& fontname);
 
       ~Fontpack () = default;
 

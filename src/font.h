@@ -38,7 +38,7 @@ namespace zutty
        * Any code point not having a glyph in the primary font will be
        * discarded.
        */
-      explicit Font (const std::string& filename, const Font& priFont);
+      Font (const std::string& filename, const Font& priFont);
 
       ~Font () = default;
 
