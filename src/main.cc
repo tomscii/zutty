@@ -405,28 +405,30 @@ onKeyPress (XEvent& event, XIC& xic, int pty_fd)
    }
    buffer [nbytes] = '\0';
 
+   VtModifier mod = convertKeyState (ks, xkevt.state);
+
    // Special key combinations that are handled by Zutty itself:
-   if (ks == XK_Page_Up && (xkevt.state == ShiftMask))
+   if (ks == XK_Page_Up && mod == VtModifier::shift)
    {
       vt->pageUp ();
       return false;
    }
-   if (ks == XK_Page_Down && (xkevt.state == ShiftMask))
+   if (ks == XK_Page_Down && mod == VtModifier::shift)
    {
       vt->pageDown ();
       return false;
    }
-   if (ks == XK_C && (xkevt.state & ControlMask) && (xkevt.state & ShiftMask))
+   if (ks == XK_C && mod == VtModifier::shift_control)
    {
       selMgr->copySelection (selMgr->getClipboard (), selMgr->getPrimary ());
       return false;
    }
-   if (ks == XK_V && (xkevt.state & ControlMask) && (xkevt.state & ShiftMask))
+   if (ks == XK_V && mod == VtModifier::shift_control)
    {
       selMgr->getSelection (selMgr->getClipboard (), xkevt.time, pasteCb);
       return false;
    }
-   if ((ks == XK_Insert || ks == XK_KP_Insert) && xkevt.state == ShiftMask)
+   if ((ks == XK_Insert || ks == XK_KP_Insert) && mod == VtModifier::shift)
    {
       selMgr->getSelection (selMgr->getPrimary (), xkevt.time, pasteCb);
       return false;
@@ -438,7 +440,6 @@ onKeyPress (XEvent& event, XIC& xic, int pty_fd)
       return false;
    }
 
-   VtModifier mod = convertKeyState (ks, xkevt.state);
    switch (ks)
    {
 #define KEYSEND(XKey, VtKey)                    \
