@@ -395,7 +395,18 @@ namespace zutty
    inline void
    Vterm::readPty ()
    {
+      static bool first = true;
       ssize_t n = read (ptyFd, inputBuf, sizeof (inputBuf));
+
+      if (first)
+      {
+         // Mitigate the race condition between shell process startup
+         // and first window size configuration happening in parallel:
+         // the signal could get delivered before the shell is ready
+         // for it, and thus get lost.
+         pty_resize (ptyFd, nCols, nRows);
+         first = false;
+      }
 
       logT << "pty read: " << dumpBuffer (inputBuf, inputBuf + n);
       processInput (inputBuf, n);
