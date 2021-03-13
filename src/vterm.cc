@@ -535,8 +535,8 @@ namespace zutty
       winPx = winPx_;
       winPy = winPy_;
 
-      uint16_t nCols_ = (winPx - 2 * opts.border) / glyphPx;
-      uint16_t nRows_ = (winPy - 2 * opts.border) / glyphPy;
+      uint16_t nCols_ = std::max (1, (winPx - 2 * opts.border) / glyphPx);
+      uint16_t nRows_ = std::max (1, (winPy - 2 * opts.border) / glyphPy);
 
       if (nCols == nCols_ && nRows == nRows_)
       {

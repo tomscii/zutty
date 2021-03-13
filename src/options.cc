@@ -86,9 +86,9 @@ namespace
       char buf [80] = "zutty.";
       strncat (buf, name, sizeof (buf) - 1);
 
-      if (XrmGetResource (xrmOptionsDb, buf, "Zutty", &xrmType, &xrmValue))
+      if (XrmGetResource (xrmOptionsDb, buf, opts.name, &xrmType, &xrmValue))
          return xrmValue.addr;
-      const char* xDefault = dpy ? XGetDefault (dpy, "Zutty", name) : nullptr;
+      const char* xDefault = dpy ? XGetDefault (dpy, opts.name, name) : nullptr;
       if (xDefault)
          return xDefault;
       else
@@ -230,9 +230,17 @@ namespace zutty
       XrmParseCommand (&xrmOptionsDb,
                        xrmOptionsTable.data (), xrmOptionsTable.size (),
                        "zutty", argc, argv);
+
       display = get ("display", getenv ("DISPLAY"));
       if (display)
          setenv ("DISPLAY", display, 1);
+
+      name = get ("name", getenv ("RESOURCE_NAME"));
+      if (name && (strchr (name, '.') || strchr (name, '*')))
+         throw std::runtime_error ("-name: supplied value contains "
+                                   "illegal characters");
+      if (!name)
+         name = "Zutty";
    }
 
    void
@@ -334,7 +342,7 @@ namespace zutty
          std::cout << "  -" << std::left << std::setw (maxw + 3) << e.option;
          std::cout << e.helpDescr;
          const char* xDefault = dpy
-                              ? XGetDefault (dpy, "Zutty", e.option)
+                              ? XGetDefault (dpy, opts.name, e.option)
                               : nullptr;
          if (xDefault)
             std::cout << " (configured: " << xDefault << ")";
@@ -358,7 +366,7 @@ namespace zutty
          std::cout << "  " << std::left << std::setw (maxw + 3) << r.resource;
          std::cout << r.helpDescr;
          const char* xDefault = dpy
-                              ? XGetDefault (dpy, "Zutty", r.resource)
+                              ? XGetDefault (dpy, opts.name, r.resource)
                               : nullptr;
          if (xDefault)
             std::cout << " (configured: " << xDefault << ")";

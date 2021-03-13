@@ -65,6 +65,7 @@ namespace zutty
       {"glinfo",      NoArg,    "true",    "false",   "Print OpenGL information"},
       {"help",        NoArg,    "true",    "false",   "Print usage listing and quit"},
       {"listres",     NoArg,    "true",    "false",   "Print resource listing and quit"},
+      {"name",        SepArg,   nullptr,   nullptr,   "Instance name for Xrdb and WM_CLASS"},
       {"rv",          NoArg,    "true",    "false",   "Reverse video"},
       {"saveLines",   SepArg,   nullptr,   "500",     "Lines of scrollback history"},
       {"shell",       SepArg,   nullptr,   nullptr,   "Shell program to run"},
@@ -109,6 +110,7 @@ namespace zutty
       const char* display;
       const char* fontname;
       const char* fontpath;
+      const char* name;
       const char* shell;
       const char* title;
       Color bg;

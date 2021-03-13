@@ -35,9 +35,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <unistd.h>
 
-using zutty::CharVdev;
 using zutty::Fontpack;
 using zutty::MouseTrackingState;
 using zutty::MouseTrackingMode;
@@ -52,57 +50,54 @@ static std::unique_ptr <Renderer> renderer = nullptr;
 static std::unique_ptr <Vterm> vt = nullptr;
 static std::unique_ptr <zutty::SelectionManager> selMgr = nullptr;
 
+static Display* xDisplay = nullptr;
+static Window xWindow;
 static Atom wmDeleteMessage;
+static XSizeHints sizeHints;
 
 static void
-make_x_window (Display* x_dpy, EGLDisplay egl_dpy,
-               const char* name, int width, int height,
-               Window* o_win, EGLContext* o_ctx,
-               EGLSurface* o_surface)
+makeXWindow (const char* name, int width, int height, int px, int py,
+             EGLDisplay eglDpy, EGLContext& eglCtx, EGLSurface& eglSurface)
 {
-   static const EGLint attribs[] = {
+   static const EGLint eglAttrs [] = {
       EGL_RED_SIZE, 8,
       EGL_GREEN_SIZE, 8,
       EGL_BLUE_SIZE, 8,
       EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
       EGL_NONE
    };
-   static const EGLint ctx_attribs[] = {
+   static const EGLint ctxAttrs [] = {
       EGL_CONTEXT_CLIENT_VERSION, 2,
       EGL_NONE
    };
 
-   int scrnum;
    XSetWindowAttributes attr;
    unsigned long mask;
    Window root;
-   Window win;
    XVisualInfo *visInfo, visTemplate;
-   int num_visuals;
-   EGLContext ctx;
+   int numVisuals;
    EGLConfig config;
-   EGLint num_configs;
+   EGLint numConfigs;
    EGLint vid;
 
-   scrnum = DefaultScreen (x_dpy);
-   root = RootWindow (x_dpy, scrnum);
+   root = RootWindow (xDisplay, DefaultScreen (xDisplay));
 
-   if (!eglChooseConfig (egl_dpy, attribs, &config, 1, &num_configs)) {
+   if (!eglChooseConfig (eglDpy, eglAttrs, &config, 1, &numConfigs)) {
       logE << "Couldn't get an EGL visual config" << std::endl;
       exit(1);
    }
 
    assert (config);
-   assert (num_configs > 0);
+   assert (numConfigs > 0);
 
-   if (!eglGetConfigAttrib (egl_dpy, config, EGL_NATIVE_VISUAL_ID, &vid)) {
+   if (!eglGetConfigAttrib (eglDpy, config, EGL_NATIVE_VISUAL_ID, &vid)) {
       logE << "eglGetConfigAttrib() failed" << std::endl;
       exit (1);
    }
 
    // The X window visual must match the EGL config
    visTemplate.visualid = vid;
-   visInfo = XGetVisualInfo (x_dpy, VisualIDMask, &visTemplate, &num_visuals);
+   visInfo = XGetVisualInfo (xDisplay, VisualIDMask, &visTemplate, &numVisuals);
    if (!visInfo) {
       logE << "Couldn't get X visual" << std::endl;
       exit (1);
@@ -111,61 +106,61 @@ make_x_window (Display* x_dpy, EGLDisplay egl_dpy,
    // window attributes
    attr.background_pixel = 0;
    attr.border_pixel = 0;
-   attr.colormap = XCreateColormap (x_dpy, root, visInfo->visual, AllocNone);
+   attr.colormap = XCreateColormap (xDisplay, root, visInfo->visual, AllocNone);
    attr.event_mask = StructureNotifyMask | ExposureMask | FocusChangeMask |
       PropertyChangeMask | KeyPressMask | ButtonPressMask | ButtonReleaseMask |
       PointerMotionMask;
    mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
 
-   win = XCreateWindow (x_dpy, root, 0, 0, width, height,
-                        0, visInfo->depth, InputOutput,
-                        visInfo->visual, mask, &attr);
-   logI << "Window ID: " << win << " / 0x" << std::hex << win << std::dec
-        << std::endl;
-   if (setenv ("WINDOWID", std::to_string (win).c_str (), 1) < 0)
+   xWindow = XCreateWindow (xDisplay, root, 0, 0, width, height,
+                            0, visInfo->depth, InputOutput,
+                            visInfo->visual, mask, &attr);
+   logI << "Window ID: " << xWindow << " / 0x" << std::hex << xWindow
+        << std::dec << std::endl;
+   if (setenv ("WINDOWID", std::to_string (xWindow).c_str (), 1) < 0)
       SYS_ERROR ("setenv (WINDOWID)");
 
    {
-      // set NET_WM_PID to the the process ID to link the window to the pid
-      Atom _NET_WM_PID = XInternAtom (x_dpy, "_NET_WM_PID", false);
+      XClassHint classHint;
+      classHint.res_name = (char *)opts.name;
+      classHint.res_class = (char *)"Zutty";
+
+      XWMHints wmHints;
+      wmHints.input = true;
+      wmHints.initial_state = NormalState;
+      wmHints.flags = InputHint | StateHint;
+
+      sizeHints.width = width;
+      sizeHints.height = height;
+      sizeHints.base_width = 2 * opts.border;
+      sizeHints.base_height = 2 * opts.border;
+      sizeHints.min_width = 2 * opts.border + px;
+      sizeHints.min_height = 2 * opts.border + py;
+      sizeHints.width_inc = px;
+      sizeHints.height_inc = py;
+      sizeHints.win_gravity = NorthWestGravity;
+      sizeHints.flags = PSize | PMinSize | PBaseSize | PResizeInc | PWinGravity;
+
+      XmbSetWMProperties (xDisplay, xWindow, name, name,
+                          nullptr, 0, &sizeHints, &wmHints, &classHint);
+   }
+
+   {
+      // set NET_WM_PID to the process ID to link the window to the pid
+      Atom _NET_WM_PID = XInternAtom (xDisplay, "_NET_WM_PID", false);
       pid_t pid = getpid ();
-      XChangeProperty (x_dpy, win, _NET_WM_PID, XA_CARDINAL,
+      XChangeProperty (xDisplay, xWindow, _NET_WM_PID, XA_CARDINAL,
                        32, PropModeReplace, (unsigned char *)&pid, 1);
    }
 
-   {
-      // set WM_CLIENT_MACHINE to the hostname
-      char name [256];
-      if (gethostname (name, sizeof (name)) < 0)
-      {
-         logE << "Couldn't get hostname" << std::endl;
-         exit (1);
-      }
-      name [sizeof (name) - 1] = '\0';
-      char *hostname [] = { name };
-      XTextProperty text_prop;
-      XStringListToTextProperty (hostname, 1, &text_prop);
-      XSetWMClientMachine (x_dpy, win, &text_prop);
-      XFree (text_prop.value);
-   }
-
-   {
-      XSizeHints sizehints;
-      sizehints.width  = width;
-      sizehints.height = height;
-      sizehints.flags = USSize;
-      XSetNormalHints (x_dpy, win, &sizehints);
-      XSetStandardProperties (x_dpy, win, name, name,
-                              None, nullptr, 0, &sizehints);
-   }
-
-   wmDeleteMessage = XInternAtom (x_dpy, "WM_DELETE_WINDOW", False);
-   XSetWMProtocols (x_dpy, win, &wmDeleteMessage, 1);
+   wmDeleteMessage = XInternAtom (xDisplay, "WM_DELETE_WINDOW", False);
+   XSetWMProtocols (xDisplay, xWindow, &wmDeleteMessage, 1);
 
    eglBindAPI (EGL_OPENGL_ES_API);
 
-   ctx = eglCreateContext (egl_dpy, config, EGL_NO_CONTEXT, ctx_attribs);
-   if (!ctx) {
+   eglCtx = eglCreateContext (eglDpy, config, EGL_NO_CONTEXT, ctxAttrs);
+   if (!eglCtx)
+   {
       logE << "eglCreateContext failed" << std::endl;
       exit (1);
    }
@@ -173,13 +168,13 @@ make_x_window (Display* x_dpy, EGLDisplay egl_dpy,
    // test eglQueryContext()
    {
       EGLint val;
-      eglQueryContext (egl_dpy, ctx, EGL_CONTEXT_CLIENT_TYPE, &val);
+      eglQueryContext (eglDpy, eglCtx, EGL_CONTEXT_CLIENT_TYPE, &val);
       assert (val == EGL_OPENGL_ES_API);
    }
 
-   *o_surface = eglCreateWindowSurface (egl_dpy, config,
-                                        (EGLNativeWindowType)win, nullptr);
-   if (! *o_surface) {
+   eglSurface = eglCreateWindowSurface (eglDpy, config,
+                                        (EGLNativeWindowType)xWindow, nullptr);
+   if (! eglSurface) {
       logE << "eglCreateWindowSurface failed" << std::endl;
       exit (1);
    }
@@ -187,18 +182,15 @@ make_x_window (Display* x_dpy, EGLDisplay egl_dpy,
    // sanity checks
    {
       EGLint val;
-      eglQuerySurface (egl_dpy, *o_surface, EGL_WIDTH, &val);
+      eglQuerySurface (eglDpy, eglSurface, EGL_WIDTH, &val);
       assert (val == width);
-      eglQuerySurface (egl_dpy, *o_surface, EGL_HEIGHT, &val);
+      eglQuerySurface (eglDpy, eglSurface, EGL_HEIGHT, &val);
       assert (val == height);
-      assert (eglGetConfigAttrib (egl_dpy, config, EGL_SURFACE_TYPE, &val));
+      assert (eglGetConfigAttrib (eglDpy, config, EGL_SURFACE_TYPE, &val));
       assert (val & EGL_WINDOW_BIT);
    }
 
    XFree (visInfo);
-
-   *o_win = win;
-   *o_ctx = ctx;
 }
 
 static void
@@ -377,7 +369,7 @@ pasteCb (bool success, const std::string& content)
 }
 
 static bool
-onKeyPress (XEvent& event, XIC& xic, int pty_fd)
+onKeyPress (XEvent& event, XIC& xic, int ptyFd)
 {
    using Key = VtKey;
    XKeyEvent& xkevt = event.xkey;
@@ -820,7 +812,7 @@ onMotionNotify (XMotionEvent& xmoevt)
 }
 
 static bool
-x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed, bool& holdPtyIn)
+x11Event (XEvent& event, XIC& xic, int ptyFd, bool& destroyed, bool& holdPtyIn)
 {
    static bool exposed = false;
    bool redraw = false;
@@ -845,6 +837,9 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed, bool& holdPtyIn)
       break;
    case ConfigureNotify:
       vt->resize (event.xconfigure.width, event.xconfigure.height);
+      sizeHints.width = event.xconfigure.width;
+      sizeHints.height = event.xconfigure.height;
+      XSetWMNormalHints (xDisplay, xWindow, &sizeHints);
       redraw = true;
       break;
    case ReparentNotify:
@@ -865,7 +860,7 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed, bool& holdPtyIn)
       destroyed = true;
       return true;
    case KeyPress:
-      return onKeyPress (event, xic, pty_fd);
+      return onKeyPress (event, xic, ptyFd);
    case KeyRelease:
       break;
    case ButtonPress:
@@ -914,20 +909,20 @@ x11Event (XEvent& event, XIC& xic, int pty_fd, bool& destroyed, bool& holdPtyIn)
 }
 
 static bool
-eventLoop (Display* dpy, Window win, XIC& xic, int pty_fd)
+eventLoop (XIC& xic, int ptyFd)
 {
-   int x11_fd = XConnectionNumber (dpy);
-   logT << "x11_fd = " << x11_fd << std::endl;
-   logT << "pty_fd = " << pty_fd << std::endl;
+   int x11Fd = XConnectionNumber (xDisplay);
+   logT << "x11Fd = " << x11Fd << std::endl;
+   logT << "ptyFd = " << ptyFd << std::endl;
 
    struct pollfd pollset [] = {
-      {pty_fd, POLLIN, 0},
-      {x11_fd, POLLIN, 0},
+      {ptyFd, POLLIN, 0},
+      {x11Fd, POLLIN, 0},
    };
 
    bool holdPtyIn = false;
    while (1) {
-      pollset [0].fd = holdPtyIn ? -pty_fd : pty_fd;
+      pollset [0].fd = holdPtyIn ? -ptyFd : ptyFd;
       if (poll (pollset, 2, -1) < 0)
          return false;
 
@@ -938,26 +933,27 @@ eventLoop (Display* dpy, Window win, XIC& xic, int pty_fd)
          vt->readPty ();
 
       if (pollset [1].revents & POLLIN)
-         while (XPending (dpy))
+         while (XPending (xDisplay))
          {
             XEvent event;
             bool destroyed = false;
 
-            XNextEvent (dpy, &event);
-            if (x11Event (event, xic, pty_fd, destroyed, holdPtyIn))
+            XNextEvent (xDisplay, &event);
+            if (x11Event (event, xic, ptyFd, destroyed, holdPtyIn))
                return destroyed;
          }
    }
 }
 
 static void
-handleOsc (Display* dpy, Window win, int cmd, const std::string& arg)
+handleOsc (int cmd, const std::string& arg)
 {
    switch (cmd)
    {
    case 0: // Change Icon Name & Window Title
    case 2: // Change Window Title
-      XStoreName (dpy, win, arg.c_str ());
+      XStoreName (xDisplay, xWindow, arg.c_str ());
+      XSetIconName (xDisplay, xWindow, arg.c_str ());
       break;
    case 52: // Manipulate Selection Data
    {
@@ -1028,12 +1024,12 @@ handleOsc (Display* dpy, Window win, int cmd, const std::string& arg)
 }
 
 static void
-printGLInfo (EGLDisplay egl_dpy)
+printGLInfo (EGLDisplay eglDpy)
 {
-   std::cout << "\nEGL_VERSION     = " << eglQueryString (egl_dpy, EGL_VERSION)
-             << "\nEGL_VENDOR      = " << eglQueryString (egl_dpy, EGL_VENDOR)
-             << "\nEGL_EXTENSIONS  = " << eglQueryString (egl_dpy, EGL_EXTENSIONS)
-             << "\nEGL_CLIENT_APIS = " << eglQueryString (egl_dpy, EGL_CLIENT_APIS)
+   std::cout << "\nEGL_VERSION     = " << eglQueryString (eglDpy, EGL_VERSION)
+             << "\nEGL_VENDOR      = " << eglQueryString (eglDpy, EGL_VENDOR)
+             << "\nEGL_EXTENSIONS  = " << eglQueryString (eglDpy, EGL_EXTENSIONS)
+             << "\nEGL_CLIENT_APIS = " << eglQueryString (eglDpy, EGL_CLIENT_APIS)
              << std::endl;
 
    std::cout << "\nGL_RENDERER     = " << glGetString (GL_RENDERER)
@@ -1096,16 +1092,14 @@ handleXIOError (Display* dpy)
 int
 main (int argc, char* argv[])
 {
-   Display* x_dpy = nullptr;
-   Window win;
-   EGLSurface egl_surf;
-   EGLContext egl_ctx;
-   EGLDisplay egl_dpy;
-   EGLint egl_major, egl_minor;
+   EGLSurface eglSurface;
+   EGLContext eglCtx;
+   EGLDisplay eglDpy;
+   EGLint eglMajor, eglMinor;
    XIC xic = nullptr;
    XIM xim;
-   XIMStyles* xim_styles;
-   XIMStyle xim_style = 0;
+   XIMStyles* ximStyles;
+   XIMStyle ximStyle = 0;
    char* modifiers;
    char* imvalret;
    int i;
@@ -1148,15 +1142,15 @@ main (int argc, char* argv[])
       return -1;
    }
 
-   x_dpy = XOpenDisplay (opts.display);
-   if (!x_dpy)
+   xDisplay = XOpenDisplay (opts.display);
+   if (!xDisplay)
    {
       opts.handlePrintOpts ();
       std::cout << "Error: couldn't open display '" << opts.display << "'"
                 << std::endl;
       return -1;
    }
-   opts.setDisplay (x_dpy);
+   opts.setDisplay (xDisplay);
 
    opts.parse ();
 
@@ -1185,14 +1179,14 @@ main (int argc, char* argv[])
       validateShell (progPath);
    }
 
-   egl_dpy = eglGetDisplay ((EGLNativeDisplayType)x_dpy);
-   if (!egl_dpy)
+   eglDpy = eglGetDisplay ((EGLNativeDisplayType)xDisplay);
+   if (!eglDpy)
    {
       logE << "eglGetDisplay() failed" << std::endl;
       return -1;
    }
 
-   if (!eglInitialize (egl_dpy, &egl_major, &egl_minor))
+   if (!eglInitialize (eglDpy, &eglMajor, &eglMinor))
    {
       logE << "eglInitialize() failed" << std::endl;
       return -1;
@@ -1205,7 +1199,7 @@ main (int argc, char* argv[])
       return -1;
    }
 
-   xim = XOpenIM (x_dpy, nullptr, nullptr, nullptr);
+   xim = XOpenIM (xDisplay, nullptr, nullptr, nullptr);
    if (xim == nullptr)
    {
       logW << "XOpenIM failed" << std::endl;
@@ -1213,46 +1207,47 @@ main (int argc, char* argv[])
 
    if (xim)
    {
-      imvalret = XGetIMValues (xim, XNQueryInputStyle, &xim_styles, nullptr);
-      if (imvalret != nullptr || xim_styles == nullptr)
+      imvalret = XGetIMValues (xim, XNQueryInputStyle, &ximStyles, nullptr);
+      if (imvalret != nullptr || ximStyles == nullptr)
       {
          logW << "No styles supported by input method" << std::endl;
       }
 
-      if (xim_styles) {
-         xim_style = 0;
-         for (i = 0;  i < xim_styles->count_styles;  i++)
+      if (ximStyles) {
+         ximStyle = 0;
+         for (i = 0;  i < ximStyles->count_styles;  i++)
          {
-            if (xim_styles->supported_styles [i] ==
+            if (ximStyles->supported_styles [i] ==
                 (XIMPreeditNothing | XIMStatusNothing))
             {
-               xim_style = xim_styles->supported_styles [i];
+               ximStyle = ximStyles->supported_styles [i];
                break;
             }
          }
 
-         if (xim_style == 0)
+         if (ximStyle == 0)
          {
             logW << "Insufficient input method support" << std::endl;
          }
-         XFree (xim_styles);
+         XFree (ximStyles);
       }
    }
 
    fontpk = std::make_unique <Fontpack> (opts.fontpath, opts.fontname);
 
-   int win_width = 2 * opts.border + opts.nCols * fontpk->getPx ();
-   int win_height = 2 * opts.border + opts.nRows * fontpk->getPy ();
+   int winWidth = 2 * opts.border + opts.nCols * fontpk->getPx ();
+   int winHeight = 2 * opts.border + opts.nRows * fontpk->getPy ();
 
-   make_x_window (x_dpy, egl_dpy, opts.title, win_width, win_height,
-                  &win, &egl_ctx, &egl_surf);
+   makeXWindow (opts.title,
+                winWidth, winHeight, fontpk->getPx (), fontpk->getPy (),
+                eglDpy, eglCtx, eglSurface);
 
-   XMapWindow (x_dpy, win);
+   XMapWindow (xDisplay, xWindow);
 
-   if (xim && xim_style)
+   if (xim && ximStyle)
    {
-      xic = XCreateIC (xim, XNInputStyle, xim_style,
-                       XNClientWindow, win, XNFocusWindow, win,
+      xic = XCreateIC (xim, XNInputStyle, ximStyle,
+                       XNClientWindow, xWindow, XNFocusWindow, xWindow,
                        nullptr);
 
       if (xic == nullptr)
@@ -1261,50 +1256,50 @@ main (int argc, char* argv[])
       }
    }
 
-   if (!eglMakeCurrent(egl_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT))
+   if (!eglMakeCurrent(eglDpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT))
    {
       logE << "eglMakeCurrent() failed" << std::endl;
       return -1;
    }
 
-   selMgr = std::make_unique <zutty::SelectionManager> (x_dpy, win);
+   selMgr = std::make_unique <zutty::SelectionManager> (xDisplay, xWindow);
 
    renderer = std::make_unique <Renderer> (
-      [egl_dpy, egl_surf, egl_ctx] ()
+      [eglDpy, eglSurface, eglCtx] ()
       {
-         if (!eglMakeCurrent (egl_dpy, egl_surf, egl_surf, egl_ctx))
+         if (!eglMakeCurrent (eglDpy, eglSurface, eglSurface, eglCtx))
             throw std::runtime_error ("Error: eglMakeCurrent() failed");
          if (opts.glinfo)
-            printGLInfo (egl_dpy);
+            printGLInfo (eglDpy);
       },
-      [egl_dpy, egl_surf] ()
+      [eglDpy, eglSurface] ()
       {
-         eglSwapBuffers (egl_dpy, egl_surf);
+         eglSwapBuffers (eglDpy, eglSurface);
       },
       fontpk.get ());
 
    setupSignals ();
-   int pty_fd = startShell (shArgv);
+   int ptyFd = startShell (shArgv);
    vt = std::make_unique <Vterm> (fontpk->getPx (), fontpk->getPy (),
-                                  win_width, win_height, pty_fd);
+                                  winWidth, winHeight, ptyFd);
    vt->setRefreshHandler ([] (const zutty::Frame& f) { renderer->update (f); });
-   vt->setOscHandler ([&] (int cmd, const std::string& arg)
-                      { handleOsc (x_dpy, win, cmd, arg); });
+   vt->setOscHandler ([] (int cmd, const std::string& arg)
+                      { handleOsc (cmd, arg); });
 
    // We might not get a ConfigureNotify event when the window first appears:
-   vt->resize (win_width, win_height);
+   vt->resize (winWidth, winHeight);
 
-   bool destroyed = eventLoop (x_dpy, win, xic, pty_fd);
+   bool destroyed = eventLoop (xic, ptyFd);
 
    renderer = nullptr; // ~Renderer () shuts down renderer thread
 
-   eglDestroyContext (egl_dpy, egl_ctx);
-   eglDestroySurface (egl_dpy, egl_surf);
-   eglTerminate (egl_dpy);
+   eglDestroyContext (eglDpy, eglCtx);
+   eglDestroySurface (eglDpy, eglSurface);
+   eglTerminate (eglDpy);
 
    if (! destroyed)
-      XDestroyWindow (x_dpy, win);
-   XCloseDisplay (x_dpy);
+      XDestroyWindow (xDisplay, xWindow);
+   XCloseDisplay (xDisplay);
 
    return 0;
 }

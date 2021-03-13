@@ -10,14 +10,19 @@ a relatively small program.
 
 ** 1. Install build dependencies
 
-On a recent (stable or testing) Debian, or a Debian-derivative such as
-Ubuntu, the following command will make sure everything you need to
+On a current (stable or testing) Debian, or a Debian-derivative such
+as Ubuntu, the following command will make sure everything you need to
 build Zutty is in place. It also gives you an idea of what you need to
-install on other flavours of Linux.
+install Zutty on other flavours of Linux.
 
 : sudo apt-get install \
 :    build-essential pkg-config python3 \
 :    libegl-dev libfreetype-dev libgles-dev libxmu-dev
+
+Hint: You might need to substitute =libfreetype6-dev= for
+=libfreetype-dev= and =libgles2-mesa-dev= for =libgles-dev=.
+When in doubt, use your distribution's package manager along with your
+favourite Internet search engine.
 
 ** 2. Obtain the source
 
@@ -186,6 +191,7 @@ To view the list of options, issue =zutty -h= (short for =-help=):
 :   -glinfo       Print OpenGL information
 :   -help         Print usage listing and quit
 :   -listres      Print resource listing and quit
+:   -name         Instance name for Xrdb and WM_CLASS
 :   -rv           Reverse video
 :   -saveLines    Lines of scrollback history (default: 500)
 :   -shell        Shell program to run
@@ -244,8 +250,9 @@ to paste into other programs that source the data from the clipboard.
 :   -display      Display to connect to
 
 The X display to connect to. By default, the value of the environment
-variable DISPLAY is used. This option is exceptional in that it cannot
-be configured via the X resource database, only the command line.
+variable DISPLAY is used. This option is exceptional in that (for
+obvious reasons) it cannot be configured via the X resource database,
+only the command line.
 
 :   -glinfo       Print OpenGL information
 
@@ -264,6 +271,22 @@ and quit.
 :   -listres      Print resource listing and quit
 
 Print a listing of configurable [[Extra resources]] and quit.
+
+:   -name         Instance name for Xrdb and WM_CLASS
+
+This option specifies the application instance name, which will be
+used to look up resources in the X resource database, and reported to
+the window manager as part of the =WM_CLASS= property (the other part
+being the application class name, hardcoded as =Zutty=).  The
+specified name should not contain "." (dot) or "*" (asterisk), as
+those characters have special meanings within Xrdb entries.
+
+If this option is not present, but the environment variable
+=RESOURCE_NAME= is set, that will be used instead. If none of these
+are available, the hard default value of =Zutty= will be used.
+
+This option is exceptional in that (for obvious reasons) it cannot be
+configured via the X resource database, only the command line.
 
 :   -saveLines    Lines of scrollback history (default: 500)
 
@@ -604,6 +627,24 @@ documented in the previous chapter.
 Note that no quoting is necessary around string values containing a
 space, and that boolean values are explicit, unlike on the command
 line.
+
+The program's resource lookup key =Zutty= is configurable via the
+=-name= option and the =RESOURCE_NAME= environment variable (with the
+former taking precedence over the latter), making it possible to have
+various configuration sets activated by different instance names.  For
+example, copy the above example snippet to something like this:
+
+: MyCustomZutty.title:           The Custom Zutty
+: MyCustomZutty.geometry:        135x54
+: ...
+
+Then, this custom configuration can be activated by starting Zutty via
+=zutty -name MyCustomZutty= or =RESOURCE_NAME=MyCustomZutty zutty=.
+Also, the WM_CLASS window property will be set to contain the
+configured instance name, which might be useful for window management
+(identification). Note: there is no fallback to the default instance
+name =Zutty=; for each custom instance name, you need to duplicate all
+the settings you care about.
 
 After saving your =~/.Xresources=, run the command =xrdb -merge
 ~/.Xresources= to merge the new settings from your file to the

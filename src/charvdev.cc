@@ -407,8 +407,8 @@ namespace zutty
 
       pxWidth = pxWidth_;
       pxHeight = pxHeight_;
-      nCols = (pxWidth - (2 * opts.border)) / fontpk.getPx ();
-      nRows = (pxHeight - (2 * opts.border)) / fontpk.getPy ();
+      nCols = std::max (1, (pxWidth - 2 * opts.border) / fontpk.getPx ());
+      nRows = std::max (1, (pxHeight - 2 * opts.border) / fontpk.getPy ());
 
       logI << "Resize to " << pxWidth << " x " << pxHeight
            << " pixels, " << nCols << " x " << nRows << " chars"
