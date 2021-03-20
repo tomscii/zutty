@@ -960,9 +960,14 @@ handleOsc (int cmd, const std::string& arg)
    switch (cmd)
    {
    case 0: // Change Icon Name & Window Title
-   case 2: // Change Window Title
       XStoreName (xDisplay, xWindow, arg.c_str ());
       XSetIconName (xDisplay, xWindow, arg.c_str ());
+      break;
+   case 1: // Change Icon Name
+      XSetIconName (xDisplay, xWindow, arg.c_str ());
+      break;
+   case 2: // Change Window Title
+      XStoreName (xDisplay, xWindow, arg.c_str ());
       break;
    case 52: // Manipulate Selection Data
    {

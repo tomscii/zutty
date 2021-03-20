@@ -303,6 +303,9 @@ namespace zutty
 
       void dcs_DECRQSS (const std::string&); // DEC Request Status String
 
+      void osc_PaletteQuery (int, const std::string&);
+      void osc_DynamicColorQuery (int, const std::string&);
+
       uint16_t winPx;
       uint16_t winPy;
       uint16_t nCols;

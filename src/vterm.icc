@@ -1752,26 +1752,76 @@ namespace zutty
    {
       TRACE_FUN;
       auto osc = std::string ((char*)argBuf.data (), argBuf.size ());
+      std::size_t p = osc.find_first_of(";");
+      std::string arg;
+      if (p != std::string::npos)
+         arg = osc.substr (p + 1);
+
       std::stringstream iss (osc);
       int cmd;
-      char sep;
-      iss >> cmd >> sep;
-      if (iss.fail () || sep != ';')
+      iss >> cmd;
+      if (iss.fail () || cmd < 0 || cmd > 120)
       {
          logT << "OSC: malformed command string '" << osc << "'" << std::endl;
       }
       else
       {
-         std::string arg = osc.substr (iss.tellg ());
          switch (cmd)
          {
-         // Add cases here for OSC commands internally handled by vterm
+         case 4:
+            osc_PaletteQuery (cmd, arg);
+            break;
+         case 10: case 11: case 12: case 17: case 19:
+            osc_DynamicColorQuery (cmd, arg);
+            break;
 
          // Other cases handed over to external OSC handler:
          default: onOsc (cmd, arg); break;
          }
       }
       setState (InputState::Normal);
+   }
+
+   inline void
+   Vterm::osc_PaletteQuery (int cmd, const std::string& arg)
+   {
+      std::size_t p = arg.find_first_of(";");
+      if (p == std::string::npos)
+         return; // malformed argument, missing ';'
+      std::string pc = arg.substr (0, p);
+      std::string ps = arg.substr (p + 1);
+
+      if (ps == "?")
+      {
+         std::stringstream iss (pc);
+         int paletteIdx;
+         iss >> paletteIdx;
+         if (iss.fail () || paletteIdx < 0 || paletteIdx > 255)
+            return;
+         Color c = palette256 [paletteIdx];
+
+         std::ostringstream oss;
+         oss << "\e]" << cmd << ";" << paletteIdx << ";" << c << "\e\\";
+         writePty (oss.str ().data (), oss.str ().size ());
+      }
+   }
+
+   inline void
+   Vterm::osc_DynamicColorQuery (int cmd, const std::string& arg)
+   {
+      if (arg == "?")
+      {
+         Color c;
+         switch (cmd)
+         {
+         case 10: case 17: c = *fg; break;
+         case 11: case 19: c = *bg; break;
+         case 12: c = cf->getCursor ().color; break;
+         }
+         std::ostringstream oss;
+         oss << "\e]" << cmd << ";" << c << "\e\\";
+         writePty (oss.str ().data (), oss.str ().size ());
+      }
    }
 
    inline void

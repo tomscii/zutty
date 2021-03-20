@@ -12,6 +12,8 @@
 #pragma once
 
 #include <cstdint>
+#include <iomanip>
+#include <iostream>
 
 namespace zutty
 {
@@ -26,6 +28,17 @@ namespace zutty
          return red == rhs.red && green == rhs.green && blue == rhs.blue;
       }
    };
+
+   inline std::ostream&
+   operator << (std::ostream& os, Color& c)
+   {
+      os << "rgb:" << std::hex << std::setfill('0')
+         // N.B.: Output components as 32-bit for compatibility
+         << std::setw(2) << (int)c.red << std::setw(2) << (int)c.red << "/"
+         << std::setw(2) << (int)c.green << std::setw(2) << (int)c.green << "/"
+         << std::setw(2) << (int)c.blue << std::setw(2) << (int)c.blue;
+      return os;
+   }
 
    struct Point
    {
