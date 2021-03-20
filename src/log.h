@@ -85,7 +85,7 @@ namespace zutty
 
 
    inline std::string
-   dumpBuffer (unsigned char* start, unsigned char* end)
+   dumpBuffer (const unsigned char* start, const unsigned char* end)
    {
       if (opts.quiet)
          return "";

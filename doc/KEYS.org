@@ -162,29 +162,67 @@ Examples:
 
 Modifiers are not applied in VT52 mode.
 
-* Alt sends Escape
-
-Hitting any ordinary key (letters, punctuation symbols, etc.) not
-shown in the above tables while holding Alt will result in the key
-being prefixed by the ESC character. This is also applied to some
-special keys, e.g., Alt-Tab sends =ESC TAB= and Alt-Backspace sends
-=ESC DEL= or =ESC \b= depending on the current DECBKM mode setting.
-This handling is consistent with enabling the "Meta sends Escape"
-setting of xterm, and allows programs such as terminal-mode Emacs to
-recognize keyboard bindings containing Alt (or Meta).
-
 * Special key combinations
 
-Certain key combinations generate special sequences according to the
-below table. These settings correspond to the default behaviour of
-xterm, and enable e.g., terminal-mode Emacs to correctly recognize
-these combinations.
+The resource settings =altSendsEscape= and =modifyOtherKeys= (modeled
+after xterm) control how /other/ key combinations (not specified in the
+above tables) are encoded.
 
-| Combination    | Sequence          |
-|----------------+-------------------|
-| Shift-TAB      | CSI Z             |
-| Control-TAB    | CSI 27 ; 5 ; 9 ~  |
-| Control-Return | CSI 27 ; 5 ; 13 ~ |
-| Control-0      | CSI 27 ; 5 ; 48 ~ |
-| Control-1      | CSI 27 ; 5 ; 49 ~ |
-| Control-9      | CSI 27 ; 5 ; 57 ~ |
+The encoding rules are, by and large, meant to be the same as that of
+xterm; please refer to its extensive documentation for details. As a
+complement, below we present several example key encodings for
+different values of =modifyOtherKeys= (columns 0, 1 and 2), with an
+=altSendsEscape= setting of true (the default).
+
+| Key                         | 0         | 1                 | 2                  |
+|-----------------------------+-----------+-------------------+--------------------|
+| Shift-a                     | A         | A                 | CSI 27 ; 2 ; 65 ~  |
+| Shift-Space                 | Space     | Space             | CSI 27 ; 2 ; 32 ~  |
+| Shift-TAB                   | CSI Z     | CSI Z             | CSI 27 ; 2 ; 9 ~   |
+| Control-Return              | Return    | CSI 27 ; 5 ; 13 ~ | CSI 27 ; 5 ; 13 ~  |
+| Control-Space               | ^@        | ^@                | CSI 27 ; 5 ; 32 ~  |
+| Control-Alt-Space           | ESC ^@    | ESC ^@            | CSI 27 ; 7 ; 32 ~  |
+| Control-Shift-Space         | ^@        | ^@                | CSI 27 ; 6 ; 32 ~  |
+| Control-Alt-Shift-Space     | ESC ^@    | ESC ^@            | CSI 27 ; 8 ; 32 ~  |
+| Control-TAB                 | TAB       | CSI 27 ; 5 ; 9 ~  | CSI 27 ; 5 ; 9 ~   |
+| Control-0                   | 0         | CSI 27 ; 5 ; 48 ~ | CSI 27 ; 5 ; 48 ~  |
+| Control-1                   | 1         | CSI 27 ; 5 ; 49 ~ | CSI 27 ; 5 ; 49 ~  |
+| Control-2                   | ^@        | ^@                | CSI 27 ; 5 ; 50 ~  |
+| Control-3                   | ESC       | ESC               | CSI 27 ; 5 ; 51 ~  |
+| Control-4                   | ^\        | ^\                | CSI 27 ; 5 ; 52 ~  |
+| Control-5                   | ^]        | ^]                | CSI 27 ; 5 ; 53 ~  |
+| Control-6                   | ^^        | ^^                | CSI 27 ; 5 ; 54 ~  |
+| Control-7                   | ^_        | ^_                | CSI 27 ; 5 ; 55 ~  |
+| Control-8                   | DEL       | DEL               | CSI 27 ; 5 ; 56 ~  |
+| Control-9                   | 9         | CSI 27 ; 5 ; 57 ~ | CSI 27 ; 5 ; 57 ~  |
+| Control-! (Control-Shift-1) | !         | CSI 27 ; 6 ; 33 ~ | CSI 27 ; 6 ; 33 ~  |
+| Control-@ (Control-Shift-2) | ^@        | ^@                | CSI 27 ; 6 ; 64 ~  |
+| Control-# (Control-Shift-3) | #         | CSI 27 ; 6 ; 35 ~ | CSI 27 ; 6 ; 35 ~  |
+| Control-$ (Control-Shift-4) | $         | CSI 27 ; 6 ; 36 ~ | CSI 27 ; 6 ; 36 ~  |
+| Control-% (Control-Shift-5) | %         | CSI 27 ; 6 ; 37 ~ | CSI 27 ; 6 ; 37 ~  |
+| Control-^ (Control-Shift-6) | ^^        | ^^                | CSI 27 ; 6 ; 94 ~  |
+| Control-& (Control-Shift-7) | &         | CSI 27 ; 6 ; 38 ~ | CSI 27 ; 6 ; 38 ~  |
+| Control-* (Control-Shift-8) | *         | CSI 27 ; 6 ; 42 ~ | CSI 27 ; 6 ; 42 ~  |
+| Control-( (Control-Shift-9) | (         | CSI 27 ; 6 ; 40 ~ | CSI 27 ; 6 ; 40 ~  |
+| Control-) (Control-Shift-0) | )         | CSI 27 ; 6 ; 41 ~ | CSI 27 ; 6 ; 41 ~  |
+| Control-c                   | ^C        | ^C                | CSI 27 ; 5 ; 99 ~  |
+| Control-d                   | ^D        | ^D                | CSI 27 ; 5 ; 100 ~ |
+| Control-i                   | TAB       | TAB               | CSI 27 ; 5 ; 105 ~ |
+| Control-Shift-I             | TAB       | TAB               | CSI 27 ; 6 ; 73 ~  |
+| Control-x                   | ^X        | ^X                | CSI 27 ; 5 ; 120 ~ |
+| Control-Alt-x               | ESC ^X    | ESC ^X            | CSI 27 ; 7 ; 120 ~ |
+| Control-Shift-D             | ^D        | ^D                | CSI 27 ; 6 ; 68 ~  |
+| Control-Alt-Shift-D         | ESC ESC   | ESC ESC           | CSI 27 ; 8 ; 68 ~  |
+| Control-;                   | ;         | CSI 27 ; 5 ; 59 ~ | CSI 27 ; 5 ; 59 ~  |
+| Control-: (Control-Shift-;) | :         | CSI 27 ; 6 ; 58 ~ | CSI 27 ; 6 ; 58 ~  |
+| Control-\                   | ^\        | ^\                | CSI 27 ; 5 ; 92 ~  |
+| Control-¦ (Control-Shift-\) | ^\        | ^\                | CSI 27 ; 6 ; 124 ~ |
+| Control-`                   | ^@        | ^@                | CSI 27 ; 5 ; 96 ~  |
+| Control-~ (Control-Shift-`) | ^^        | ^^                | CSI 27 ; 6 ; 126 ~ |
+| Alt-Space                   | ESC Space | ESC Space         | CSI 27 ; 3 ; 32 ~  |
+| Alt-Shift-Space             | ESC Space | ESC Space         | CSI 27 ; 4 ; 32 ~  |
+| Alt-TAB                     | ESC TAB   | ESC TAB           | CSI 27 ; 3 ; 9 ~   |
+| Alt-d                       | ESC d     | ESC d             | CSI 27 ; 3 ; 100 ~ |
+| Alt-Shift-d                 | ESC D     | ESC D             | CSI 27 ; 4 ; 68 ~  |
+| Alt-x                       | ESC x     | ESC x             | CSI 27 ; 3 ; 120 ~ |
+| Alt-Shift-X                 | ESC X     | ESC X             | CSI 27 ; 4 ; 88 ~  |

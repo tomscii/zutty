@@ -103,15 +103,6 @@ namespace
       return fallback;
    }
 
-   bool
-   getBool (const char* name)
-   {
-      const char* opt = get (name);
-      if (!opt)
-         return false;
-      return strcmp (opt, "true") == 0;
-   }
-
    void
    getBorder (uint16_t& outBorder)
    {
@@ -249,6 +240,15 @@ namespace zutty
       dpy = dpy_;
    }
 
+   bool
+   Options::getBool (const char* name, bool defaultValue)
+   {
+      const char* opt = get (name);
+      if (!opt)
+         return defaultValue;
+      return strcmp (opt, "true") == 0;
+   }
+
    void
    Options::getColor (const char* name, zutty::Color& outColor)
    {
@@ -257,6 +257,22 @@ namespace zutty
          throw std::runtime_error (std::string ("-") + name +
                                    ": missing value");
       convColor (name, opt, outColor);
+   }
+
+   int
+   Options::getInteger (const char* name, int min, int max)
+   {
+      const char* opt = get (name);
+      if (!opt)
+         return min;
+
+      std::stringstream iss (opt);
+      int ret;
+      iss >> ret;
+      if (iss.fail ())
+         return min;
+
+      return std::min (std::max (min, ret), max);
    }
 
    void
@@ -302,11 +318,13 @@ namespace zutty
          else
             cr = fg;
          altScrollMode = getBool ("altScroll");
+         altSendsEscape = getBool ("altSendsEscape");
          autoCopyMode = getBool ("autoCopy");
          boldColors = getBool ("boldColors");
          showWraps = getBool ("showWraps");
          quiet = getBool ("quiet");
          verbose = getBool ("verbose");
+         modifyOtherKeys = getInteger ("modifyOtherKeys", 0, 2);
       }
       catch (const std::exception& e)
       {

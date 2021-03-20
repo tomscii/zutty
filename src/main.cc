@@ -432,6 +432,9 @@ onKeyPress (XEvent& event, XIC& xic, int ptyFd)
       return false;
    }
 
+   if (XFilterEvent (&event, xkevt.window))
+      return false;
+
    switch (ks)
    {
 #define KEYSEND(XKey, VtKey)                    \
@@ -441,8 +444,15 @@ onKeyPress (XEvent& event, XIC& xic, int ptyFd)
 
       KEYSEND (XK_0,                Key::K0);
       KEYSEND (XK_1,                Key::K1);
-      // N.B.: Keys 2-8 generate special codes, do not override
+      KEYSEND (XK_2,                Key::K2);
+      KEYSEND (XK_3,                Key::K3);
+      KEYSEND (XK_4,                Key::K4);
+      KEYSEND (XK_5,                Key::K5);
+      KEYSEND (XK_6,                Key::K6);
+      KEYSEND (XK_7,                Key::K7);
+      KEYSEND (XK_8,                Key::K8);
       KEYSEND (XK_9,                Key::K9);
+      KEYSEND (XK_space,            Key::Space);
       KEYSEND (XK_Return,           Key::Return);
       KEYSEND (XK_BackSpace,        Key::Backspace);
       KEYSEND (XK_Tab,              Key::Tab);
@@ -457,6 +467,8 @@ onKeyPress (XEvent& event, XIC& xic, int ptyFd)
       KEYSEND (XK_Right,            Key::Right);
       KEYSEND (XK_Page_Up,          Key::PageUp);
       KEYSEND (XK_Page_Down,        Key::PageDown);
+      KEYSEND (XK_grave,            Key::Backtick);
+      KEYSEND (XK_asciitilde,       Key::Tilde);
       KEYSEND (XK_F1,               Key::F1);
       KEYSEND (XK_F2,               Key::F2);
       KEYSEND (XK_F3,               Key::F3);
@@ -552,18 +564,15 @@ onKeyPress (XEvent& event, XIC& xic, int ptyFd)
 #undef KEYIGN
 
    default:
-      if (! XFilterEvent (&event, xkevt.window))
+      if (nbytes > 1)
       {
-         if (nbytes > 1)
-         {
-            if (vt->writePty (buffer, true) < nbytes)
-               return true;
-         }
-         else
-         {
-            if (vt->writePty (buffer [0], mod, true) < 1)
-               return true;
-         }
+         if (vt->writePty (buffer, true) < nbytes)
+            return true;
+      }
+      else
+      {
+         if (vt->writePty (buffer [0], mod, true) < 1)
+            return true;
       }
       return false;
    }

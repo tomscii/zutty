@@ -135,7 +135,7 @@ fi
 export PATH="$(pwd)/deps/bin":$PATH
 
 # Remove any permanent configuration that could change how Zutty looks/behaves:
-[ -f ${HOME}/.Xresources ] && xrdb -remove
+[ ${PROFILE} == "zutty" ] && [ -f ${HOME}/.Xresources ] && xrdb -remove
 
 # execute UUT and store its pid
 ${UUT_EXE} >${UUT_LOG} 2>&1 &
@@ -202,7 +202,8 @@ function FINISH_TEST {
 
     trap - EXIT
     kill "${PID}"
-    [ -f ${HOME}/.Xresources ] && xrdb ${HOME}/.Xresources
+    [ ${PROFILE} == "zutty" ] && [ -f ${HOME}/.Xresources ] && \
+        xrdb ${HOME}/.Xresources
     exit ${EXIT_CODE}
 }
 
@@ -220,7 +221,8 @@ function check_uut {
         tail ${UUT_LOG}
 
         trap - EXIT
-        [ -f ${HOME}/.Xresources ] && xrdb ${HOME}/.Xresources
+        [ ${PROFILE} == "zutty" ] && [ -f ${HOME}/.Xresources ] && \
+            xrdb ${HOME}/.Xresources
         exit 1
     fi
 }

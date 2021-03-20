@@ -669,15 +669,71 @@ available for configuration, pass the =-listres= option to Zutty. The
 result will look like this:
 
 : Resources:
-:   color0    Palette color 0 (default: #000000)
-:   color1    Palette color 1 (default: #cd0000)
+:   altSendsEscape    Encode Alt key as ESC prefix (default: true)
+:   modifyOtherKeys   Key modifier encoding level; 0..2 (default: 1)
+:   color0            Palette color 0 (default: #000000)
+:   color1            Palette color 1 (default: #cd0000)
 :   ...
-:   color15   Palette color 15 (default: #ffffff)
+:   color15           Palette color 15 (default: #ffffff)
 
 To customize =<resource>=, put an entry into =~/.Xresources= under the
-key =Zutty.<resource>=. After merging into Xrdb, the above output will
-reflect the configured values, similar to the output of =zutty -h= for
-options as shown above.
+key =Zutty.<resource>=. For example:
+
+: Zutty.altSendsEscape:          false
+: Zutty.modifyOtherKeys:         0
+
+After merging into Xrdb, the above output will reflect the configured
+values, similar to the output of =zutty -h= for options as shown
+above.
+
+*** altSendsEscape
+
+The resource setting =altSendsEscape= controls how key combinations
+containing the Alt modifier are encoded. The setting can be toggled
+dynamically at runtime via DEC set/reset 1036/1039 (both numbers are
+equivalent).  This is an xterm extension. The default value is true
+(enabled).
+
+When enabled, hitting any ordinary key (letters, punctuation symbols,
+etc.) while holding Alt will result in the key being prefixed by the
+ESC character. This is also applied to some special keys, e.g.,
+Alt-Tab sends =ESC TAB= and Alt-Backspace sends =ESC DEL= or =ESC \b=
+depending on the current DECBKM mode setting.  This allows programs
+such as terminal-mode Emacs to recognize keyboard bindings containing
+Alt (or Meta).
+
+If =altSendsEscape= is disabled (set to false), Alt will cause the
+characters to be shifted by adding 128 (setting the 8-th bit). This is
+then sent UTF-8 encoded to the shell.
+
+Notes:
+- Unlike XTerm, Zutty does not distinguish between Alt and
+  Meta.
+- In case =modifyOtherKeys= is non-zero (see below), the effects of
+  that will take precedence over this setting and produce a uniform
+  encoding for selected (if set to 1) or all (if set to 2) modified
+  key combinations.
+
+*** modifyOtherKeys
+
+Zutty supports the =modifyOtherKeys= setting, which further affects
+how special keys (modifier combinations) are encoded into control
+sequences. It corresponds to xterm's identically named option (another
+xterm extension; see its [[https://invisible-island.net/xterm/manpage/xterm.html#VT100-Widget-Resources:modifyOtherKeys][documentation]] and [[https://dickey.his.com/xterm/xterm.faq.html#xterm_modother][this FAQ entry]]).
+
+This setting can be altered dynamically at runtime via the control
+sequence =CSI > 4 ; P m= where =P= can be 0, 1 or 2 (or omitted, which
+is equivalent to 0). This is typically done by programs such as Vim to
+be able to distinguish between e.g., =TAB= and =^I=.
+
+The default value of modifyOtherKeys can be configured via the Xrdb
+resource with the same name. In the absence of any configuration, it
+defaults to 1 when Zutty is started. This enables e.g., terminal-mode
+Emacs to correctly recognize most key combinations, while preserving
+the ability to generate raw control characters (such as =NUL= via
+Control-2, =ESC= via Control-3, etc).  See the relevant table in the
+[[./KEYS.html#Special key
+ combinations][key mapping reference]] for several examples.
 
 *** Base palette colors
 

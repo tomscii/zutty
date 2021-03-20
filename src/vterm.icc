@@ -214,6 +214,8 @@ namespace zutty
 
       switchScreenBufferMode (false);
       altScrollMode = opts.altScrollMode;
+      altSendsEscape = opts.altSendsEscape;
+      modifyOtherKeys = opts.modifyOtherKeys;
 
       horizMarginMode = false;
       hMargin = 0;
@@ -357,39 +359,6 @@ namespace zutty
       }
 
       inputState = newState;
-   }
-
-   inline int
-   Vterm::writePty (uint8_t ch, VtModifier modifiers, bool userInput)
-   {
-      auto uch = (unsigned char*)&ch;
-      logT << "pty write (mod=" << (int)modifiers << "): "
-           << dumpBuffer (uch, uch + 1);
-      if ((modifiers & VtModifier::alt) != VtModifier::none)
-      {
-         static uint8_t wbuf [2] = { '\e', '\0' };
-         wbuf [1] = ch;
-         if (userInput && localEcho)
-            processInput (getLocalEcho (wbuf, wbuf + 2));
-         return write (ptyFd, wbuf, 2);
-      }
-      else
-      {
-         if (userInput && localEcho)
-            processInput (getLocalEcho (uch, uch + 1));
-         return write (ptyFd, &ch, 1);
-      }
-   }
-
-   inline int
-   Vterm::writePty (const char* cstr, bool userInput)
-   {
-      auto ucstr = (unsigned char*)cstr;
-      auto len = strlen (cstr);
-      logT << "pty write: " << dumpBuffer (ucstr, ucstr + len);
-      if (userInput && localEcho)
-         processInput (getLocalEcho (ucstr, ucstr + len));
-      return write (ptyFd, cstr, len);
    }
 
    inline void
@@ -1438,6 +1407,7 @@ namespace zutty
          case 1006: mouseTrk.enc = MouseTrackingEnc::SGR; break;
          case 1007: altScrollMode = true; break;
          case 1015: mouseTrk.enc = MouseTrackingEnc::URXVT; break;
+         case 1036: case 1039: altSendsEscape = true; break;
          case 1047: switchScreenBufferMode (true); break;
          case 1048: esc_DECSC (); break;
          case 1049: esc_DECSC (); switchScreenBufferMode (true); break;
@@ -1483,6 +1453,7 @@ namespace zutty
          case 1005: case 1006: case 1015:
             mouseTrk.enc = MouseTrackingEnc::Default; break;
          case 1007: altScrollMode = false; break;
+         case 1036: case 1039: altSendsEscape = false; break;
          case 1047: switchScreenBufferMode (false); break;
          case 1048: esc_DECRC (); break;
          case 1049: switchScreenBufferMode (false); esc_DECRC (); break;
@@ -1862,20 +1833,36 @@ namespace zutty
          switch (inputOps [0])
          {
          case 0:
-            logU << "XTMODKEYS: modifyKeyboard = " << inputOps [1]
-                 << std::endl;
+            if (inputOps [1] != 0)
+            {
+               logU << "XTMODKEYS: modifyKeyboard = " << inputOps [1]
+                    << std::endl;
+            }
             break;
          case 1:
-            logU << "XTMODKEYS: modifyCursorKeys = " << inputOps [1]
-                 << std::endl;
+            if (inputOps [1] != 2)
+            {
+               logU << "XTMODKEYS: modifyCursorKeys = " << inputOps [1]
+                    << std::endl;
+            }
             break;
          case 2:
-            logU << "XTMODKEYS: modifyFunctionKeys = " << inputOps [1]
-                 << std::endl;
+            if (inputOps [1] != 2)
+            {
+               logU << "XTMODKEYS: modifyFunctionKeys = " << inputOps [1]
+                    << std::endl;
+            }
             break;
          case 4:
-            logU << "XTMODKEYS: modifyOtherKeys = " << inputOps [1]
-                 << std::endl;
+            if (inputOps [1] <= 2)
+            {
+               modifyOtherKeys = inputOps [1];
+            }
+            else
+            {
+               logI << "XTMODKEYS: illegal argument for modifyOtherKeys: "
+                    << inputOps [1] << std::endl;
+            }
             break;
          }
       }

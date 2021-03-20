@@ -110,14 +110,18 @@ match of the pre-approved video output. You can thus expect the
 terminal output to be /correct/ -- be it driven by tmux, emacs (with
 org-mode, helm, magit, etc.) or whatever else. Zutty handles corner
 cases (escape sequences) which, sadly enough, several popular terminal
-emulators do not correctly support. Zutty also boasts mouse support
-(modeled after the capabilities of xterm) to make the user experience
-of many terminal applications more interactive.
+emulators do not correctly support.
 
-In a perfect world, this should not have to be listed as such a
-prominent feature, but unfortunately, it is rather the exception than
-the norm among widely used terminal emulators (including more modern
-ones).
+Zutty implements xterm's de-facto standard method (=modifyOtherKeys=)
+to expose non-trivial modifier key combinations to programs such as
+Emacs and Vim. Zutty also boasts mouse support (again, modeled after
+xterm's capabilities) to make the user experience of many terminal
+applications more interactive.
+
+In a perfect world, these would not be highlighted as such prominent
+features, but unfortunately, our focus on correctness is rather the
+exception than the norm among widely used terminal emulators
+(including more modern ones).
 
 *** Font handling
 
@@ -191,8 +195,7 @@ The radical simplicity of our rendering technology allows for a
 straightforward virtual terminal implementation that happens to be
 extremely performant despite the lack of any fancy optimizations on
 the source code level.  This also allows the codebase of Zutty to be
-very small (under ten thousand lines, including comments and empty
-lines) and highly readable. Therefore, Zutty lends itself towards
+fairly small and understandable. Therefore, Zutty lends itself towards
 educational use and as a vehicle for hacking on terminals. If you've
 always wanted to learn how a terminal emulator works from the inside
 out, consider studying the Zutty codebase (and associated developer

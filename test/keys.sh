@@ -155,7 +155,7 @@ function KEYPAD_KEYS {
 }
 
 function ALT_SENDS_ESC {
-    IN "printf \"\\\\e[H\\\\e[J\" && cat -vT\r"
+    IN "printf \"\\\\e[>4;0m\\\\e[?1036h\\\\e[H\\\\e[J\" && cat -vT\r"
 
     IN "Testing Alt-sends-Esc in normal mode. \D1"
     IN "a A \Aa \AA \C\Aa \C\AA 2 \A2 \C\A2 # \A# \C\A# "
@@ -178,6 +178,25 @@ function ALT_SENDS_ESC {
 
     IN "\Cd\Cd\D3"
     IN "printf \"\\\\e[12h\" && stty echo\r"
+
+    IN "printf \"\\\\e[?1036l\\\\e[H\\\\e[J\" && cat -vT\r"
+
+    IN "Testing some keys with Alt-sends-Esc disabled. \D1"
+    IN "\Aa \Ab \Ac \Ad \Ae \Af \Ag \Ah \Ai \Aj \Ak \Al \Am "
+    IN "\An \Ao \Ap \Aq \Ar \As \At \Au \Av \Aw \Ax \Ay \Az "
+    IN "\AA \AB \AC \AD \AE \AF \AG \AH \AI \AJ \AK \AL \AM "
+    IN "\AN \AO \AP \AQ \AR \AS \AT \AU \AV \AW \AX \AY \AZ "
+    IN "\A1 \A2 \A3 \A4 \A5 \A6 \A7 \A8 \A9 \A0 \A- \A= \A/ "
+    IN "\A! \A@ \A# \A$ \A% \A^ \A& \A* \A( \A) \A_ \A+ \A? "
+    IN "\A\' \A, \A. \A\" \A< \A> \A; \A\` \A\\\\ \A: \A~ \A| "
+    IN "\A[ \A] \A{ \A} "
+    IN "\C\Aa \C\AA \C\A0 \C\A1 \C\A2 \C\A9 \A# \C\A# "
+    IN "\C\A/ \C\A? "
+
+    SNAP keys_08 312449d6dc4511f03d02397323fe4b6d
+
+    IN "\Cd\Cd\D3"
+    IN "printf \"\\\\e[?1036h\"\r"
 }
 
 function COMPOSE_CHARS {
@@ -274,26 +293,151 @@ function COMPOSE_CHARS {
     IN " \[Multi_key]!!"
     IN " \[Multi_key]??"
 
-    SNAP keys_08 60554ad0c7ff32768f1536016cafde4d
+    SNAP keys_09 60554ad0c7ff32768f1536016cafde4d
 
     IN "\Cd\Cd\D3"
 }
 
 function SPECIAL_KEYS {
-    IN "printf \"\\\\e[H\\\\e[J\" && cat -vT\r"
 
-    IN "Testing special key combinations. \D1"
+    IN "printf \"\\\\e[>4;0m\\\\e[H\\\\e[J\" && cat -vT\r"
 
-    # xvkbd seemingly cannot generate Alt-BackSpace and Shift-Tab
+    IN "Testing special key combinations; modifyOtherKeys=0. \D1"
 
-    IN "Alt-Tab: \A\[Tab] \D2"
-    IN "Ctrl-Tab: \C\[Tab] \D2"
+    IN "Shift-a: A \D2"
+    IN "Shift-Space \S  \D2"
+    IN "Shift-Tab: \[ISO_Left_Tab] \D2"
     IN "Ctrl-Return: \C\[Return] \D2"
+    IN "Ctrl-Space: \C  \D2"
+    IN "Ctrl-Alt-Space: \C\A  \D2"
+    IN "Ctrl-Shift-Space: \C\S  \D2"
+    IN "Ctrl-Tab: \C\[Tab] \D2"
     IN "Ctrl-0: \C\[0] \D2"
     IN "Ctrl-1: \C\[1] \D2"
+    IN "Ctrl-2: \C\[2] \D2"
+    IN "Ctrl-3: \C\[3] \D2"
+    IN "Ctrl-5: \C\[5] \D2"
+    IN "Ctrl-6: \C\[6] \D2"
+    IN "Ctrl-7: \C\[7] \D2"
+    IN "Ctrl-8: .\C\[8] \D2"
     IN "Ctrl-9: \C\[9] \D2"
+    IN "Ctrl-!: \C! \D2"
+    IN "Ctrl-@: \C@ \D2"
+    IN "Ctrl-#: \C# \D2"
+    IN "Ctrl-$: \C$ \D2"
+    IN "Ctrl-%: \C% \D2"
+    IN "Ctrl-^: \C^ \D2"
+    IN "Ctrl-&: \C& \D2"
+    IN "Ctrl-*: \C* \D2"
+    IN "Ctrl-(: \C( \D2"
+    IN "Ctrl-): \C) \D2"
+    IN "Ctrl-i: \Ci \D2"
+    IN "Ctrl-Shift-i: \CI \D2"
+    IN "Ctrl-x: \Cx \D2"
+    IN "Ctrl-Alt-x: \C\Ax \D2"
+    IN "Ctrl-;: \C; \D2"
+    IN "Ctrl-:: \C: \D2"
+    IN "Ctrl-~: \C~ \D2"
+    IN "Alt-Space: \A  \D2"
+    IN "Alt-Tab: \A\[Tab] \D2"
+    IN "Alt-x: \Ax \D2"
 
-    SNAP keys_09 60aa7c174a4d4aef5e3d8238d9fd7e35
+    SNAP keys_10 8213a0344017cd0c3dae5650edc2e100
+
+    IN "\Cd\Cd\D3"
+
+    IN "printf \"\\\\e[>4;1m\\\\e[H\\\\e[J\" && cat -vT\r"
+
+    IN "Testing special key combinations; modifyOtherKeys=1. \D1"
+
+    IN "Shift-a: A \D2"
+    IN "Shift-Space \S  \D2"
+    IN "Shift-Tab: \[ISO_Left_Tab] \D2"
+    IN "Ctrl-Return: \C\[Return] \D2"
+    IN "Ctrl-Space: \C  \D2"
+    IN "Ctrl-Alt-Space: \C\A  \D2"
+    IN "Ctrl-Shift-Space: \C\S  \D2"
+    IN "Ctrl-Tab: \C\[Tab] \D2"
+    IN "Ctrl-0: \C\[0] \D2"
+    IN "Ctrl-1: \C\[1] \D2"
+    IN "Ctrl-2: \C\[2] \D2"
+    IN "Ctrl-3: \C\[3] \D2"
+    IN "Ctrl-5: \C\[5] \D2"
+    IN "Ctrl-6: \C\[6] \D2"
+    IN "Ctrl-7: \C\[7] \D2"
+    IN "Ctrl-8: .\C\[8] \D2"
+    IN "Ctrl-9: \C\[9] \D2"
+    IN "Ctrl-!: \C! \D2"
+    IN "Ctrl-@: \C@ \D2"
+    IN "Ctrl-#: \C# \D2"
+    IN "Ctrl-$: \C$ \D2"
+    IN "Ctrl-%: \C% \D2"
+    IN "Ctrl-^: \C^ \D2"
+    IN "Ctrl-&: \C& \D2"
+    IN "Ctrl-*: \C* \D2"
+    IN "Ctrl-(: \C( \D2"
+    IN "Ctrl-): \C) \D2"
+    IN "Ctrl-i: \Ci \D2"
+    IN "Ctrl-Shift-i: \CI \D2"
+    IN "Ctrl-x: \Cx \D2"
+    IN "Ctrl-Alt-x: \C\Ax \D2"
+    IN "Ctrl-;: \C; \D2"
+    IN "Ctrl-:: \C: \D2"
+    IN "Ctrl-~: \C~ \D2"
+    IN "Alt-Space: \A  \D2"
+    IN "Alt-Tab: \A\[Tab] \D2"
+    IN "Alt-x: \Ax \D2"
+
+    SNAP keys_11 4b47a4ad309ab017ca35fa47bb33ab5a
+
+    IN "\Cd\Cd\D3"
+
+    IN "printf \"\\\\e[>4;2m\\\\e[H\\\\e[J\" && cat -vT\r"
+
+    IN "testing special key combinations - modify-other-keys is 2  \D1"
+
+    IN "shift-a A \D2"
+    IN "shift-space \S  \D2"
+    IN "shift-tab \[ISO_Left_Tab] \D2"
+    IN "ctrl-return \C\[Return] \D2"
+    IN "ctrl-space \C  \D2"
+    IN "ctrl-alt-space \C\A  \D2"
+    IN "ctrl-shift-space \C\S  \D2"
+    IN "ctrl-tab \C\[Tab] \D2"
+    IN "ctrl-0 \C\[0] \D2"
+    IN "ctrl-1 \C\[1] \D2"
+    IN "ctrl-2 \C\[2] \D2"
+    IN "ctrl-3 \C\[3] \D2"
+    IN "ctrl-4 \C\[4] \D2"
+    IN "ctrl-5 \C\[5] \D2"
+    IN "ctrl-6 \C\[6] \D2"
+    IN "ctrl-7 \C\[7] \D2"
+    IN "ctrl-8 \C\[8] \D2"
+    IN "ctrl-9 \C\[9] \D2"
+    IN "ctrl-! \C! \D2"
+    IN "ctrl-@ \C@ \D2"
+    IN "ctrl-# \C# \D2"
+    IN "ctrl-$ \C$ \D2"
+    IN "ctrl-% \C% \D2"
+    IN "ctrl-^ \C^ \D2"
+    IN "ctrl-& \C& \D2"
+    IN "ctrl-* \C* \D2"
+    IN "ctrl-( \C( \D2"
+    IN "ctrl-) \C) \D2"
+    IN "ctrl-i \Ci \D2"
+    IN "ctrl-shift-i \CI \D2"
+    IN "ctrl-x \Cx \D2"
+    IN "ctrl-alt-x \C\Ax \D2"
+    IN "ctrl-; \C; \D2"
+    IN "ctrl-: \C: \D2"
+    IN "ctrl-\\\\ \C\\\\ \D2"
+    IN "ctrl-| \C| \D2"
+    IN "ctrl-~ \C~ \D2"
+    IN "alt-space \A  \D2"
+    IN "alt-tab \A\[Tab] \D2"
+    IN "alt-x \Ax \D2"
+
+    SNAP keys_12 a17ffab4b4374784dad2829af30525c6
 
     IN "\Cd\Cd\D3"
 }

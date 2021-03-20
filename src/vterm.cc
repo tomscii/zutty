@@ -27,25 +27,98 @@ namespace
    // magic byte to act as a placeholder for the Modifier Code:
    #define MC "\xff"
 
+   const InputSpec is_modOtherKeys2 [] =
+   {
+      {Key::K2,          CSI "27;" MC ";50~"},
+      {Key::K3,          CSI "27;" MC ";51~"},
+      {Key::K4,          CSI "27;" MC ";52~"},
+      {Key::K5,          CSI "27;" MC ";53~"},
+      {Key::K6,          CSI "27;" MC ";54~"},
+      {Key::K7,          CSI "27;" MC ";55~"},
+      {Key::K8,          CSI "27;" MC ";56~"},
+      {Key::Backtick,    CSI "27;" MC ";96~"},
+      {Key::Tilde,       CSI "27;" MC ";126~"},
+      {Key::Tab,         CSI "27;" MC ";9~"},
+      {Key::Space,       CSI "27;" MC ";32~"},
+      {Key::Backspace,   CSI "27;" MC ";127~"},
+      {Key::NONE,        nullptr},
+   };
+
    const InputSpec is_Alt [] =
+   {                     // UTF-8 encoded:
+      {Key::K0,          "\xc2\xb0"},
+      {Key::K1,          "\xc2\xb1"},
+      {Key::K2,          "\xc2\xb2"},
+      {Key::K3,          "\xc2\xb3"},
+      {Key::K4,          "\xc2\xb4"},
+      {Key::K5,          "\xc2\xb5"},
+      {Key::K6,          "\xc2\xb6"},
+      {Key::K7,          "\xc2\xb7"},
+      {Key::K8,          "\xc2\xb8"},
+      {Key::K9,          "\xc2\xb9"},
+      {Key::Backtick,    "\xc3\xa0"},
+      {Key::Tilde,       "\xc3\xbe"},
+      {Key::Backspace,   "\xc3\xbf"},
+      {Key::NONE,        nullptr},
+   };
+
+   const InputSpec is_Alt_altSendsEscape [] =
    {
       {Key::K0,          ESC "0"},
       {Key::K1,          ESC "1"},
-      // N.B.: Keys 2-8 generate special codes, do not override
+      {Key::K2,          ESC "2"},
+      {Key::K3,          ESC "3"},
+      {Key::K4,          ESC "4"},
+      {Key::K5,          ESC "5"},
+      {Key::K6,          ESC "6"},
+      {Key::K7,          ESC "7"},
+      {Key::K8,          ESC "8"},
       {Key::K9,          ESC "9"},
+      {Key::Backtick,    ESC "`"},
+      {Key::Tilde,       ESC "~"},
       {Key::Backspace,   ESC "\x7f"},
+      {Key::Space,       ESC " "},
       {Key::Tab,         ESC "\t"},
+      {Key::NONE,        nullptr},
+   };
+
+   const InputSpec is_Control_modOtherKeys [] =
+   {
+      {Key::K0,          CSI "27;" MC ";48~"},
+      {Key::K1,          CSI "27;" MC ";49~"},
+      {Key::K9,          CSI "27;" MC ";57~"},
+      {Key::Tab,         CSI "27;" MC ";9~"},
+      {Key::Return,      CSI "27;" MC ";13~"},
+      {Key::NONE,        nullptr},
+   };
+
+   const InputSpec is_ControlAlt_altSendsEscape [] =
+   {
+      {Key::K2,          ESC "\x00", 2},
+      {Key::K3,          ESC "\x1b", 2},
+      {Key::K4,          ESC "\x1c", 2},
+      {Key::K5,          ESC "\x1d", 2},
+      {Key::K6,          ESC "\x1e", 2},
+      {Key::K7,          ESC "\x1f", 2},
+      {Key::K8,          ESC "\x7f", 2},
+      {Key::Backtick,    ESC "\x00", 2},
+      {Key::Tilde,       ESC "\x1e", 2},
+      {Key::Space,       ESC "\x00", 2},
       {Key::NONE,        nullptr},
    };
 
    const InputSpec is_Control [] =
    {
-      {Key::K0,          CSI "27;5;48~"},
-      {Key::K1,          CSI "27;5;49~"},
-      // N.B.: Keys 2-8 generate special codes, do not override
-      {Key::K9,          CSI "27;5;57~"},
-      {Key::Tab,         CSI "27;5;9~"},
-      {Key::Return,      CSI "27;5;13~"},
+      {Key::K2,          "\x00", 1},
+      {Key::K3,          "\x1b", 1},
+      {Key::K4,          "\x1c", 1},
+      {Key::K5,          "\x1d", 1},
+      {Key::K6,          "\x1e", 1},
+      {Key::K7,          "\x1f", 1},
+      {Key::K8,          "\x7f", 1},
+      {Key::Backtick,    "\x00", 1},
+      {Key::Tilde,       "\x1e", 1},
+      {Key::Space,       "\x00", 1},
       {Key::NONE,        nullptr},
    };
 
@@ -59,8 +132,17 @@ namespace
    {
       {Key::K0,          "0"},
       {Key::K1,          "1"},
-      // N.B.: Keys 2-8 generate special codes, do not override
+      {Key::K2,          "2"},
+      {Key::K3,          "3"},
+      {Key::K4,          "4"},
+      {Key::K5,          "5"},
+      {Key::K6,          "6"},
+      {Key::K7,          "7"},
+      {Key::K8,          "8"},
       {Key::K9,          "9"},
+      {Key::Backtick,    "`"},
+      {Key::Tilde,       "~"},
+      {Key::Space,       " "},
       {Key::Backspace,   "\x7f"},
       {Key::Tab,         "\t"},
       {Key::Return,      "\r"},
@@ -310,7 +392,7 @@ namespace
    #undef CSI
    #undef SS3
 
-   uint8_t
+   inline uint8_t
    getModifierCode (VtModifier modifiers)
    {
       switch (modifiers)
@@ -621,21 +703,107 @@ namespace zutty
       const auto& spec = getInputSpec (key);
       if (modifiers == VtModifier::none)
       {
-         return writePty (spec.input, true);
+         return writePty ((const uint8_t *)spec.input, spec.getLength (), true);
       }
       else
       {
          // substitute the MC token with the actual modifier code
-         static char buf [32];
+         static uint8_t buf [32];
          int k = 0;
-         for (const char* p = spec.input; *p != '\0'; ++p)
+         const char* end = spec.input + spec.getLength ();
+         for (const char* p = spec.input; p != end; ++p)
             if (*p == *MC)
                buf [k++] = '0' + getModifierCode (modifiers);
             else
                buf [k++] = *p;
          buf [k] = '\0';
-         return writePty (buf, true);
+         return writePty (buf, k, true);
       }
+   }
+
+   int
+   Vterm::writePty (uint8_t ch, VtModifier modifiers, bool userInput)
+   {
+      auto uch = (unsigned char*)&ch;
+      logT << "pty write (mod=" << (int)modifiers << "): "
+           << dumpBuffer (uch, uch + 1);
+
+      if ((modifyOtherKeys == 2 && modifiers != VtModifier::none) ||
+          (modifyOtherKeys == 1 &&
+           (modifiers & VtModifier::control) != VtModifier::none &&
+           ch > ' '))
+      {
+         if (ch < ' ' &&
+             (modifiers & VtModifier::control) != VtModifier::none)
+         {
+            const char* ctrlmap =
+               ((modifiers & VtModifier::shift) != VtModifier::none)
+               ? "@ABCDEFGHIJKLMNOPQRSTUVWXYZ3|5^78"
+               : " abcdefghijklmnopqrstuvwxyz3\\5^78";
+            ch = ctrlmap [ch];
+         }
+
+         uint8_t wbuf [16] = { '\e', '[', '2', '7', ';', '_', ';' };
+         wbuf [5] = '0' + getModifierCode (modifiers);
+         uint8_t pos = 7;
+
+         if (ch > 99)
+         {
+            wbuf [pos] = ch / 100;
+            ch -= 100 * wbuf [pos];
+            wbuf [pos] += '0';
+            ++pos;
+         }
+         if (pos > 7 || ch > 9)
+         {
+            wbuf [pos] = ch / 10;
+            ch -= 10 * wbuf [pos];
+            wbuf [pos] += '0';
+            ++pos;
+         }
+         wbuf [pos++] = '0' + ch;
+         wbuf [pos++] = '~';
+         wbuf [pos] = '\0';
+
+         return writePty (wbuf, pos, userInput);
+      }
+      else if ((modifiers & VtModifier::alt) != VtModifier::none)
+      {
+         if (altSendsEscape)
+         {
+            static uint8_t wbuf [2] = { '\e', '\0' };
+            wbuf [1] = ch;
+            return writePty (wbuf, 2, userInput);
+         }
+         else
+         {
+            std::vector <char> utf8_out;
+            auto sinkFn = [&] (char ch) { utf8_out.push_back (ch); };
+            Utf8Encoder::pushUnicode (ch | 0x80, sinkFn);
+            return writePty ((const uint8_t *)utf8_out.data (),
+                             utf8_out.size (), userInput);
+         }
+      }
+      else
+      {
+         return writePty (uch, 1, userInput);
+      }
+   }
+
+   int
+   Vterm::writePty (const char* cstr, bool userInput)
+   {
+      auto ucstr = (unsigned char *)cstr;
+      return writePty (ucstr, strlen (cstr), userInput);
+   }
+
+   int
+   Vterm::writePty (const uint8_t* ucstr, size_t len, bool userInput)
+   {
+      logT << "pty write: " << dumpBuffer (ucstr, ucstr + len);
+      if (userInput && localEcho)
+         processInput (getLocalEcho (ucstr, ucstr + len));
+      return write (ptyFd, ucstr, len);
    }
 
    using Key = VtKey;
@@ -650,13 +818,33 @@ namespace zutty
            is_ReturnKey_ANL
          },
 
+         { [this] () { return (modifyOtherKeys == 2 &&
+                               modifiers != Mod::none); },
+           is_modOtherKeys2
+         },
+
          { [this] () { return ((modifiers & Mod::alt) != Mod::none &&
                                bkspSendsDel == false); },
            is_Alt_BackspaceKey_BkSp
          },
 
+         { [this] () { return (altSendsEscape &&
+                               (modifiers & Mod::control_alt) == Mod::control_alt); },
+           is_ControlAlt_altSendsEscape
+         },
+
+         { [this] () { return (altSendsEscape &&
+                               (modifiers & Mod::alt) != Mod::none); },
+           is_Alt_altSendsEscape
+         },
+
          { [this] () { return ((modifiers & Mod::alt) != Mod::none); },
            is_Alt
+         },
+
+         { [this] () { return (modifyOtherKeys > 0 &&
+                               (modifiers & Mod::control) != Mod::none); },
+           is_Control_modOtherKeys
          },
 
          { [this] () { return ((modifiers & Mod::control) != Mod::none); },

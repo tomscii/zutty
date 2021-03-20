@@ -24,12 +24,12 @@ namespace zutty
    {
       NONE,
 
-      Return, Backspace, Tab,
+      Space, Return, Backspace, Tab, Backtick, Tilde,
       Up, Down, Left, Right,
       Insert, Delete, Home, End, PageUp, PageDown,
       F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
       F13, F14, F15, F16, F17, F18, F19, F20,
-      K0, K1, K9,
+      K0, K1, K2, K3, K4, K5, K6, K7, K8, K9,
 
       KP_F1, KP_F2, KP_F3, KP_F4,
       KP_Insert, KP_Delete,
@@ -99,12 +99,19 @@ namespace zutty
       {
          VtKey key;
          const char * input;
+         size_t length = 0;
+
+         size_t getLength () const
+         {
+            return length ? length : strlen (input);
+         }
       };
 
+      int writePty (VtKey key, VtModifier modifiers = VtModifier::none);
       int writePty (uint8_t ch, VtModifier modifiers = VtModifier::none,
                     bool userInput = false);
       int writePty (const char* cstr, bool userInput = false);
-      int writePty (VtKey key, VtModifier modifiers = VtModifier::none);
+      int writePty (const uint8_t* ucstr, size_t len, bool userInput = false);
 
       void readPty ();
 
@@ -358,6 +365,8 @@ namespace zutty
       bool localEcho = false;
       bool bracketedPasteMode = false;
       bool altScrollMode = false;
+      bool altSendsEscape = true;
+      uint8_t modifyOtherKeys = 1;
 
       bool horizMarginMode = false;
       uint16_t nColsEff = 0;

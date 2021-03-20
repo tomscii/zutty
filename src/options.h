@@ -80,29 +80,32 @@ namespace zutty
 #undef SkipL
 
    static const std::vector <ResourceDesc> resourceTable = {
-      // resource    hardDefault    helpDescr
-      {"color0",     "#000000",     "Palette color 0"},
-      {"color1",     "#cd0000",     "Palette color 1"},
-      {"color2",     "#00cd00",     "Palette color 2"},
-      {"color3",     "#cdcd00",     "Palette color 3"},
-      {"color4",     "#0000ee",     "Palette color 4"},
-      {"color5",     "#cd00cd",     "Palette color 5"},
-      {"color6",     "#00cdcd",     "Palette color 6"},
-      {"color7",     "#e5e5e5",     "Palette color 7"},
-      {"color8",     "#7f7f7f",     "Palette color 8"},
-      {"color9",     "#ff0000",     "Palette color 9"},
-      {"color10",    "#00ff00",     "Palette color 10"},
-      {"color11",    "#ffff00",     "Palette color 11"},
-      {"color12",    "#5c5cff",     "Palette color 12"},
-      {"color13",    "#ff00ff",     "Palette color 13"},
-      {"color14",    "#00ffff",     "Palette color 14"},
-      {"color15",    "#ffffff",     "Palette color 15"},
+      // resource           hardDefault    helpDescr
+      {"altSendsEscape",    "true",        "Encode Alt key as ESC prefix"},
+      {"modifyOtherKeys",   "1",           "Key modifier encoding level; 0..2"},
+      {"color0",            "#000000",     "Palette color 0"},
+      {"color1",            "#cd0000",     "Palette color 1"},
+      {"color2",            "#00cd00",     "Palette color 2"},
+      {"color3",            "#cdcd00",     "Palette color 3"},
+      {"color4",            "#0000ee",     "Palette color 4"},
+      {"color5",            "#cd00cd",     "Palette color 5"},
+      {"color6",            "#00cdcd",     "Palette color 6"},
+      {"color7",            "#e5e5e5",     "Palette color 7"},
+      {"color8",            "#7f7f7f",     "Palette color 8"},
+      {"color9",            "#ff0000",     "Palette color 9"},
+      {"color10",           "#00ff00",     "Palette color 10"},
+      {"color11",           "#ffff00",     "Palette color 11"},
+      {"color12",           "#5c5cff",     "Palette color 12"},
+      {"color13",           "#ff00ff",     "Palette color 13"},
+      {"color14",           "#00ffff",     "Palette color 14"},
+      {"color15",           "#ffffff",     "Palette color 15"},
    };
 
    struct Options
    {
       // N.B.: no static initializers - will decode hardDefault fields above!
       uint8_t fontsize;
+      uint8_t modifyOtherKeys;
       uint16_t border;
       uint16_t nCols;
       uint16_t nRows;
@@ -117,6 +120,7 @@ namespace zutty
       Color cr;
       Color fg;
       bool altScrollMode;
+      bool altSendsEscape;
       bool autoCopyMode;
       bool boldColors;
       bool glinfo;
@@ -135,7 +139,9 @@ namespace zutty
       void printResources () const;
 
       // getters for resources not automatically parsed by parse ()
+      bool getBool (const char* name, bool defaultValue = false);
       void getColor (const char* name, zutty::Color& outColor);
+      int getInteger (const char* name, int min, int max);
    };
 
 } // namespace zutty
