@@ -65,6 +65,7 @@ namespace zutty
       {"glinfo",      NoArg,    "true",    "false",   "Print OpenGL information"},
       {"help",        NoArg,    "true",    "false",   "Print usage listing and quit"},
       {"listres",     NoArg,    "true",    "false",   "Print resource listing and quit"},
+      {"login",       NoArg,    "true",    "false",   "Start shell as a login shell"},
       {"name",        SepArg,   nullptr,   nullptr,   "Instance name for Xrdb and WM_CLASS"},
       {"rv",          NoArg,    "true",    "false",   "Reverse video"},
       {"saveLines",   SepArg,   nullptr,   "500",     "Lines of scrollback history"},
@@ -124,6 +125,7 @@ namespace zutty
       bool autoCopyMode;
       bool boldColors;
       bool glinfo;
+      bool login;
       bool showWraps;
       bool quiet;
       bool rv;

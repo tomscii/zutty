@@ -272,6 +272,26 @@ validateShell (char* progPath)
 }
 
 static void
+setArgv0 (char* argv0)
+{
+   const char* shbase = strrchr (opts.shell, '/');
+   if (shbase)
+      ++shbase;
+   else
+      shbase = opts.shell;
+
+   if (opts.login)
+   {
+      argv0 [0] = '-';
+      strncpy (argv0 + 1, shbase, PATH_MAX-2);
+   }
+   else
+   {
+      strncpy (argv0, shbase, PATH_MAX-1);
+   }
+}
+
+static void
 sighandler (int sig, siginfo_t* info, void* ucontext)
 {
    if (sig == SIGCHLD)
@@ -309,7 +329,7 @@ setupSignals ()
 }
 
 static int
-startShell (const char* const argv[])
+startShell (const char* execPath, const char* const argv[])
 {
    int ptyFd;
    pid_t pid;
@@ -327,8 +347,8 @@ startShell (const char* const argv[])
       if (setenv ("TERM", "xterm-256color", 1) < 0)
          SYS_ERROR ("setenv TERM");
 
-      if (execvp (argv [0], (char * const *) argv) < 0)
-         SYS_ERROR ("execvp of ", argv [0]);
+      if (execvp (execPath, (char * const *) argv) < 0)
+         SYS_ERROR ("execvp of ", execPath);
    }
    else // parent:
    {
@@ -1174,22 +1194,26 @@ main (int argc, char* argv[])
    if (setenv ("ZUTTY_VERSION", ZUTTY_VERSION, 1) < 0)
       SYS_ERROR ("setenv (ZUTTY_VERSION)");
 
+   char argv0 [PATH_MAX];
    char progPath [PATH_MAX];
-   strncpy (progPath, opts.shell, PATH_MAX-1);
-   char* defaultShArgv [] = { progPath, nullptr };
+   char* defaultShArgv [] = { argv0, nullptr };
    char** shArgv = defaultShArgv;
-   if (argc > 1 && strcmp (argv [1], "-e") == 0)
+   if (argc > 2 && strcmp (argv [1], "-e") == 0)
    {
       shArgv = argv + 2;
       opts.title = argv [2];
+      strncpy (progPath, argv [2], PATH_MAX-1);
    }
    else if (argc == 2)
    {
+      setArgv0 (argv0);
       strncpy (progPath, argv [1], PATH_MAX-1);
       validateShell (progPath);
    }
    else
    {
+      setArgv0 (argv0);
+      strncpy (progPath, opts.shell, PATH_MAX-1);
       validateShell (progPath);
    }
 
@@ -1293,7 +1317,7 @@ main (int argc, char* argv[])
       fontpk.get ());
 
    setupSignals ();
-   int ptyFd = startShell (shArgv);
+   int ptyFd = startShell (progPath, shArgv);
    vt = std::make_unique <Vterm> (fontpk->getPx (), fontpk->getPy (),
                                   winWidth, winHeight, ptyFd);
    vt->setRefreshHandler ([] (const zutty::Frame& f) { renderer->update (f); });

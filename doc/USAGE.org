@@ -191,6 +191,7 @@ To view the list of options, issue =zutty -h= (short for =-help=):
 :   -glinfo       Print OpenGL information
 :   -help         Print usage listing and quit
 :   -listres      Print resource listing and quit
+:   -login        Start shell as a login shell
 :   -name         Instance name for Xrdb and WM_CLASS
 :   -rv           Reverse video
 :   -saveLines    Lines of scrollback history (default: 500)
@@ -206,13 +207,13 @@ it's fine to write =-d= short for =-display=, =-gl= for =-glinfo=,
 =-fontp= for =-fontpath=, =-t= for =-title=, =-q= for =-quiet=, etc.
 
 Boolean options (=-altScroll=, =-autoCopy=, =-boldColors=, =-glinfo=,
-=-rv=, =-showWraps=, =-quiet=, =-verbose=) do not expect an argument;
-the mere presence of these options amounts to a setting of "true". To
-set them to "false", change the leading dash to a plus sign. For
-example, =+boldColors= will /disable/ the "boldColors" option (which
-is enabled by default). This might also be useful to override an
-option that is by default false, but has been set to true in the X
-resource database (see [[Persistent configuration]]).
+=-login=, =-rv=, =-showWraps=, =-quiet=, =-verbose=) do not expect an
+argument; the mere presence of these options amounts to a setting of
+"true". To set them to "false", change the leading dash to a plus
+sign. For example, =+boldColors= will /disable/ the "boldColors"
+option (which is enabled by default). This might also be useful to
+override an option that is by default false, but has been set to true
+in the X resource database (see [[Persistent configuration]]).
 
 All other options expect exactly one argument, with the exception of
 =-e=, which must be the last option, to be followed by the command
@@ -312,47 +313,6 @@ Adjusting the column width will have a similar (proportional) effect;
 Note that the alternate screen buffer does not have scrollback; this
 is by design and in conformance with the relevant specs (but see
 =-altScroll= for enabling synthetic up- and down-arrow key events).
-
-:   -shell        Shell program to run
-
-Specify the shell program to run in the terminal. As a bit of special
-syntax, this option can be passed both as a regular option (=-shell
-bash= anywhere among other options), or just the shell itself (=bash=)
-at the end of the command line, mutually exclusive with using the =-e=
-option. If both forms are present, the last item on the command line
-will take precedence over the value supplied after =-shell=.
-
-The algorithm to resolve the executable to spawn resembles the
-behaviour of =xterm=, and follows these steps:
-
-0. Start with the value of =shell= (the last argument given after all
-   valid options, if present, or the value supplied after =-shell=).
-   In case no =shell= argument is given, the =Zutty.shell= resource is
-   consulted; if that is not set, the value of the =SHELL= environment
-   variable is used; if that is not set, the built-in default of
-   =bash= is assumed.
-1. If not already an absolute path, resolve this to an absolute path
-   taking =PATH= into account, trying elements of the list of =PATH=
-   entries until the given shell resolves to an existing file at that
-   path.
-2. Fall back on the =SHELL= environment variable, then the user's
-   =/etc/passwd= shell entry, if the above did not result in any
-   candidate.
-3. Use =/bin/sh= as a last resort.
-4. Validate the outcome of the above steps against the permitted shell
-   entries found in =/etc/shells=. Proceed, but clear =SHELL= from the
-   environment if the program is not listed as a valid shell.  Else,
-   set =SHELL= to the resolved full program path.
-
-:   -e            Command line to run
-
-This option specifies the command line (program and arguments) to be
-run in the Zutty terminal window. It also sets the window title to the
-basename of the program to be executed.
-
-Note that this must be the last option on the command line, as
-everything after it will be passed verbatim to the spawned child
-process.
 
 :   -quiet        Silence logging output [boolean]
 :   -verbose      Output info messages [boolean]
@@ -460,6 +420,69 @@ Set the title of the Zutty window. This might be overridden by usage
 of the =-e= option (setting the title to the basename of the program
 to be run), or at any later time by escape sequences output by the
 shell (or any program executed by it).
+
+** Shell/command specification
+
+:   -login        Start shell as a login shell [boolean]
+
+When this option is enabled, the shell started by Zutty will be a
+login shell. This will be signalled to the shell process by setting
+its =argv [0]= to begin with a dash (=-=). Shells evaluate different
+sets of startup files depending on this (e.g., =bash= sources
+=/etc/profile= and =~/.bash_profile= if started as a login shell, but
+sources =~/.bashrc= otherwise). Please consult the documentation of
+your shell for accurate details.
+
+When using the =-e= option, this option will be ignored, because =-e=
+is supposed to be used to launch non-shell text-mode programs in a
+terminal window, and manipulating the =argv [0]= of such programs
+might interfere with their operation.
+
+:   -shell        Shell program to run
+
+Specify the shell program to run in the terminal. As a bit of special
+syntax, this option can be passed both as a regular option (=-shell
+bash= anywhere among a list of other options), or just the shell
+itself (=bash=) as the last item on the command line. Either way, this
+option is mutually exclusive with using the =-e= option. If both forms
+are present, the last item on the command line will take precedence
+over the value supplied after =-shell=.
+
+The algorithm to resolve the executable to spawn resembles the
+behaviour of =xterm=, and follows these steps:
+
+0. Start with the value of =shell= (the last argument given after all
+   valid options, if present, or the value supplied after =-shell=).
+   In case no =shell= argument is given, the =Zutty.shell= resource is
+   consulted; if that is not set, the value of the =SHELL= environment
+   variable is used; if that is not set, the built-in default of
+   =bash= is assumed.
+1. If not already an absolute path, resolve this to an absolute path
+   taking =PATH= into account, trying elements of the list of =PATH=
+   entries until the given shell resolves to an existing file at that
+   path.
+2. Fall back on the =SHELL= environment variable, then the user's
+   =/etc/passwd= shell entry, if the above did not result in any
+   candidate.
+3. Use =/bin/sh= as a last resort.
+4. Validate the outcome of the above steps against the permitted shell
+   entries found in =/etc/shells=. Proceed, but clear =SHELL= from the
+   environment if the program is not listed as a valid shell.  Else,
+   set =SHELL= to the resolved full program path.
+
+:   -e            Command line to run
+
+This option specifies the command line (program and arguments) to be
+run in the Zutty terminal window. It also sets the window title to the
+basename of the program to be executed.
+
+Note that this must be the last option on the command line, as
+everything after it will be passed verbatim to the spawned child
+process.
+
+Using this option is mutually exclusive with the =-shell= option, and
+will silently override it, as well as discarding the =-login= option,
+if any of those are also present.
 
 ** Font selection
 

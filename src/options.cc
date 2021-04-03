@@ -321,6 +321,7 @@ namespace zutty
          altSendsEscape = getBool ("altSendsEscape");
          autoCopyMode = getBool ("autoCopy");
          boldColors = getBool ("boldColors");
+         login = getBool ("login");
          showWraps = getBool ("showWraps");
          quiet = getBool ("quiet");
          verbose = getBool ("verbose");
