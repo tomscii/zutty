@@ -107,11 +107,11 @@ namespace zutty
          }
       };
 
-      int writePty (VtKey key, VtModifier modifiers = VtModifier::none);
+      int writePty (VtKey key, VtModifier modifiers = VtModifier::none,
+                    bool userInput = false);
       int writePty (uint8_t ch, VtModifier modifiers = VtModifier::none,
                     bool userInput = false);
       int writePty (const char* cstr, bool userInput = false);
-      int writePty (const uint8_t* ucstr, size_t len, bool userInput = false);
 
       void readPty ();
 
@@ -137,6 +137,8 @@ namespace zutty
                                 const unsigned char *const end);
       void processInput (const unsigned char *const input, int size);
       void processInput (const std::string& str);
+
+      int writePty (const uint8_t* ucstr, size_t len, bool userInput = false);
 
       // table entry for deciding which set of InputSpecs to use
       struct InputSpecTable
@@ -363,6 +365,7 @@ namespace zutty
       bool altScreenBufferMode = false;
       bool autoWrapMode = true;
       bool autoNewlineMode = false;
+      bool keyboardLocked = false;
       bool insertMode = false;
       bool bkspSendsDel = true;
       bool localEcho = false;

@@ -241,6 +241,7 @@ namespace zutty
       showCursorMode = true;
       autoWrapMode = true;
       autoNewlineMode = false;
+      keyboardLocked = false;
       insertMode = false;
       bkspSendsDel = true;
       localEcho = false;
@@ -1339,11 +1340,12 @@ namespace zutty
 
          switch (arg)
          {
+         case 2: keyboardLocked = true; break;
          case 4: insertMode = true; break;
          case 12: localEcho = false; break;
          case 20: autoNewlineMode = true; break;
          default:
-            logU << "set mode " << arg << std::endl;
+            logW << "Ignored bogus set mode " << arg << std::endl;
             break;
          }
       }
@@ -1360,11 +1362,12 @@ namespace zutty
 
          switch (arg)
          {
+         case 2: keyboardLocked = false; break;
          case 4: insertMode = false; break;
          case 12: localEcho = true; break;
          case 20: autoNewlineMode = false; break;
          default:
-            logU << "reset mode " << arg << std::endl;
+            logW << "Ignored bogus reset mode " << arg << std::endl;
             break;
          }
       }

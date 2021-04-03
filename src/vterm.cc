@@ -690,7 +690,7 @@ namespace zutty
    }
 
    int
-   Vterm::writePty (VtKey key, VtModifier modifiers_)
+   Vterm::writePty (VtKey key, VtModifier modifiers_, bool userInput)
    {
 #ifdef DEBUG
       if (key == VtKey::Print)
@@ -703,7 +703,8 @@ namespace zutty
       const auto& spec = getInputSpec (key);
       if (modifiers == VtModifier::none)
       {
-         return writePty ((const uint8_t *)spec.input, spec.getLength (), true);
+         return writePty ((const uint8_t *)spec.input, spec.getLength (),
+                          userInput);
       }
       else
       {
@@ -717,7 +718,7 @@ namespace zutty
             else
                buf [k++] = *p;
          buf [k] = '\0';
-         return writePty (buf, k, true);
+         return writePty (buf, k, userInput);
       }
    }
 
@@ -800,6 +801,13 @@ namespace zutty
    int
    Vterm::writePty (const uint8_t* ucstr, size_t len, bool userInput)
    {
+      if (userInput && keyboardLocked)
+      {
+         logT << "pty write: discarding due to keyboard lock (DECKAM): "
+              << dumpBuffer (ucstr, ucstr + len);
+         return len;
+      }
+
       logT << "pty write: " << dumpBuffer (ucstr, ucstr + len);
       if (userInput && localEcho)
          processInput (getLocalEcho (ucstr, ucstr + len));

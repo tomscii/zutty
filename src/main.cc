@@ -439,7 +439,7 @@ onKeyPress (XEvent& event, XIC& xic, int ptyFd)
    {
 #define KEYSEND(XKey, VtKey)                    \
       case XKey:                                \
-         vt->writePty (VtKey, mod);             \
+         vt->writePty (VtKey, mod, true);       \
          return false
 
       KEYSEND (XK_0,                Key::K0);
