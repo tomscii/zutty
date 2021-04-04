@@ -354,6 +354,8 @@ function SPECIAL_KEYS {
     IN "Shift-Space \S  \D2"
     IN "Shift-Tab: \[ISO_Left_Tab] \D2"
     IN "Ctrl-Return: \C\[Return] \D2"
+    IN "Ctrl-Shift-Return: \C\S\[Return] \D2"
+    IN "Ctrl-Alt-Return: \C\A\[Return] \D2"
     IN "Ctrl-Space: \C  \D2"
     IN "Ctrl-Alt-Space: \C\A  \D2"
     IN "Ctrl-Shift-Space: \C\S  \D2"
@@ -384,11 +386,12 @@ function SPECIAL_KEYS {
     IN "Ctrl-;: \C; \D2"
     IN "Ctrl-:: \C: \D2"
     IN "Ctrl-~: \C~ \D2"
+    IN "Alt-Return: \A\[Return] \D2"
     IN "Alt-Space: \A  \D2"
     IN "Alt-Tab: \A\[Tab] \D2"
     IN "Alt-x: \Ax \D2"
 
-    SNAP keys_11 4b47a4ad309ab017ca35fa47bb33ab5a
+    SNAP keys_11 6996bc176201764d2f5c4a0eb636a46b
 
     IN "\Cd\Cd\D3"
 
@@ -400,6 +403,8 @@ function SPECIAL_KEYS {
     IN "shift-space \S  \D2"
     IN "shift-tab \[ISO_Left_Tab] \D2"
     IN "ctrl-return \C\[Return] \D2"
+    IN "ctrl-shift-return \C\S\[Return] \D2"
+    IN "ctrl-alt-return \C\A\[Return] \D2"
     IN "ctrl-space \C  \D2"
     IN "ctrl-alt-space \C\A  \D2"
     IN "ctrl-shift-space \C\S  \D2"
@@ -433,11 +438,12 @@ function SPECIAL_KEYS {
     IN "ctrl-\\\\ \C\\\\ \D2"
     IN "ctrl-| \C| \D2"
     IN "ctrl-~ \C~ \D2"
+    IN "alt-return \A\[Return] \D2"
     IN "alt-space \A  \D2"
     IN "alt-tab \A\[Tab] \D2"
     IN "alt-x \Ax \D2"
 
-    SNAP keys_12 a17ffab4b4374784dad2829af30525c6
+    SNAP keys_12 f78867124a75ecdd5a7583553c0b2808
 
     IN "\Cd\Cd\D3"
 }

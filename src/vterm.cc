@@ -39,6 +39,7 @@ namespace
       {Key::Backtick,    CSI "27;" MC ";96~"},
       {Key::Tilde,       CSI "27;" MC ";126~"},
       {Key::Tab,         CSI "27;" MC ";9~"},
+      {Key::Return,      CSI "27;" MC ";13~"},
       {Key::Space,       CSI "27;" MC ";32~"},
       {Key::Backspace,   CSI "27;" MC ";127~"},
       {Key::NONE,        nullptr},
@@ -79,6 +80,7 @@ namespace
       {Key::Backspace,   ESC "\x7f"},
       {Key::Space,       ESC " "},
       {Key::Tab,         ESC "\t"},
+      {Key::Return,      ESC "\n"},
       {Key::NONE,        nullptr},
    };
 
@@ -88,7 +90,6 @@ namespace
       {Key::K1,          CSI "27;" MC ";49~"},
       {Key::K9,          CSI "27;" MC ";57~"},
       {Key::Tab,         CSI "27;" MC ";9~"},
-      {Key::Return,      CSI "27;" MC ";13~"},
       {Key::NONE,        nullptr},
    };
 
@@ -125,6 +126,12 @@ namespace
    const InputSpec is_Shift [] =
    {
       {Key::Tab,         CSI "Z"},
+      {Key::NONE,        nullptr},
+   };
+
+   const InputSpec is_modOtherKeys [] =
+   {
+      {Key::Return,      CSI "27;" MC ";13~"},
       {Key::NONE,        nullptr},
    };
 
@@ -826,14 +833,23 @@ namespace zutty
            is_ReturnKey_ANL
          },
 
+         { [this] () { return ((modifiers & Mod::alt) != Mod::none &&
+                               bkspSendsDel == false); },
+           is_Alt_BackspaceKey_BkSp
+         },
+
          { [this] () { return (modifyOtherKeys == 2 &&
                                modifiers != Mod::none); },
            is_modOtherKeys2
          },
 
-         { [this] () { return ((modifiers & Mod::alt) != Mod::none &&
-                               bkspSendsDel == false); },
-           is_Alt_BackspaceKey_BkSp
+         { [this] () { return (modifyOtherKeys > 0 && modifiers != Mod::none); },
+           is_modOtherKeys
+         },
+
+         { [this] () { return (modifyOtherKeys > 0 &&
+                               (modifiers & Mod::control) != Mod::none); },
+           is_Control_modOtherKeys
          },
 
          { [this] () { return (altSendsEscape &&
@@ -848,11 +864,6 @@ namespace zutty
 
          { [this] () { return ((modifiers & Mod::alt) != Mod::none); },
            is_Alt
-         },
-
-         { [this] () { return (modifyOtherKeys > 0 &&
-                               (modifiers & Mod::control) != Mod::none); },
-           is_Control_modOtherKeys
          },
 
          { [this] () { return ((modifiers & Mod::control) != Mod::none); },
