@@ -1230,16 +1230,20 @@ main (int argc, char* argv[])
       return -1;
    }
 
-    bool localeSupport = XSupportsLocale();
-    if (localeSupport)
-    {
-       modifiers = XSetLocaleModifiers ("@im=none");
-       if (modifiers == nullptr)
-       {
-          logE << "XSetLocaleModifiers() failed" << std::endl;
-          return -1;
-       }
-    }
+   bool localeSupport = XSupportsLocale();
+   if (localeSupport)
+   {
+      modifiers = XSetLocaleModifiers ("@im=none");
+      if (modifiers == nullptr)
+      {
+         logE << "XSetLocaleModifiers() failed" << std::endl;
+         return -1;
+      }
+   }
+   else
+   {
+      logW << "No locale support" << std::endl;
+   }
 
    xim = XOpenIM (xDisplay, nullptr, nullptr, nullptr);
    if (xim == nullptr)
