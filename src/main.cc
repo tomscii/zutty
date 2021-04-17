@@ -1134,7 +1134,6 @@ main (int argc, char* argv[])
    XIM xim;
    XIMStyles* ximStyles;
    XIMStyle ximStyle = 0;
-   char* modifiers;
    char* imvalret;
    int i;
 
@@ -1227,13 +1226,6 @@ main (int argc, char* argv[])
    if (!eglInitialize (eglDpy, &eglMajor, &eglMinor))
    {
       logE << "eglInitialize() failed" << std::endl;
-      return -1;
-   }
-
-   modifiers = XSetLocaleModifiers ("@im=none");
-   if (modifiers == nullptr)
-   {
-      logE << "XSetLocaleModifiers() failed" << std::endl;
       return -1;
    }
 
