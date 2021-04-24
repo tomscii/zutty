@@ -15,6 +15,7 @@
 #include <X11/keysym.h>
 #include <X11/Xmu/Error.h>
 
+#include "base.h"
 #include "base64.h"
 #include "fontpack.h"
 #include "options.h"
@@ -54,6 +55,55 @@ static Display* xDisplay = nullptr;
 static Window xWindow;
 static Atom wmDeleteMessage;
 static XSizeHints sizeHints;
+static Colormap colormap;
+
+static void
+convertColor (const zutty::Color& color, XColor& xcolor)
+{
+   std::ostringstream oss;
+   oss << color;
+   if (XParseColor (xDisplay, colormap, oss.str ().c_str (), &xcolor) == 0)
+   {
+      logE << "XParseColor (): could not resolve " << oss.str () << std::endl;
+   }
+}
+
+static void
+setXCursor ()
+{
+   const static int cursorW = 9;
+   const static int cursorH = 16;
+   const static int cursorHotX = 4;
+   const static int cursorHotY = 7;
+   const static unsigned char cursorBits [] =
+   {
+      0x00, 0x00, 0xee, 0x00, 0x38, 0x00, 0x10, 0x00, 0x10, 0x00, 0x10, 0x00,
+      0x10, 0x00, 0x10, 0x00, 0x10, 0x00, 0x10, 0x00, 0x10, 0x00, 0x10, 0x00,
+      0x10, 0x00, 0x38, 0x00, 0xee, 0x00, 0x00, 0x00
+   };
+   const static unsigned char cursorMaskBits [] =
+   {
+      0xef, 0x01, 0xff, 0x01, 0xff, 0x01, 0x7c, 0x00, 0x38, 0x00, 0x38, 0x00,
+      0x38, 0x00, 0x38, 0x00, 0x38, 0x00, 0x38, 0x00, 0x38, 0x00, 0x38, 0x00,
+      0x7c, 0x00, 0xff, 0x01, 0xff, 0x01, 0xef, 0x01
+   };
+
+   XColor xc_fg;
+   convertColor (opts.fg, xc_fg);
+   XColor xc_bg;
+   convertColor (opts.bg, xc_bg);
+   Window root = DefaultRootWindow (xDisplay);
+   Pixmap pxcur = XCreateBitmapFromData (
+      xDisplay, root, (char *)cursorBits, cursorW, cursorH);
+   Pixmap pxmask = XCreateBitmapFromData(
+      xDisplay, root, (char *)cursorMaskBits, cursorW, cursorH);
+   Cursor cursor = XCreatePixmapCursor(
+      xDisplay, pxcur, pxmask, &xc_fg, &xc_bg, cursorHotX, cursorHotY);
+   XFreePixmap(xDisplay, pxcur);
+   XFreePixmap(xDisplay, pxmask);
+   XRecolorCursor (xDisplay, cursor, &xc_fg, &xc_bg);
+   XDefineCursor (xDisplay, xWindow, cursor);
+}
 
 static void
 makeXWindow (const char* name, int width, int height, int px, int py,
@@ -104,9 +154,10 @@ makeXWindow (const char* name, int width, int height, int px, int py,
    }
 
    // window attributes
+   colormap = XCreateColormap (xDisplay, root, visInfo->visual, AllocNone);
    attr.background_pixel = 0;
    attr.border_pixel = 0;
-   attr.colormap = XCreateColormap (xDisplay, root, visInfo->visual, AllocNone);
+   attr.colormap = colormap;
    attr.event_mask = StructureNotifyMask | ExposureMask | FocusChangeMask |
       PropertyChangeMask | KeyPressMask | ButtonPressMask | ButtonReleaseMask |
       PointerMotionMask;
@@ -191,6 +242,8 @@ makeXWindow (const char* name, int width, int height, int px, int py,
    }
 
    XFree (visInfo);
+
+   setXCursor ();
 }
 
 static void

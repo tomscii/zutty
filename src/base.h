@@ -30,7 +30,7 @@ namespace zutty
    };
 
    inline std::ostream&
-   operator << (std::ostream& os, Color& c)
+   operator << (std::ostream& os, const Color& c)
    {
       os << "rgb:" << std::hex << std::setfill('0')
          // N.B.: Output components as 32-bit for compatibility
