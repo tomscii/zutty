@@ -1401,8 +1401,8 @@ namespace zutty
          return;
       }
 
-      pX = std::min (std::max (0, pX), (int)winPx);
-      pY = std::min (std::max (0, pY), (int)winPy);
+      pX = std::min (std::max (0, pX - opts.border), winPx - 2 * opts.border);
+      pY = std::min (std::max (0, pY - opts.border), winPy - 2 * opts.border);
       Point pt (pX / glyphPx, pY / glyphPy);
 
       Rect& selection = cf->getSelection ();
@@ -1422,8 +1422,8 @@ namespace zutty
       logT << "selectExtend (" << pX << "," << pY
            << "), cycleSnapTo=" << cycleSnapTo << std::endl;
 
-      pX = std::min (std::max (0, pX), (int)winPx);
-      pY = std::min (std::max (0, pY), (int)winPy);
+      pX = std::min (std::max (0, pX - opts.border), winPx - 2 * opts.border);
+      pY = std::min (std::max (0, pY - opts.border), winPy - 2 * opts.border);
       Point pt (pX / glyphPx, pY / glyphPy);
 
       if (cycleSnapTo)
@@ -1463,8 +1463,8 @@ namespace zutty
    {
       logT << "selectUpdate (" << pX << "," << pY << ")" << std::endl;
 
-      pX = std::min (std::max (0, pX), (int)winPx);
-      pY = std::min (std::max (0, pY), (int)winPy);
+      pX = std::min (std::max (0, pX - opts.border), winPx - 2 * opts.border);
+      pY = std::min (std::max (0, pY - opts.border), winPy - 2 * opts.border);
       Point pt (pX / glyphPx, pY / glyphPy);
 
       Rect& selection = cf->getSelection ();
