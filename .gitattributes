@@ -1,1 +1,2 @@
 waf -diff
+icons/*.png -diff

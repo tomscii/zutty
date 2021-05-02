@@ -1,0 +1,27 @@
+These are the official Zutty icons, intended for people wishing to
+integrate Zutty into their graphical desktops, and for people
+wishing to package Zutty for such a desktop.
+
+The master icon is zutty.svg, created with Inkscape.
+
+Common rasterized images zutty_<size>.png are included. They were
+created by manually exporting the master from within Inkscape, with
+the target dimensions set. Feel free to create rasterized images in
+other dimensions, if needed.
+
+A simple (example) desktop file is also included.
+
+Normally, you would probably want to:
+
+- install zutty.desktop as:
+  /usr/share/applications/zutty.desktop
+
+- install zutty.svg as:
+  /usr/share/icons/hicolor/scalable/apps/zutty.svg
+
+- install the png versions as:
+  /usr/share/icons/hicolor/<res>/apps/zutty.png
+
+We do not endorse, nor support any particular desktop environment.
+The above resources and advice are provided strictly AS IS, just as
+the rest of Zutty.
