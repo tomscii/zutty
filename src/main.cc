@@ -919,9 +919,13 @@ x11Event (XEvent& event, XIC& xic, int ptyFd, bool& destroyed, bool& holdPtyIn)
       break;
    case ConfigureNotify:
       vt->resize (event.xconfigure.width, event.xconfigure.height);
-      sizeHints.width = event.xconfigure.width;
-      sizeHints.height = event.xconfigure.height;
-      XSetWMNormalHints (xDisplay, xWindow, &sizeHints);
+      if (sizeHints.width != event.xconfigure.width ||
+          sizeHints.height != event.xconfigure.height)
+      {
+         sizeHints.width = event.xconfigure.width;
+         sizeHints.height = event.xconfigure.height;
+         XSetWMNormalHints (xDisplay, xWindow, &sizeHints);
+      }
       redraw = true;
       break;
    case ReparentNotify:
