@@ -95,7 +95,8 @@ namespace
 
       if (strcasecmp (ext, ".ttf") != 0 &&
           strcasecmp (ext, ".otf") != 0 &&
-          strcasecmp (ext, ".pcf.gz") != 0)
+          strcasecmp (ext, ".pcf") != 0 &&
+          strcasecmp (ext, ".pcf.gz") != 0)	  
          return 0;
 
       // Filter by font name
