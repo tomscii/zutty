@@ -255,12 +255,6 @@ namespace zutty
             std::to_string (c));
       }
 
-      if (FT_Render_Glyph (face->glyph, FT_RENDER_MODE_NORMAL))
-         throw std::runtime_error (
-            std::string ("FreeType: Failed to render glyph for char ") +
-            std::to_string (c));
-
-
       // destination pixel offset
       const unsigned int dx = face->glyph->bitmap_left > 0
                             ? face->glyph->bitmap_left : 0;
