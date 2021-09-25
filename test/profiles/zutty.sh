@@ -22,3 +22,5 @@ export SUPPORTS_VT52=yes
 
 # set to non-empty to enable test paths that rely on VT220 support
 export SUPPORTS_VT220=yes
+
+export MISSING_ANSWERBACK=yes

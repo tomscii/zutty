@@ -228,17 +228,16 @@ namespace zutty
       void hideCursor ();
       void inputGraphicChar (unsigned char ch);
       void placeGraphicChar ();
-      void jumpToNextTabStop ();
+      void jumpToNextTabStop (bool charInput = false);
       void setFgFromPalIx ();
       void setBgFromPalIx ();
 
       // DEC control sequence handlers, prefixed with input state
-      void inp_LF ();        // Line Feed
-      void inp_CR ();        // Carriage Return
-      void inp_HT ();        // Horizontal Tab
-
+      void inp_LF (bool charInput = false);   // Line Feed
+      void inp_CR (bool charInput = false);   // Carriage Return
+      void inp_HT (bool charInput = false);   // Horizontal Tab
+      bool esc_IND (bool charInput = false);  // Index
       void esc_DCS (unsigned char fin); // Designate Character Set
-      bool esc_IND ();       // Index
       void esc_RI ();        // Reverse Index
       void esc_NEL ();       // Next Line
       void esc_BI ();        // Back Index

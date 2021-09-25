@@ -107,7 +107,7 @@ namespace zutty
          case '\v': os << "\\v"; break;
          case '\x7f': os << "\\x7f"; break; // DEL
          default:
-            if (*it < ' ')
+            if (*it < ' ' || *it >= 0x80)
                os << "\\x" << std::hex << std::setw(2) << std::setfill('0')
                   << (unsigned int)*it;
             else

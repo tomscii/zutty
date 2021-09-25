@@ -1020,11 +1020,11 @@ namespace zutty
                nInputOps = 1;
                lastEscBegin = readPos;
                break;
-            case '\r': traceNormalInput (); inp_CR (); break;
+            case '\r': traceNormalInput (); inp_CR (true); break;
             case '\f': // fall through, treat as LineFeed ('\n')
             case '\v': // fall through, treat as LineFeed ('\n')
-            case '\n': traceNormalInput (); esc_IND (); break;
-            case '\t': traceNormalInput (); inp_HT (); break;
+            case '\n': traceNormalInput (); esc_IND (true); break;
+            case '\t': traceNormalInput (); inp_HT (true); break;
             case '\b': traceNormalInput (); csi_CUB (); break;
             case '\a':
                traceNormalInput ();
@@ -1034,7 +1034,6 @@ namespace zutty
             case '\x0f': traceNormalInput (); charsetState.gl = 0; break;
             case '\x05': // ENQ - Enquiry
                traceNormalInput ();
-               writePty ("This is Zutty.\r\n");
                break;
             default: inputGraphicChar (ch);
             }
@@ -1273,10 +1272,10 @@ namespace zutty
                else
                   inputOps [nInputOps - 1] /= 10;
                break;
-            case '\t': inp_HT (); setState (InputState::CSI); break;
-            case '\r': inp_CR (); setState (InputState::CSI); break;
+            case '\t': inp_HT (true); setState (InputState::CSI); break;
+            case '\r': inp_CR (true); setState (InputState::CSI); break;
             case '\f': // fall through
-            case '\v': esc_IND (); setState (InputState::CSI); break;
+            case '\v': esc_IND (true); setState (InputState::CSI); break;
             default: unhandledInput (ch); break;
             }
             break;

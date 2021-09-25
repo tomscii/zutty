@@ -211,7 +211,7 @@ function VT_6 {
     if [ ! -z ${MISSING_ANSWERBACK} ] ; then
         IN "\r"
     fi
-    SNAP vt_06_01 319f8b46434cf041f48819205076829e
+    SNAP vt_06_01 c4fa4cd986bdecef7ca99e872b1e8ed6
     IN "\r"
     IN "2\r" # Set/Reset Mode - LineFeed / Newline
     IN "\r\D5\r"

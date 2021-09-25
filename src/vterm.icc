@@ -527,26 +527,26 @@ namespace zutty
     }
 
    inline void
-   Vterm::inp_LF ()
+   Vterm::inp_LF (bool charInput)
    {
       TRACE_FUN;
-      if (esc_IND ())
+      if (esc_IND (charInput))
          cf->eraseInRow (posY, posX, nColsEff - posX, attrs);
    }
 
    inline void
-   Vterm::inp_CR ()
+   Vterm::inp_CR (bool charInput)
    {
       TRACE_FUN;
       if (originMode == OriginMode::Absolute && posX < hMargin)
          posX = 0;
       else
          posX = hMargin;
-      curPosViaCharPlacement = false;
+      curPosViaCharPlacement = charInput;
    }
 
    inline void
-   Vterm::jumpToNextTabStop ()
+   Vterm::jumpToNextTabStop (bool charInput)
    {
       if (tabStops.empty ())
       {
@@ -564,20 +564,20 @@ namespace zutty
          auto ts = std::lower_bound (tabStops.begin (), tabStops.end (), posX);
          posX = (ts == tabStops.end ()) ? nCols - 1 : * ts;
       }
-      curPosViaCharPlacement = false;
+      curPosViaCharPlacement = charInput;
    }
 
    inline void
-   Vterm::inp_HT ()
+   Vterm::inp_HT (bool charInput)
    {
       TRACE_FUN;
       if (posX == nColsEff)
       {
-         esc_IND ();
-         inp_CR ();
+         esc_IND (charInput);
+         inp_CR (charInput);
       }
       else
-         jumpToNextTabStop ();
+         jumpToNextTabStop (charInput);
    }
 
    inline void
@@ -647,7 +647,7 @@ namespace zutty
    }
 
    inline bool
-   Vterm::esc_IND ()
+   Vterm::esc_IND (bool charInput)
    {
       TRACE_FUN;
       bool scrolled = false;
@@ -661,8 +661,8 @@ namespace zutty
       else if (posY < nRows - 1)
       {
          ++posY;
-         curPosViaCharPlacement = false;
       }
+      curPosViaCharPlacement = charInput;
       setState (InputState::Normal);
       return scrolled;
    }
