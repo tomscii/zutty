@@ -1194,6 +1194,17 @@ main (int argc, char* argv[])
    char* imvalret;
    int i;
 
+   if (argc > 1 && strcmp (argv [1], "--help") == 0)
+   {
+       opts.printUsage ();
+       exit(0);
+   }
+   if (argc > 1 && strcmp (argv [1], "--version") == 0)
+   {
+       opts.printVersion ();
+       exit(0);
+   }
+
    {
       const char* loc;
       bool warn = false;
