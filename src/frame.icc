@@ -197,9 +197,6 @@ namespace zutty
    inline void
    Frame::snapSelection (SelectSnapTo snapTo)
    {
-      if (selection.empty ())
-         return;
-
       if (selection.rectangular)
          return;
 

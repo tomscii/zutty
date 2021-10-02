@@ -149,9 +149,11 @@ long-time =xterm= users are familiar with.
 Zutty faithfully replicates what =xterm= has provided for a very long
 time: starting selections with the left button, adjusting them with
 the right button, and cycling between snap-to-char/word/line with
-double clicks. Compared with =xterm=, one notable difference is a
-built-in, simpler rule for word boundaries (as opposed to
-user-adjustable definitions of character classes).
+double clicks. This naturally yields the ability to select whole words
+with a double-click, and complete lines with a triple-click. Compared
+with =xterm=, one notable difference is a built-in, simpler rule for
+word boundaries (as opposed to user-adjustable definitions of
+character classes).
 
 It is possible to adjust the selection while navigating scrollback.
 Thus, the complete content of the screen buffer (page history plus
