@@ -510,6 +510,8 @@ namespace zutty
          inp_CR ();
          inp_LF ();
       }
+      else if (posX == nCols)
+         return;
 
       if (insertMode)
       {
@@ -527,26 +529,26 @@ namespace zutty
     }
 
    inline void
-   Vterm::inp_LF (bool charInput)
+   Vterm::inp_LF ()
    {
       TRACE_FUN;
-      if (esc_IND (charInput))
+      if (esc_IND ())
          cf->eraseInRow (posY, posX, nColsEff - posX, attrs);
    }
 
    inline void
-   Vterm::inp_CR (bool charInput)
+   Vterm::inp_CR ()
    {
       TRACE_FUN;
       if (originMode == OriginMode::Absolute && posX < hMargin)
          posX = 0;
       else
          posX = hMargin;
-      curPosViaCharPlacement = charInput;
+      curPosViaCharPlacement = false;
    }
 
    inline void
-   Vterm::jumpToNextTabStop (bool charInput)
+   Vterm::jumpToNextTabStop ()
    {
       if (tabStops.empty ())
       {
@@ -564,20 +566,20 @@ namespace zutty
          auto ts = std::lower_bound (tabStops.begin (), tabStops.end (), posX);
          posX = (ts == tabStops.end ()) ? nCols - 1 : * ts;
       }
-      curPosViaCharPlacement = charInput;
+      curPosViaCharPlacement = false;
    }
 
    inline void
-   Vterm::inp_HT (bool charInput)
+   Vterm::inp_HT ()
    {
       TRACE_FUN;
       if (posX == nColsEff)
       {
-         esc_IND (charInput);
-         inp_CR (charInput);
+         esc_IND ();
+         inp_CR ();
       }
       else
-         jumpToNextTabStop (charInput);
+         jumpToNextTabStop ();
    }
 
    inline void
@@ -647,7 +649,7 @@ namespace zutty
    }
 
    inline bool
-   Vterm::esc_IND (bool charInput)
+   Vterm::esc_IND ()
    {
       TRACE_FUN;
       bool scrolled = false;
@@ -661,8 +663,8 @@ namespace zutty
       else if (posY < nRows - 1)
       {
          ++posY;
+         curPosViaCharPlacement = false;
       }
-      curPosViaCharPlacement = charInput;
       setState (InputState::Normal);
       return scrolled;
    }
@@ -1095,6 +1097,7 @@ namespace zutty
    Vterm::csi_ED ()
    {
       TRACE_FUN;
+      normalizeCursorPos ();
       switch (inputOps [0])
       {
       case 0: // clear from cursor to end of screen
@@ -1123,6 +1126,7 @@ namespace zutty
    Vterm::csi_EL ()
    {
       TRACE_FUN;
+      normalizeCursorPos ();
       switch (inputOps [0])
       {
       case 0: // clear from cursor to end of line
