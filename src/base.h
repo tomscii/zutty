@@ -42,8 +42,8 @@ namespace zutty
 
    struct Point
    {
-      int x = 0;
-      int y = 0;
+      int x = -1;
+      int y = -1;
 
       Point () = default;
       Point (int x_, int y_): x (x_), y (y_) {}
@@ -77,6 +77,11 @@ namespace zutty
          tl (x, y), br (x + 1, y) {}
       Rect (int x1, int y1, int x2, int y2):
          tl (x1, y1), br (x2, y2) {}
+
+      bool null () const
+      {
+         return tl == Point () && br == Point ();
+      }
 
       bool empty () const
       {
