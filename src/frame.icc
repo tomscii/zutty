@@ -194,42 +194,6 @@ namespace zutty
       invalidateSelection (Rect (startX, dstY, startX + count, dstY));
    }
 
-   inline void
-   Frame::snapSelection (SelectSnapTo snapTo)
-   {
-      if (selection.null ())
-         return;
-
-      if (selection.rectangular)
-         return;
-
-      switch (snapTo)
-      {
-      case SelectSnapTo::Char:
-         break;
-      case SelectSnapTo::Word:
-      {
-         const auto* cp = getViewRowPtr (selection.tl.y);
-         while (selection.tl.x < nCols && cp [selection.tl.x].uc_pt == ' ')
-            ++selection.tl.x;
-         while (selection.tl.x > 0 && cp [selection.tl.x - 1].uc_pt != ' ')
-            --selection.tl.x;
-
-         cp = getViewRowPtr (selection.br.y);
-         while (selection.br.x > 0 && cp [selection.br.x].uc_pt == ' ')
-            --selection.br.x;
-         while (selection.br.x < nCols && cp [selection.br.x].uc_pt != ' ')
-            ++selection.br.x;
-      }
-         break;
-      case SelectSnapTo::Line:
-         selection.tl.x = 0;
-         selection.br.x = nCols;
-         break;
-      default: break;
-      }
-   }
-
    // private functions
 
    inline void

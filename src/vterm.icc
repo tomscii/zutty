@@ -115,7 +115,6 @@ namespace zutty
    inline void
    Vterm::redraw ()
    {
-      cf->snapSelection (selectSnapTo);
       onRefresh (* cf);
       cf->resetDamage ();
    }

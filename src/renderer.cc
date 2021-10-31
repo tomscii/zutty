@@ -88,7 +88,7 @@ namespace zutty
 
          charVdev->setDeltaFrame (delta);
          charVdev->setCursor (lastFrame.getCursor ());
-         charVdev->setSelection (lastFrame.getSelection ());
+         charVdev->setSelection (lastFrame.getSnappedSelection ());
 
          if (lastFrame.seqNo == nextFrame.seqNo)
          {

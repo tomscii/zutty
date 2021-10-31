@@ -1405,9 +1405,9 @@ namespace zutty
       Point pt (pX / glyphPx, pY / glyphPy);
 
       Rect& selection = cf->getSelection ();
+      cf->setSelectSnapTo (Frame::SelectSnapTo::Char);
       selection.tl = pt;
       selection.br = pt;
-      selectSnapTo = Frame::SelectSnapTo::Char;
       selectUpdatesTop = false;
       selectUpdatesLeft = false;
 
@@ -1425,10 +1425,9 @@ namespace zutty
       pY = std::min (std::max (0, pY - opts.border), winPy - 2 * opts.border);
       Point pt (pX / glyphPx, pY / glyphPy);
 
-      if (cycleSnapTo)
-         Frame::cycleSelectSnapTo (selectSnapTo);
-
       Rect& selection = cf->getSelection ();
+      if (cycleSnapTo)
+         cf->cycleSelectSnapTo ();
 
       if (selection.rectangular)
       {

@@ -64,6 +64,14 @@ namespace zutty
       }
    };
 
+   inline std::ostream&
+   operator << (std::ostream& os, const Point& p)
+   {
+      os << "(" << p.x << "," << p.y << ")";
+
+      return os;
+   }
+
    struct Rect
    {
       Point tl; // top left corner
@@ -104,5 +112,17 @@ namespace zutty
          rectangular = !rectangular;
       }
    };
+
+   inline std::ostream&
+   operator << (std::ostream& os, const Rect& r)
+   {
+      os << "Rect{tl=" << r.tl << " " << "br=" << r.br;
+      if (r.rectangular)
+         os << " rectangular}";
+      else
+         os << " regular}";
+
+      return os;
+   }
 
 } // namespace zutty

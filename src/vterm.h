@@ -443,7 +443,6 @@ namespace zutty
       SavedCursor_DEC savedCursor_DEC_alt;
       SavedCursor_DEC* savedCursor_DEC = &savedCursor_DEC_pri;
 
-      Frame::SelectSnapTo selectSnapTo = Frame::SelectSnapTo::Char;
       bool selectUpdatesTop = false;
       bool selectUpdatesLeft = false;
 

@@ -135,10 +135,50 @@ namespace zutty
       }
    }
 
+   Rect
+   Frame::getSnappedSelection () const
+   {
+      Rect ret = selection;
+
+      if (ret.null ())
+         return ret;
+
+      if (selection.rectangular)
+         return ret;
+
+      switch (snapTo)
+      {
+      case SelectSnapTo::Char:
+         break;
+      case SelectSnapTo::Word:
+      {
+         const auto* cp = getViewRowPtr (ret.tl.y);
+         while (ret.tl.x < nCols && cp [ret.tl.x].uc_pt == ' ')
+            ++ret.tl.x;
+         while (ret.tl.x > 0 && cp [ret.tl.x - 1].uc_pt != ' ')
+            --ret.tl.x;
+
+         cp = getViewRowPtr (ret.br.y);
+         while (ret.br.x > 0 && cp [ret.br.x].uc_pt == ' ')
+            --ret.br.x;
+         while (ret.br.x < nCols && cp [ret.br.x].uc_pt != ' ')
+            ++ret.br.x;
+      }
+         break;
+      case SelectSnapTo::Line:
+         ret.tl.x = 0;
+         ret.br.x = nCols;
+         break;
+      default: break;
+      }
+
+      return ret;
+   }
+
    bool
    Frame::getSelectedUtf8 (std::string& utf8_selection) const
    {
-      const Rect& sel = selection;
+      const Rect sel = getSnappedSelection ();
 
       if (sel.empty ())
          return false;

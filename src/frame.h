@@ -69,16 +69,13 @@ namespace zutty
       // selection state
       enum class SelectSnapTo: uint8_t
       {
-         Char = 0, Word = 1, Line = 2
+         Char = 0, Word, Line, COUNT
       };
-      static void cycleSelectSnapTo (SelectSnapTo& snapTo)
-      {
-         snapTo = static_cast <SelectSnapTo> (
-            (static_cast <uint8_t> (snapTo) + 1) % 3);
-      }
+      void setSelectSnapTo (SelectSnapTo snapTo_) { snapTo = snapTo_; };
+      void cycleSelectSnapTo () { snapTo = cycleSelectSnapTo (snapTo); };
       Rect& getSelection () { return selection; };
       const Rect& getSelection () const { return selection; };
-      void snapSelection (SelectSnapTo snapTo);
+      Rect getSnappedSelection () const;
       bool getSelectedUtf8 (std::string& utf8_selection) const;
 
       constexpr const static size_t cellSize = sizeof (CharVdev::Cell);
@@ -102,6 +99,7 @@ namespace zutty
       CharVdev::Cell::Ptr cells = nullptr;
       CharVdev::Cursor cursor;
       Rect selection;
+      SelectSnapTo snapTo = SelectSnapTo::Char;
 
       struct Damage
       {
@@ -130,6 +128,13 @@ namespace zutty
       void damageDeltaCopy (CharVdev::Cell* dst, uint32_t start, uint32_t count);
       void copyAllCells (CharVdev::Cell * const dest);
       void unwrapCellStorage ();
+
+      static SelectSnapTo cycleSelectSnapTo (SelectSnapTo& snapTo)
+      {
+         return static_cast <SelectSnapTo> (
+            (static_cast <uint8_t> (snapTo) + 1) %
+            static_cast <uint8_t> (SelectSnapTo::COUNT));
+      }
 
       void vscrollSelection (int vertOffset);
       void invalidateSelection (const Rect&& damage);
