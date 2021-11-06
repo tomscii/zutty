@@ -43,6 +43,10 @@ function BASIC_TEST {
 
     IN "\S\[Page_Down]\S\[Page_Down]\D1"
     SNAP scrollback_10 7db02afdd39f676edca19de71bbcfa84
+
+    IN "printf \"\\\\e[H\\\\e[3J\"\r" # clear display incl. scrollback
+    IN "\S\[Page_Up]\S\[Page_Up]\S\[Page_Up]\S\[Page_Up]\D1"
+    SNAP scrollback_11 96c997cd31ac8aa77cd419d08bcdad34
 }
 
 BASIC_TEST

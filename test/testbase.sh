@@ -53,13 +53,17 @@ export WHITE="\\e[1;37m"
 export DFLT="\\e[0;39m"
 export ERASE_PROMPT="\\eM\\e[J"
 
+function print_error {
+    printf "${RED}ERROR: $@${DFLT}\n"
+}
+
 function CHECK_DEPS {
     TOOLS="$@"; shift
     MISSING=0
     for t in ${TOOLS} ; do
         which $t >/dev/null
         if [ $? -gt 0 ] ; then
-            echo "ERROR: Missing dependency: $t"
+            print_error "Missing dependency: $t"
             MISSING=1
         fi
     done
@@ -73,7 +77,7 @@ function CHECK_FILES {
     MISSING=0
     for f in ${FILES} ; do
         if [ ! -f "$f" ] ; then
-            echo "ERROR: Missing file: $f"
+            print_error "Missing file: $f"
             MISSING=1
         fi
     done
@@ -87,7 +91,7 @@ function CHECK_EXE {
     MISSING=0
     for f in ${FILES} ; do
         if [ ! -x "$f" ] ; then
-            echo "ERROR: Missing executable: $f"
+            print_error "Missing executable: $f"
             MISSING=1
         fi
     done
@@ -97,7 +101,7 @@ function CHECK_EXE {
 }
 
 if [ ! -f "profiles/${PROFILE}.sh" ] ; then
-    echo "Could not load profile: ${PROFILE}"
+    print_error "Could not load profile: ${PROFILE}"
     echo -n "Available profiles:"
     for p in $(ls profiles/*.sh) ; do
         echo -n " $(basename -s .sh $p)"

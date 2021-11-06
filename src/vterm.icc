@@ -278,7 +278,7 @@ namespace zutty
    {
       posX = 0;
       posY = 0;
-      curPosViaCharPlacement = false;
+      lastCol = false;
       fillScreen (' ');
    }
 
@@ -390,7 +390,7 @@ namespace zutty
       if (nRows < posY + 1)
          posY = nRows - 1;
 
-      curPosViaCharPlacement = false;
+      lastCol = false;
    }
 
    inline bool
@@ -502,15 +502,12 @@ namespace zutty
    inline void
    Vterm::placeGraphicChar ()
    {
-      if (curPosViaCharPlacement && (posX == nColsEff || posX == nCols))
+      if (autoWrapMode && lastCol && posX == nColsEff - 1)
       {
-         if (! autoWrapMode) return;
-         cf->getCell (posY, posX - 1).wrap = 1;
+         cf->getCell (posY, posX).wrap = 1;
          inp_CR ();
          inp_LF ();
       }
-      else if (posX == nCols)
-         return;
 
       if (insertMode)
       {
@@ -523,8 +520,10 @@ namespace zutty
       c = attrs;
       c.uc_pt = utf8dec.getUnicode ();
 
-      ++posX;
-      curPosViaCharPlacement = true;
+      if (posX == nColsEff - 1)
+         lastCol = true;
+      else
+         ++posX;
     }
 
    inline void
@@ -543,7 +542,7 @@ namespace zutty
          posX = 0;
       else
          posX = hMargin;
-      curPosViaCharPlacement = false;
+      lastCol = false;
    }
 
    inline void
@@ -565,19 +564,14 @@ namespace zutty
          auto ts = std::lower_bound (tabStops.begin (), tabStops.end (), posX);
          posX = (ts == tabStops.end ()) ? nCols - 1 : * ts;
       }
-      curPosViaCharPlacement = false;
+      lastCol = false;
    }
 
    inline void
    Vterm::inp_HT ()
    {
       TRACE_FUN;
-      if (posX == nColsEff)
-      {
-         esc_IND ();
-         inp_CR ();
-      }
-      else
+      if (posX < nColsEff - 1)
          jumpToNextTabStop ();
    }
 
@@ -662,7 +656,7 @@ namespace zutty
       else if (posY < nRows - 1)
       {
          ++posY;
-         curPosViaCharPlacement = false;
+         lastCol = false;
       }
       setState (InputState::Normal);
       return scrolled;
@@ -681,7 +675,7 @@ namespace zutty
       else if (posY > 0)
       {
          --posY;
-         curPosViaCharPlacement = false;
+         lastCol = false;
       }
       setState (InputState::Normal);
    }
@@ -820,8 +814,8 @@ namespace zutty
       TRACE_FUN;
       savedCursor_DEC->posX = posX;
       savedCursor_DEC->posY = posY;
+      savedCursor_DEC->lastCol = lastCol;
       savedCursor_DEC->attrs = attrs;
-      savedCursor_DEC->autoWrapMode = autoWrapMode;
       savedCursor_DEC->originMode = originMode;
       savedCursor_DEC->charsetState = charsetState;
       savedCursor_DEC->isSet = true;
@@ -842,8 +836,8 @@ namespace zutty
          posX = savedCursor_DEC->posX;
          posY = savedCursor_DEC->posY;
          normalizeCursorPos ();
+         lastCol = savedCursor_DEC->lastCol;
          attrs = savedCursor_DEC->attrs;
-         autoWrapMode = savedCursor_DEC->autoWrapMode;
          originMode = savedCursor_DEC->originMode;
          charsetState = savedCursor_DEC->charsetState;
          savedCursor_DEC->isSet = false;
@@ -861,7 +855,7 @@ namespace zutty
       else
          arg = std::min (arg, posY);
       posY -= arg;
-      curPosViaCharPlacement = false;
+      lastCol = false;
       setState (InputState::Normal);
    }
 
@@ -875,7 +869,7 @@ namespace zutty
       else
          arg = std::min (arg, nRows - posY - 1);
       posY += arg;
-      curPosViaCharPlacement = false;
+      lastCol = false;
       setState (InputState::Normal);
    }
 
@@ -886,7 +880,7 @@ namespace zutty
       int arg = inputOps [0] ? inputOps [0] : 1;
       arg = std::min (arg, nColsEff - posX - 1);
       posX += arg;
-      curPosViaCharPlacement = false;
+      lastCol = false;
       setState (InputState::Normal);
    }
 
@@ -902,7 +896,7 @@ namespace zutty
       if (posX == nColsEff)
          arg = std::min (arg + 1, (int)posX);
       posX -= arg;
-      curPosViaCharPlacement = false;
+      lastCol = false;
       setState (InputState::Normal);
    }
 
@@ -931,7 +925,7 @@ namespace zutty
       uint16_t col = inputOps [0] ? inputOps [0] : 1;
       col = std::max ((uint16_t)1, std::min (col, nCols));
       posX = col - 1;
-      curPosViaCharPlacement = false;
+      lastCol = false;
       setState (InputState::Normal);
    }
 
@@ -960,7 +954,7 @@ namespace zutty
       uint16_t row = inputOps [0] ? inputOps [0] : 1;
       row = std::max ((uint16_t)1, std::min (row, nRows));
       posY = row - 1;
-      curPosViaCharPlacement = false;
+      lastCol = false;
       setState (InputState::Normal);
    }
 
@@ -972,7 +966,7 @@ namespace zutty
       row += (posY + 1);
       row = std::max ((uint16_t)1, std::min (row, nRows));
       posY = row - 1;
-      curPosViaCharPlacement = false;
+      lastCol = false;
       setState (InputState::Normal);
    }
 
@@ -996,7 +990,7 @@ namespace zutty
 
       posX = col;
       posY = row;
-      curPosViaCharPlacement = false;
+      lastCol = false;
       setState (InputState::Normal);
       logT << "Cursor positioned to (" << posY << "," << posX << ")"
            << std::endl;
@@ -1016,7 +1010,7 @@ namespace zutty
       {
          cf->scrollUp (arg);
          eraseRows (marginBottom - arg, arg);
-         curPosViaCharPlacement = false;
+         lastCol = false;
       }
       setState (InputState::Normal);
    }
@@ -1035,7 +1029,7 @@ namespace zutty
       {
          cf->scrollDown (arg);
          eraseRows (marginTop, arg);
-         curPosViaCharPlacement = false;
+         lastCol = false;
       }
       setState (InputState::Normal);
    }
@@ -1076,7 +1070,7 @@ namespace zutty
             else
                posX = 0;
          }
-         curPosViaCharPlacement = false;
+         lastCol = false;
       }
       setState (InputState::Normal);
    }
@@ -1109,6 +1103,9 @@ namespace zutty
             eraseRow (pY);
          cf->eraseInRow (posY, 0, posX + 1, attrs);
          break;
+      case 3: // clear entire screen including scrollback buffer (xterm)
+         cf->dropScrollbackHistory ();
+         // fallthrough
       case 2: // clear entire screen
          for (uint16_t pY = 0; pY < nRows; ++pY)
             eraseRow (pY);
@@ -1194,6 +1191,7 @@ namespace zutty
          cf->moveInRow (posY, posX + arg, posX, len);
          cf->eraseInRow (posY, posX, arg, attrs);
       }
+      lastCol = false;
       setState (InputState::Normal);
    }
 
@@ -1211,6 +1209,7 @@ namespace zutty
          cf->moveInRow (posY, posX, posX + arg, len);
          cf->eraseInRow (posY, posX + len, arg, attrs);
       }
+      lastCol = false;
       setState (InputState::Normal);
    }
 
@@ -1222,6 +1221,7 @@ namespace zutty
       uint32_t len = nColsEff - posX;
       arg = std::min (arg, len);
       cf->eraseInRow (posY, posX, arg, attrs);
+      lastCol = false;
       setState (InputState::Normal);
    }
 
@@ -1267,7 +1267,7 @@ namespace zutty
          posX = hMargin;
          posY = marginTop;
       }
-      curPosViaCharPlacement = false;
+      lastCol = false;
       setState (InputState::Normal);
    }
 
@@ -1307,7 +1307,7 @@ namespace zutty
          posX = hMargin;
          posY = marginTop;
       }
-      curPosViaCharPlacement = false;
+      lastCol = false;
       setState (InputState::Normal);
    }
 

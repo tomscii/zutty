@@ -329,7 +329,7 @@ namespace zutty
       uint16_t posY = 0;      // current cursor vertical position (on-screen)
       uint16_t marginTop;     // current margin top (copy of frame field)
       uint16_t marginBottom;  // current margin bottom (copy of frame field)
-      bool curPosViaCharPlacement = false;
+      bool lastCol = false;
 
       CharVdev::Cell attrs;   // prototype cell with current attributes
       Color* fg = &attrs.fg;
@@ -429,11 +429,11 @@ namespace zutty
          bool isSet = false;
          uint16_t posX = 0;
          uint16_t posY = 0;
+         bool lastCol = false;
       };
       struct SavedCursor_DEC: SavedCursor_SCO
       {
          CharVdev::Cell attrs;
-         bool autoWrapMode = true;
          OriginMode originMode = OriginMode::Absolute;
          CharsetState charsetState = CharsetState {};
          // NYI: selective erase mode

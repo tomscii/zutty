@@ -334,6 +334,11 @@ The list of correctness tests (automatically run in sequence by
   version of =vttest=, and will complain if the version found does not
   match. Just run the vttest install script mentioned by the error
   message, and you should be good to go.
+- =wraptest.sh=: Additional tests for verifying the correctness of
+  last-column/pending-wrap subtleties. Note: This suite depends on the
+  [[https://github.com/mattiase/wraptest][wraptest]] program (not bundled with the zutty source repository).
+  Just run the install script mentioned by the error message you get
+  on the first run, and you should be good to go.
 
 Apart from running all the tests via [[The CI test script]] (which you
 should routinely run during development, and especially before sending
