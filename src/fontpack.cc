@@ -93,7 +93,8 @@ namespace
             --ext;
          while (ext > fname && ext [0] != '.');
 
-      if (strcasecmp (ext, ".ttf") != 0 &&
+      if (strcasecmp (ext, ".ttc") != 0 &&
+          strcasecmp (ext, ".ttf") != 0 &&
           strcasecmp (ext, ".otf") != 0 &&
           strcasecmp (ext, ".pcf") != 0 &&
           strcasecmp (ext, ".pcf.gz") != 0)
@@ -178,10 +179,15 @@ namespace
 namespace zutty
 {
    Fontpack::Fontpack (const std::string& fontpath,
-                       const std::string& fontname)
+                       const std::string& fontname,
+                       const std::string& dwfontname)
    {
       logT << "Fontpack: fontpath=" << fontpath
-           << "; fontname=" << fontname << std::endl;
+           << "; fontname=" << fontname
+           << "; dwfontname=" << dwfontname
+           << std::endl;
+
+      // Look for & initialize the regular font (with variants)
 
       sstate.fontname = fontname.data ();
       sstate.fontnamelen = fontname.size ();
@@ -210,24 +216,102 @@ namespace zutty
       if (! sstate.regular.size ())
       {
          logE << "No Regular variant of the requested font '" << fontname
-              << "' could be identified.";
+              << "' could be identified." << std::endl;
          throw std::runtime_error (std::string ("No suitable files for '") +
                                    fontname + "' found!");
       }
 
       fontRegular = std::make_unique <Font> (sstate.regular);
+      px = fontRegular->getPx ();
+      py = fontRegular->getPy ();
 
-      if (sstate.bold.size ())
-         fontBold =
-            std::make_unique <Font> (sstate.bold, * fontRegular.get ());
+      try
+      {
+         if (sstate.bold.size ())
+            fontBold = std::make_unique <Font> (
+               sstate.bold, * fontRegular.get (), Font::Overlay);
+      }
+      catch (const std::runtime_error& e)
+      {
+         fontBold = nullptr;
+         logW << "Failed to load bold variant: " << e.what () << std::endl;
+      }
 
-      if (sstate.italic.size ())
-         fontItalic =
-            std::make_unique <Font> (sstate.italic, * fontRegular.get ());
+      try
+      {
+         if (sstate.italic.size ())
+            fontItalic = std::make_unique <Font> (
+               sstate.italic, * fontRegular.get (), Font::Overlay);
+      }
+      catch (const std::runtime_error& e)
+      {
+         fontItalic = nullptr;
+         logW << "Failed to load italic variant: " << e.what () << std::endl;
+      }
 
-      if (sstate.boldItalic.size ())
-         fontBoldItalic =
-            std::make_unique <Font> (sstate.boldItalic, * fontRegular.get ());
+      try
+      {
+         if (sstate.boldItalic.size ())
+            fontBoldItalic = std::make_unique <Font> (
+               sstate.boldItalic, * fontRegular.get (), Font::Overlay);
+      }
+      catch (const std::runtime_error& e)
+      {
+         fontBoldItalic = nullptr;
+         logW << "Failed to load boldItalic variant: " << e.what () << std::endl;
+      }
+
+
+      // Look for & initialize the double-width font
+
+      sstate.level = 0;
+      sstate.ext = "";
+      sstate.regular = "";
+      sstate.bold = "";
+      sstate.italic = "";
+      sstate.boldItalic = "";
+
+      sstate.fontname = dwfontname.data ();
+      sstate.fontnamelen = dwfontname.size ();
+
+      pos = 0;
+      nextpos = 0;
+      do
+      {
+         nextpos = fontpath.find (':', pos);
+         size_t len = (nextpos == std::string::npos)
+                    ? std::string::npos
+                    : nextpos - pos;
+
+         std::string fontpath1 = fontpath.substr (pos, len);
+         logT << "Looking for double-width candidates under " << fontpath1
+              << std::endl;
+         pos = nextpos + 1;
+
+         int flags = FTW_DEPTH;
+         if (nftw (fontpath1.c_str (), fontFileFilter, 32, flags) == -1)
+         {
+            SYS_WARN ("Cannot walk file tree at ", fontpath1);
+         }
+
+      } while (!sstate.regular.size () && nextpos != std::string::npos);
+
+      try
+      {
+         if (sstate.regular.size ())
+            fontDoubleWidth = std::make_unique <Font> (
+               sstate.regular, * fontRegular.get (), Font::DoubleWidth);
+         else if (dwfontname != "")
+         {
+            logW << "Failed to locate requested double-width font: "
+                 << dwfontname << std::endl;
+         }
+      }
+      catch (const std::runtime_error& e)
+      {
+         fontDoubleWidth = nullptr;
+         logW << "Failed to load double-width font: " << e.what () << std::endl;
+      }
    }
 
 } // namespace zutty

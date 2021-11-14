@@ -27,14 +27,17 @@ namespace zutty
        * Four styles are looked for: Regular, Bold, Italic and Bold Italic;
        * all but the first are optional. If not even a regular variant of
        * the requested font can be loaded, an exception is thrown.
+       * Additionally, a double-width font with the given name is optionally
+       * located and initialized.
        */
       Fontpack (const std::string& fontpath,
-                const std::string& fontname);
+                const std::string& fontname,
+                const std::string& dwfontname);
 
       ~Fontpack () = default;
 
-      uint16_t getPx () const { return fontRegular->getPx (); };
-      uint16_t getPy () const { return fontRegular->getPy (); };
+      uint16_t getPx () const { return px; };
+      uint16_t getPy () const { return py; };
 
       const Font& getRegular () const {
          return * fontRegular.get ();
@@ -64,11 +67,31 @@ namespace zutty
          return * fontBoldItalic.get ();
       };
 
+      bool hasDoubleWidth () const { return fontDoubleWidth.get () != nullptr; }
+
+      const Font& getDoubleWidth () const {
+         if (! hasDoubleWidth ())
+            throw std::runtime_error ("No DoubleWidth font present!");
+         return * fontDoubleWidth.get ();
+      };
+
+      void releaseFonts ()
+      {
+         fontRegular = nullptr;
+         fontBold = nullptr;
+         fontItalic = nullptr;
+         fontBoldItalic = nullptr;
+         fontDoubleWidth = nullptr;
+      }
+
    private:
+      uint16_t px = 0; // glyph width in pixels
+      uint16_t py = 0; // glyph height in pixels
       std::unique_ptr <Font> fontRegular = nullptr;
       std::unique_ptr <Font> fontBold = nullptr;
       std::unique_ptr <Font> fontItalic = nullptr;
       std::unique_ptr <Font> fontBoldItalic = nullptr;
+      std::unique_ptr <Font> fontDoubleWidth = nullptr;
    };
 
 } // namespace zutty

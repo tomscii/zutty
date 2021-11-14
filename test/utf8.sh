@@ -9,9 +9,9 @@ function show {
 }
 
 show 63
-SNAP utf8_01 36c9225f4ce807363947bcf03d50fb9f
+SNAP utf8_01 2bf11d4ae3cced3cafa84bdf611f0a46
 show 89
-SNAP utf8_02 5f98ac23e36eb4131feb2d09bca9cde7
+SNAP utf8_02 67e158e17a32cf6227fa76cabede3dbe
 show 112
 SNAP utf8_03 185e4a2474fb8bd203be4fd4beb8fa8b
 show 132
@@ -27,4 +27,4 @@ SNAP utf8_08 d1f380e30af15d0d3900c390f75ec6a6
 show 245
 SNAP utf8_09 9fe99776dfa6640d299fceea845dbb17
 show 286
-SNAP utf8_10 21fc0a1b3242cbc7174affa1b23d4ce6
+SNAP utf8_10 e4ecf831f88757880fc1ee9ad0d7f95c

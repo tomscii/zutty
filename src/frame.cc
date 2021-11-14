@@ -198,7 +198,8 @@ namespace zutty
             for (uint16_t x = x1; x < x2; ++x)
             {
                const auto& cell = cp [x];
-               line.push_back (cell.uc_pt);
+               if (!cell.dwidth_cont)
+                  line.push_back (cell.uc_pt);
                if (cell.wrap)
                {
                   wrap = true;

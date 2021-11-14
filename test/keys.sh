@@ -193,7 +193,7 @@ function ALT_SENDS_ESC {
     IN "\C\Aa \C\AA \C\A0 \C\A1 \C\A2 \C\A9 \A# \C\A# "
     IN "\C\A/ \C\A? "
 
-    SNAP keys_08 312449d6dc4511f03d02397323fe4b6d
+    SNAP keys_08 0b532193433fb81966582cc255fa18a8
 
     IN "\Cd\Cd\D3"
     IN "printf \"\\\\e[?1036h\"\r"

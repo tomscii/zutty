@@ -183,6 +183,7 @@ To view the list of options, issue =zutty -h= (short for =-help=):
 :   -border       Border width in pixels (default: 2)
 :   -cr           Cursor color
 :   -display      Display to connect to
+:   -dwfont       Double-width font to use (default: 18x18ja)
 :   -fg           Foreground color (default: #fff)
 :   -font         Font to use (default: 9x18)
 :   -fontsize     Font size (default: 16)
@@ -203,7 +204,7 @@ To view the list of options, issue =zutty -h= (short for =-help=):
 :   -e            Command line to run
 
 All options can be abbreviated as long as they are non-ambiguous, so
-it's fine to write =-d= short for =-display=, =-gl= for =-glinfo=,
+it's fine to write =-di= short for =-display=, =-gl= for =-glinfo=,
 =-fontp= for =-fontpath=, =-t= for =-title=, =-q= for =-quiet=, etc.
 
 Boolean options (=-altScroll=, =-autoCopy=, =-boldColors=, =-glinfo=,
@@ -528,6 +529,30 @@ Zutty. This will result in several files found, all under
 =LiberationMono-BoldItalic.ttf=. These files will be loaded as the
 respective variants of the chosen font.
 
+:   -dwfont      Double-width font to use (default: 18x18ja)
+
+This option specifies the font name to use for rendering double-width
+characters (CJK ideographs). Everything written above for =-font=
+applies here as well. The double-width font is located in a separate
+search, so it may reside in a different location (the set of search
+paths is the same; see =-fontpath=). It may also be of a different
+type (e.g., it is possible to use a scaled font for CJK characters
+even if the main font is of a fixed type). No variants (bold, italic)
+are considered.
+
+The default setting is a fixed width bitmap font chosen to work well
+with the default main font (see =-font=). See [[Recommended fonts]] below
+for tips on using a scalable CJK font.
+
+The font size to use will be defined by the main font (governed by the
+=-fontsize= option). For the double-width font to load, its geometry
+must match this predetermined cell size (times two horizontally). It
+is not an error if no suitable font is found. A warning will be logged
+on startup, and the program will draw empty boxes in place of any
+double-width characters. In such case, as only the ability to render
+these characters is missing, it is still possible to select them in
+Zutty and paste into a different program that is able to display them.
+
 :   -fontsize    Font size (default: 16)
 
 For scaled fonts, such as Liberation Mono above, this setting controls
@@ -575,10 +600,11 @@ works well with freely available scaled terminal fonts such as
 Anonymous Pro, Deja Vu Sans Mono, Free Mono, Hack, Inconsolata,
 Liberation Mono, Source Code Pro, and possibly many more.
 
-On Debian (and derived distributions), the following list of package
-names might serve as a useful starting point to obtain some usable
-fonts. For each package, install it and pass the specified name(s) to
-=-font= to check them out:
+The rest of this section gives Debian-specific recommendations; use it
+as a source of inspiration if you use a different distribution. The
+following list of package names might serve as a useful starting point
+to obtain some usable fonts. For each package, install it and pass the
+specified name(s) to =-font= to check them out:
 
 - =xfonts-base=: 6x13, 7x13, 7x14, 8x13, 9x15, 9x18
 - =fonts-dejavu-core=: DejaVuSansMono
@@ -590,6 +616,33 @@ fonts. For each package, install it and pass the specified name(s) to
 
 Note that the quotation marks are required when passing an argument
 value with a space, e.g.: =zutty -font "Anonymous Pro"=
+
+The default CJK font =18x18ja= belongs to the =xfonts-base= package,
+along with all other misc-fixed fonts recommended above. There is a
+similar font =18x18ko= with the same fixed geometry providing more,
+and slightly differently drawn, glyphs (try with =-dwfont 18x18ko=).
+
+For scaled CJK fonts, the following packages are recommended:
+
+- =fonts-wqy-microhei=: wqy-microhei
+- =fonts-wqy-zenhei=: wqy-zenhei
+
+For example, after installing the package =fonts-wqy-zenhei=, try
+something like this to get a fully scalable font system:
+=zutty -font dejavusansmono -dwfont wqy-zenhei -fontsize 32=\\
+Experiment with the size; do not expect good results at small font
+sizes.
+
+In the above setup, the =-fontsize= setting guides the rasterized cell
+size of the main font, the result of which guides the rasterized cell
+size of the double-width font. The order is interesting mainly because
+the rasterized size might be subtly different than the requested size.
+
+A discussion of the subtle (language-specific) differences of CJK
+glyphs provided by different fonts for the same code point is beyond
+the scope of this document. [[https://en.wikipedia.org/wiki/Han_unification#Examples_of_language-dependent_glyphs][This table]] might be useful to identify
+variants; copy-paste any glyph in a given row into Zutty and see which
+variant the current font gives you!
 
 *** Making fonts discoverable
 

@@ -132,6 +132,11 @@ any of them (apart from Regular) is missing. Zutty tries to locate the
 font files itself under a configured font search path, and loads them
 on its own, without any support from the windowing system.
 
+Zutty is able to display CJK symbols (ideographs) in double-width
+cells. This requires a suitable double-width font. This font can be
+fixed or scaled independent from the main font (for example, you may
+use a scaled font for CJK along with a fixed main font).
+
 *** True color support
 
 Each grid cell in the virtual video memory emulated via OpenGL has
@@ -222,7 +227,7 @@ but some will possibly be implemented in the future.
   all-purpose Unicode program. Therefore it does not aim to implement
   the whole breadth and depth of glyph and language support that
   Unicode defines.  Currently not supported:
-  - Characters with a code point above 0xFFFF (that is, outside of the
+  - Characters with a code point above =U+FFFF= (that is, outside the
     Basic Multilingual Pane);
   - Bidirectional (right-to-left) text;
   - Composing characters (things that can only be represented as a
@@ -232,8 +237,9 @@ but some will possibly be implemented in the future.
     your keyboard; that works fine!
   - Possibly more esoteric features.
 
-- Double-width characters (necessary for e.g., drawing CJK glyphs) are
-  not supported. Double-height lines are likewise not supported.
+- DEC VT100 double-height / double-width (DECDHL, DECDWL) lines are
+  not supported. Do not confuse this with double-width cells for wide
+  characters (e.g. CJK ideographs), which are supported.
 
 - Rectangular area operations (introduced by the DEC VT400 series) are
   not supported. However, this set of features is optional and the

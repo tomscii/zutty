@@ -25,7 +25,7 @@ namespace zutty
    {
       template <typename Fn>
       static void
-      pushUnicode (uint16_t cp, Fn&& byteSink)
+      pushUnicode (uint32_t cp, Fn&& byteSink)
       {
          if (cp < 0x80)
          {
@@ -36,9 +36,16 @@ namespace zutty
             byteSink ((cp >> 6) | 0xc0);
             byteSink ((cp & 0x3f) | 0x80);
          }
-         else
+         else if (cp < 0x10000)
          {
             byteSink ((cp >> 12) | 0xe0);
+            byteSink (((cp >> 6) & 0x3f) | 0x80);
+            byteSink ((cp & 0x3f) | 0x80);
+         }
+         else
+         {
+            byteSink ((cp >> 18) | 0xf0);
+            byteSink (((cp >> 12) & 0x3f) | 0x80);
             byteSink (((cp >> 6) & 0x3f) | 0x80);
             byteSink ((cp & 0x3f) | 0x80);
          }
@@ -63,17 +70,17 @@ namespace zutty
          }
       }
 
-      uint16_t getUnicode () const
+      uint32_t getUnicode () const
       {
          return unicode;
       }
 
-      void setUnicode (uint16_t cp)
+      void setUnicode (uint32_t cp)
       {
          unicode = cp;
       }
 
-      void onUnicode (uint16_t ch)
+      void onUnicode (uint32_t ch)
       {
          if (!ch)
             return;
@@ -89,7 +96,8 @@ namespace zutty
          {
             if (remaining > 0)
             {
-               if (remaining > 1 && (!ch || (unicode == 0 && ch < 0xa0)))
+               if (1 < remaining && remaining < 3 &&
+                   (!ch || (unicode == 0 && ch < 0xa0)))
                   valid = false; // reject overlong encodings
                unicode <<= 6;
                unicode += ch & 0x3f;
@@ -124,7 +132,7 @@ namespace zutty
             checkPrematureEOS ();
             unicode = ch & 0x07;
             remaining = 3;
-            valid = false; // not supported
+            valid = true;
          }
          else if ((ch >> 2) == 0x3e) // 1111'10xx
          {
@@ -151,7 +159,7 @@ namespace zutty
       }
 
    private:
-      uint16_t unicode = 0;
+      uint32_t unicode = 0;
       bool valid = false;
       uint8_t remaining = 0;
       CodepointSink cpSink;

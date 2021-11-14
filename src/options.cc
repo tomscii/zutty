@@ -299,6 +299,7 @@ namespace zutty
       {
          getBorder (border);
          getSaveLines (saveLines);
+         dwfontname = get ("dwfont");
          fontname = get ("font");
          fontpath = get ("fontpath");
          getFontsize (fontsize);

@@ -324,6 +324,9 @@ The list of correctness tests (automatically run in sequence by
 - =keys.sh=: Keyboard input handling (see [[./KEYS.org][Key mapping sequences]] for
   further documentation). Note: This test might fail if your computer
   is configured to use a non-US keyboard.
+- =nonascii.sh=: Test displaying non-ascii (double-width and other
+  exotic) characters, based on the Emacs 'hello' file
+  (=M-x view-hello-file=)
 - =scrollback.sh=: Scrollback (page history) support
 - =title.sh=: Setting the window title from within the terminal via
   escape sequences
@@ -708,6 +711,20 @@ rendered onto the viewport area using a quad in the most
 straightforward way. All the work of computing the terminal window
 content is done by the compute shader that sets color values of
 individual pixels in the output texture.
+
+*** Double-width cells
+
+To display CJK characters, the rendering pipeline was extended to
+support double-width cells. These cells are marked with the =dwidth=
+flag being set in the left cell, and the =dwidth_cont= (double-width
+continuation) flag set in the right cell. The latter flag is only used
+in the shader to short-circuit rendering, as its area will be rendered
+by the compute shader instance rendering the left cell.
+
+The double-width font is loaded separately from the layered main font
+variants that share a common atlas mapping. This font, if present, has
+its own atlas glyph texture and atlas position mapping texture. Other
+than this overhead, everything is handled very much the same way.
 
 ** Frame
 

@@ -24,6 +24,9 @@ namespace zutty
    class Font
    {
    public:
+      enum Overlay_ { Overlay };
+      enum DoubleWidth_ { DoubleWidth };
+
       /* Load a primary font, determining the atlas geometry and setting up
        * a mapping from unicode code points to atlas grid positions.
        */
@@ -32,13 +35,24 @@ namespace zutty
       /* Load an alternate font based on an already loaded primary font,
        * conforming to the same atlas geometry (incl. position mapping)
        * and starting with a copy of the atlas texture data.
+       *
        * It is an error if the alternate font has different geometry.
        * Any code point not having a glyph in the alternate font will
        * have the glyph of the primary font (if any) in its atlas.
        * Any code point not having a glyph in the primary font will be
        * discarded.
        */
-      Font (const std::string& filename, const Font& priFont);
+      Font (const std::string& filename, const Font& priFont, Overlay_);
+
+      /* Load a double-width font based on an already loaded primary font.
+       * A double-width font is less tightly coupled to the primary,
+       * but its glyph size has to match (double width, equal height).
+       * The font will have its own independent atlas geometry.
+       *
+       * Only code points that are considered double-width by wcwidth ()
+       * will be loaded.
+       */
+      Font (const std::string& filename, const Font& priFont, DoubleWidth_);
 
       ~Font () = default;
 
@@ -51,30 +65,25 @@ namespace zutty
       const std::vector <uint8_t>& getAtlas () const { return atlasBuf; };
       const uint8_t* getAtlasData () const { return atlasBuf.data (); };
 
-      const std::vector <uint16_t> & getSupportedCodes () const
-      {
-         return supportedCodes;
-      };
-
       struct AtlasPos
       {
-         uint8_t x;
-         uint8_t y;
+         uint8_t x = 0;
+         uint8_t y = 0;
       };
       using AtlasMap = std::map <uint16_t, AtlasPos>;
       const AtlasMap& getAtlasMap () const { return atlasMap; };
 
    private:
       std::string filename;
-      bool overlay;
-      uint16_t px; // glyph width in pixels
-      uint16_t py; // glyph height in pixels
-      uint16_t baseline; // number of pixels above baseline
-      uint16_t nx; // number of glyphs in atlas texture per row
-      uint16_t ny; // number of rows in atlas texture
+      bool overlay = false;
+      bool dwidth = false;
+      uint16_t px = 0; // glyph width in pixels
+      uint16_t py = 0; // glyph height in pixels
+      uint16_t baseline = 0; // number of pixels above baseline
+      uint16_t nx = 0; // number of glyphs in atlas texture per row
+      uint16_t ny = 0; // number of rows in atlas texture
       std::vector <uint8_t> atlasBuf; // loaded atlas data
       AtlasMap atlasMap; // unicode -> atlas position
-      std::vector <uint16_t> supportedCodes; // list of unicodes with glyphs
 
       /* Start with 1 so as to leave a blank glyph at (0,0).
        * That blank will get referenced for any out-of-bounds text position
@@ -90,16 +99,12 @@ namespace zutty
       /* Load font from glyph bitmaps rasterized by FreeType.
        * Store the bitmaps into an atlas bitmap stored in atlasBuf.
        */
+      bool isLoadableChar (FT_ULong c);
       void load ();
       void loadFixed (const FT_Face& face);
       void loadScaled (const FT_Face& face);
       void loadFace (const FT_Face& face, FT_ULong c);
       void loadFace (const FT_Face& face, FT_ULong c, const AtlasPos& apos);
-
-      /* Fill the supportedCodes vector with the list of unicode points
-       * that have glyphs in the loaded font.
-       */
-      void setupSupportedCodes ();
    };
 
 } // namespace zutty

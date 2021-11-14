@@ -28,7 +28,7 @@ namespace zutty
    public:
       Renderer (const std::function <void ()>& initDisplay,
                 const std::function <void ()>& swapBuffers,
-                const Fontpack* fontpk);
+                Fontpack* fontpk);
 
       ~Renderer ();
 
@@ -46,7 +46,7 @@ namespace zutty
       std::thread thr;
 
       void renderThread (const std::function <void ()>& initDisplay,
-                         const Fontpack* fontpk);
+                         Fontpack* fontpk);
    };
 
 } // namespace zutty

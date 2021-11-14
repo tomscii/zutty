@@ -502,7 +502,27 @@ namespace zutty
    inline void
    Vterm::placeGraphicChar ()
    {
-      if (autoWrapMode && lastCol && posX == nColsEff - 1)
+      auto pt = utf8dec.getUnicode ();
+      auto w = wcwidth (pt);
+
+      if (!w) // zero-width code
+         return;
+
+      if (pt > 0xffff)
+      {
+         // Code outside the Unicode BMP -- not supported.
+         // Would get truncated anyway; this is safer and more deterministic.
+         pt = Missing_Glyph_Marker;
+      }
+
+      if (w < 0)
+      {
+         // Render codes with no visual representation as a Unicode RC
+         w = 1;
+         pt = Unicode_Replacement_Character;
+      }
+
+      if (autoWrapMode && lastCol)
       {
          cf->getCell (posY, posX).wrap = 1;
          inp_CR ();
@@ -518,13 +538,19 @@ namespace zutty
 
       auto& c = cf->getCell (posY, posX);
       c = attrs;
-      c.uc_pt = utf8dec.getUnicode ();
+      c.uc_pt = pt;
+
+      if (w == 2 && posX < nColsEff - 1)
+      {
+         c.dwidth = 1;
+         cf->getCell (posY, ++posX).dwidth_cont = 1;
+      }
 
       if (posX == nColsEff - 1)
          lastCol = true;
       else
          ++posX;
-    }
+   }
 
    inline void
    Vterm::inp_LF ()

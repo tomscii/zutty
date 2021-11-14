@@ -25,6 +25,8 @@ layout (local_size_x = 1, local_size_y = 1) in;
 layout (rgba32f, binding = 0) writeonly lowp uniform image2D imgOut;
 layout (binding = 1) uniform lowp sampler2DArray atlas;
 layout (binding = 2) uniform lowp sampler2D atlasMap;
+layout (binding = 3) uniform lowp sampler2DArray atlas_dw;
+layout (binding = 4) uniform lowp sampler2D atlasMap_dw;
 uniform lowp ivec2 glyphPixels;
 uniform lowp ivec2 sizeChars;
 uniform lowp ivec3 cursorColor;
@@ -35,6 +37,7 @@ uniform lowp int selectRectMode;
 uniform highp ivec2 selectDamage;
 uniform lowp int deltaFrame;
 uniform lowp int showWraps;
+uniform lowp int hasDoubleWidth;
 
 struct Cell
 {
@@ -56,25 +59,42 @@ void main ()
 
    if (deltaFrame == 1)
    {
-      uint dirty = bitfieldExtract (cell.charData, 21, 1);
+      uint dirty = bitfieldExtract (cell.charData, 23, 1);
       if (dirty == 0u &&
           charPos != cursorPos.xy && charPos != cursorPos.zw &&
           (idx < selectDamage.x || idx >= selectDamage.y))
          return;
    }
-   vmem.cells[idx].charData = bitfieldInsert (cell.charData, 0u, 21, 1);
+   vmem.cells[idx].charData = bitfieldInsert (cell.charData, 0u, 23, 1);
 
    ivec2 charCode =
       ivec2 (bitfieldExtract (cell.charData, 0, 8),  // Lowest byte
              bitfieldExtract (cell.charData, 8, 8)); // Next-lowest byte
 
-   // fontIdx == 0 -> Normal; 1 -> Bold; 2 -> Italic; 3 -> BoldItalic
-   uint fontIdx = bitfieldExtract (cell.charData, 16, 2);
-   uint underline = bitfieldExtract (cell.charData, 18, 1);
-   uint inverse = bitfieldExtract (cell.charData, 19, 1);
-   uint wrap = bitfieldExtract (cell.charData, 20, 1);
+   uint dwidth = bitfieldExtract (cell.charData, 16, 1);
+   uint dwidth_cont = bitfieldExtract (cell.charData, 17, 1);
+   if (dwidth_cont == 1u) // double-width cell continuation - drawn by left half
+      return;
 
-   ivec2 atlasPos = ivec2 (vec2 (256) * texelFetch (atlasMap, charCode, 0).zw);
+   if (dwidth == 1u && charPos.x < sizeChars.x - 1)
+   {
+      // check validity (dwidth_cont marker in the cell to the right)
+      if (bitfieldExtract (vmem.cells[idx + 1].charData, 17, 1) != 1u)
+         dwidth = 0u;
+   }
+
+   uint fontIdx = 0u; // 0 -> Normal; 1 -> Bold; 2 -> Italic; 3 -> BoldItalic
+   if (dwidth == 0u)
+      fontIdx = bitfieldExtract (cell.charData, 18, 2);
+   uint underline = bitfieldExtract (cell.charData, 20, 1);
+   uint inverse = bitfieldExtract (cell.charData, 21, 1);
+   uint wrap = bitfieldExtract (cell.charData, 22, 1);
+
+   ivec2 atlasPos;
+   if (dwidth == 0u)
+      atlasPos = ivec2 (vec2 (256) * texelFetch (atlasMap, charCode, 0).zw);
+   else
+      atlasPos = ivec2 (vec2 (256) * texelFetch (atlasMap_dw, charCode, 0).zw);
 
    vec3 fgColor = vec3 (float (bitfieldExtract (cell.fg, 0, 8)),
                         float (bitfieldExtract (cell.fg, 8, 8)),
@@ -115,25 +135,66 @@ void main ()
       bgColor = crColor;
    }
 
-   for (int j = 0; j < glyphPixels.x; j++)
-   {
-      for (int k = 0; k < glyphPixels.y; k++)
+   ivec2 srcGlyphPixels = glyphPixels;
+   if (dwidth == 1u)
+      srcGlyphPixels = ivec2 (2, 1) * glyphPixels;
+
+   if (dwidth == 0u)
+   {  // render regular cell
+      for (int j = 0; j < glyphPixels.x; j++)
       {
-         ivec2 txCoords = atlasPos * glyphPixels + ivec2 (j, k);
-         ivec3 txc = ivec3 (txCoords, fontIdx);
-         float lumi = texelFetch (atlas, txc, 0).r;
-         vec4 pixel = vec4 (fgColor * lumi + bgColor * (1.0 - lumi), 1.0);
-         ivec2 pxCoords = charPos * glyphPixels + ivec2 (j, k);
-         imageStore (imgOut, pxCoords, pixel);
+         for (int k = 0; k < glyphPixels.y; k++)
+         {
+            ivec2 txCoords = atlasPos * srcGlyphPixels + ivec2 (j, k);
+            ivec3 txc = ivec3 (txCoords, fontIdx);
+            float lumi = texelFetch (atlas, txc, 0).r;
+            vec4 pixel = vec4 (fgColor * lumi + bgColor * (1.0 - lumi), 1.0);
+            ivec2 pxCoords = charPos * glyphPixels + ivec2 (j, k);
+            imageStore (imgOut, pxCoords, pixel);
+         }
+      }
+   }
+   else if (hasDoubleWidth == 1)
+   {  // render double-width cell
+      for (int j = 0; j < srcGlyphPixels.x; j++)
+      {
+         for (int k = 0; k < srcGlyphPixels.y; k++)
+         {
+            ivec2 txCoords = atlasPos * srcGlyphPixels + ivec2 (j, k);
+            ivec3 txc = ivec3 (txCoords, fontIdx);
+            float lumi = texelFetch (atlas_dw, txc, 0).r;
+            vec4 pixel = vec4 (fgColor * lumi + bgColor * (1.0 - lumi), 1.0);
+            ivec2 pxCoords = charPos * glyphPixels + ivec2 (j, k);
+            imageStore (imgOut, pxCoords, pixel);
+         }
+      }
+   }
+   else
+   {  // no double-width font -- draw an empty box
+      for (int j = 0; j < srcGlyphPixels.x; j++)
+      {
+         for (int k = 0; k < srcGlyphPixels.y; k++)
+         {
+            float lumi = 0.0;
+            if ((0 < j && j < srcGlyphPixels.x - 1) &&
+                (0 < k && k < srcGlyphPixels.y - 1) &&
+                (j == 1 || j == srcGlyphPixels.x - 2 ||
+                 k == 1 || k == srcGlyphPixels.y - 2))
+               lumi = 0.7;
+            vec4 pixel = vec4 (fgColor * lumi + bgColor * (1.0 - lumi), 1.0);
+            ivec2 pxCoords = charPos * glyphPixels + ivec2 (j, k);
+            imageStore (imgOut, pxCoords, pixel);
+         }
       }
    }
 
    if (underline == 1u)
    {
-      for (int j = 0; j < glyphPixels.x; j++)
+      for (int j = 0; j < srcGlyphPixels.x; j++)
       {
          vec4 pixel = vec4 (fgColor, 1.0);
-         ivec2 pxCoords = charPos * glyphPixels + ivec2 (j, glyphPixels.y - 1);
+         ivec2 pxCoords = charPos * glyphPixels +
+                          ivec2 (j, srcGlyphPixels.y - 1);
          imageStore (imgOut, pxCoords, pixel);
       }
    }
@@ -141,9 +202,10 @@ void main ()
    if (showWraps == 1 && wrap == 1u)
    {
       vec4 pixel = vec4 (fgColor, 1.0);
-      for (int k = 0; k < glyphPixels.y; k += 2)
+      for (int k = 0; k < srcGlyphPixels.y; k += 2)
       {
-         ivec2 pxCoords = charPos * glyphPixels + ivec2 (glyphPixels.x - 1, k);
+         ivec2 pxCoords = charPos * glyphPixels +
+                          ivec2 (srcGlyphPixels.x - 1, k);
          imageStore (imgOut, pxCoords, pixel);
       }
    }
@@ -151,18 +213,18 @@ void main ()
    if (charPos == cursorPos.xy && cursorStyle == 2)
    {
       vec4 pixel = vec4 (crColor, 1.0);
-      for (int j = 0; j < glyphPixels.x; j++)
+      for (int j = 0; j < srcGlyphPixels.x; j++)
       {
          ivec2 pxCoords = charPos * glyphPixels + ivec2 (j, 0);
          imageStore (imgOut, pxCoords, pixel);
-         pxCoords += ivec2 (0, glyphPixels.y - 1);
+         pxCoords += ivec2 (0, srcGlyphPixels.y - 1);
          imageStore (imgOut, pxCoords, pixel);
       }
-      for (int k = 1; k < glyphPixels.y - 1; k++)
+      for (int k = 1; k < srcGlyphPixels.y - 1; k++)
       {
          ivec2 pxCoords = charPos * glyphPixels + ivec2 (0, k);
          imageStore (imgOut, pxCoords, pixel);
-         pxCoords += ivec2 (glyphPixels.x - 1, 0);
+         pxCoords += ivec2 (srcGlyphPixels.x - 1, 0);
          imageStore (imgOut, pxCoords, pixel);
       }
    }
@@ -266,6 +328,52 @@ void main ()
       glCheckError ();
    }
 
+   void
+   setupAtlasMappingTexture (const zutty::Font& fnt,
+                             GLuint target, GLuint& texture)
+   {
+      auto atlasMap = std::vector <uint8_t> ();
+      atlasMap.resize (2 * 256 * 256, 0);
+
+      // Pre-fill the mapping texture with references to "missing glyph"
+      // and "replacement character" glyphs, if available in the font atlas.
+      const auto itEnd = fnt.getAtlasMap ().end ();
+
+      zutty::Font::AtlasPos apRC {};
+      {
+         auto rcIt =
+            fnt.getAtlasMap ().find (zutty::Unicode_Replacement_Character);
+         if (rcIt != itEnd)
+            apRC = rcIt->second;
+      }
+
+      zutty::Font::AtlasPos apMG {};
+      {
+         auto mgIt = fnt.getAtlasMap ().find (zutty::Missing_Glyph_Marker);
+         if (mgIt != itEnd)
+            apMG = mgIt->second;
+      }
+
+      for (int k = 0; k < 256 * 256; ++k)
+      {
+         const auto& apos = ((k >= 0xd800 && k < 0xe000) || k >= 0xfffe)
+                          ? apRC
+                          : apMG;
+         atlasMap [2 * k] = apos.x;
+         atlasMap [2 * k + 1] = apos.y;
+      }
+
+      // Fill the mapping texture with supported characters
+      for (auto it = fnt.getAtlasMap ().begin (); it != itEnd; ++it)
+      {
+         atlasMap [2 * it->first] = it->second.x;
+         atlasMap [2 * it->first + 1] = it->second.y;
+      }
+      setupTexture (target, GL_TEXTURE_2D, texture);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE_ALPHA, 256, 256, 0,
+                   GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE, atlasMap.data ());
+   }
+
    template <typename T> void
    setupStorageBuffer (GLuint index, GLuint& buffer, uint32_t n_items)
    {
@@ -284,8 +392,9 @@ void main ()
 
 namespace zutty
 {
-   CharVdev::CharVdev (const Fontpack* fontpk_)
-      : fontpk (* fontpk_)
+   CharVdev::CharVdev (Fontpack* fontpk)
+      : px (fontpk->getPx ())
+      , py (fontpk->getPy ())
    {
       createShaders ();
 
@@ -322,75 +431,62 @@ namespace zutty
        * Setup compute program
        */
       glUseProgram (P_compute);
-      glUniform2i (compU_glyphPixels, fontpk.getPx (), fontpk.getPy ());
+      glUniform2i (compU_glyphPixels, px, py);
       glUniform2i (compU_sizeChars, nCols, nRows);
       glUniform1i (compU_showWraps, opts.showWraps ? 1 : 0);
 
       // Setup atlas texture
       setupTexture (GL_TEXTURE1, GL_TEXTURE_2D_ARRAY, T_atlas);
-      const Font& reg = fontpk.getRegular ();
-      glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_R8,
-                     reg.getPx () * reg.getNx (),
-                     reg.getPy () * reg.getNy (),
-                     4); // number of layers
+      const Font& reg = fontpk->getRegular ();
+      glTexStorage3D (GL_TEXTURE_2D_ARRAY, 1, GL_R8,
+                      reg.getPx () * reg.getNx (),
+                      reg.getPy () * reg.getNy (),
+                      4); // number of layers
       glCheckError ();
 
       setupAtlasTexture (reg, 0);
 
-      if (fontpk.hasBold ())
-         setupAtlasTexture (fontpk.getBold (), 1);
+      if (fontpk->hasBold ())
+         setupAtlasTexture (fontpk->getBold (), 1);
       else
-         setupAtlasTexture (fontpk.getRegular (), 1);
+         setupAtlasTexture (fontpk->getRegular (), 1);
 
-      if (fontpk.hasItalic ())
-         setupAtlasTexture (fontpk.getItalic (), 2);
+      if (fontpk->hasItalic ())
+         setupAtlasTexture (fontpk->getItalic (), 2);
       else
-         setupAtlasTexture (fontpk.getRegular (), 2);
+         setupAtlasTexture (fontpk->getRegular (), 2);
 
-      if (fontpk.hasBoldItalic ())
-         setupAtlasTexture (fontpk.getBoldItalic (), 3);
-      else if (fontpk.hasItalic ())
-         setupAtlasTexture (fontpk.getItalic (), 3);
-      else if (fontpk.hasBold ())
-         setupAtlasTexture (fontpk.getBold (), 3);
+      if (fontpk->hasBoldItalic ())
+         setupAtlasTexture (fontpk->getBoldItalic (), 3);
+      else if (fontpk->hasItalic ())
+         setupAtlasTexture (fontpk->getItalic (), 3);
+      else if (fontpk->hasBold ())
+         setupAtlasTexture (fontpk->getBold (), 3);
       else
-         setupAtlasTexture (fontpk.getRegular (), 3);
+         setupAtlasTexture (fontpk->getRegular (), 3);
 
-      // Setup atlas mapping texture
-      auto atlasMap = std::vector <uint8_t> ();
-      atlasMap.resize (2 * 256 * 256, 0);
+      setupAtlasMappingTexture (reg, GL_TEXTURE2, T_atlasMap);
 
-      // Pre-fill the mapping texture with references to "missing glyph"
-      // and "replacement character" glyphs, if available in the font atlas.
-      const auto itEnd = reg.getAtlasMap ().end ();
-      auto rcIt = reg.getAtlasMap ().find (Unicode_Replacement_Character);
-      if (rcIt == itEnd)
-         rcIt = reg.getAtlasMap ().find (' ');
-      assert (rcIt != itEnd);
-      auto mgIt = reg.getAtlasMap ().find (Missing_Glyph_Marker);
-      if (mgIt == itEnd)
-         mgIt = reg.getAtlasMap ().find (' ');
-      assert (mgIt != itEnd);
-      for (int k = 0; k < 256 * 256; ++k)
+      // Setup atlas texture for double-width characters
+      if (fontpk->hasDoubleWidth ())
       {
-         const auto& apos =
-            ((k >= 0xd800 && k < 0xe000) || k >= 0xfffe)
-            ? rcIt->second
-            : mgIt->second;
-         atlasMap [2 * k] = apos.x;
-         atlasMap [2 * k + 1] = apos.y;
-      }
+         hasDoubleWidth = true;
 
-      // Fill the mapping texture with supported characters
-      auto it = reg.getAtlasMap ().begin ();
-      for (; it != itEnd; ++it)
-      {
-         atlasMap [2 * it->first] = it->second.x;
-         atlasMap [2 * it->first + 1] = it->second.y;
+         setupTexture (GL_TEXTURE3, GL_TEXTURE_2D_ARRAY, T_atlas_dw);
+         const Font& dw = fontpk->getDoubleWidth ();
+         glTexStorage3D (GL_TEXTURE_2D_ARRAY, 1, GL_R8,
+                         dw.getPx () * dw.getNx (),
+                         dw.getPy () * dw.getNy (),
+                         1); // number of layers
+         glCheckError ();
+
+         setupAtlasTexture (dw, 0);
+         setupAtlasMappingTexture (dw, GL_TEXTURE3, T_atlasMap_dw);
       }
-      setupTexture (GL_TEXTURE2, GL_TEXTURE_2D, T_atlasMap);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE_ALPHA, 256, 256, 0,
-                   GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE, atlasMap.data ());
+      glUniform1i (compU_hasDoubleWidth, hasDoubleWidth ? 1 : 0);
+
+      // Now that it's all loaded into GL, no need to keep font data in-memory
+      fontpk->releaseFonts ();
    }
 
    CharVdev::~CharVdev ()
@@ -407,15 +503,15 @@ namespace zutty
 
       pxWidth = pxWidth_;
       pxHeight = pxHeight_;
-      nCols = std::max (1, (pxWidth - 2 * opts.border) / fontpk.getPx ());
-      nRows = std::max (1, (pxHeight - 2 * opts.border) / fontpk.getPy ());
+      nCols = std::max (1, (pxWidth - 2 * opts.border) / px);
+      nRows = std::max (1, (pxHeight - 2 * opts.border) / py);
 
       logI << "Resize to " << pxWidth << " x " << pxHeight
            << " pixels, " << nCols << " x " << nRows << " chars"
            << std::endl;
 
-      GLint viewWidth = nCols * fontpk.getPx ();
-      GLint viewHeight = nRows * fontpk.getPy ();
+      GLint viewWidth = nCols * px;
+      GLint viewHeight = nRows * py;
       glViewport (opts.border, pxHeight - viewHeight - opts.border,
                   viewWidth, viewHeight);
 
@@ -487,6 +583,13 @@ namespace zutty
       glBindTexture (GL_TEXTURE_2D_ARRAY, T_atlas);
       glActiveTexture (GL_TEXTURE2);
       glBindTexture (GL_TEXTURE_2D, T_atlasMap);
+      if (hasDoubleWidth)
+      {
+         glActiveTexture (GL_TEXTURE3);
+         glBindTexture (GL_TEXTURE_2D_ARRAY, T_atlas_dw);
+         glActiveTexture (GL_TEXTURE4);
+         glBindTexture (GL_TEXTURE_2D, T_atlasMap_dw);
+      }
       glCheckError ();
 
       glDispatchCompute (nCols, nRows, 1);
@@ -562,6 +665,7 @@ namespace zutty
       compU_selectDamage = glGetUniformLocation (P_compute, "selectDamage");
       compU_deltaFrame = glGetUniformLocation (P_compute, "deltaFrame");
       compU_showWraps = glGetUniformLocation (P_compute, "showWraps");
+      compU_hasDoubleWidth = glGetUniformLocation (P_compute, "hasDoubleWidth");
 
       logT << "compute program:"
            << " uniform glyphPixels=" << compU_glyphPixels
@@ -574,6 +678,7 @@ namespace zutty
            << " selectDamage=" << compU_selectDamage
            << " deltaFrame=" << compU_deltaFrame
            << " showWraps=" << compU_showWraps
+           << " hasDoubleWidth=" << compU_hasDoubleWidth
            << std::endl;
 
       P_draw = glCreateProgram ();

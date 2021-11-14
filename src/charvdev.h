@@ -26,7 +26,7 @@ namespace zutty
    class CharVdev
    {
    public:
-      explicit CharVdev (const Fontpack* fontpk);
+      explicit CharVdev (Fontpack* fontpk);
 
       ~CharVdev ();
 
@@ -36,19 +36,22 @@ namespace zutty
       struct Cell
       {
          uint16_t uc_pt = ' ';
+         uint8_t dwidth: 1;
+         uint8_t dwidth_cont: 1;
          uint8_t bold: 1;
          uint8_t italic: 1;
          uint8_t underline: 1;
          uint8_t inverse: 1;
          uint8_t wrap: 1;
          uint8_t dirty: 1;
-         uint16_t _fill0: 10;
+         uint16_t _fill0: 8;
          Color fg;
          uint8_t _fill1;
          Color bg;
          uint8_t _fill2;
 
          Cell ():
+            dwidth (0), dwidth_cont (0),
             bold (0), italic (0), underline (0), inverse (0), wrap (0),
             dirty (0), fg (opts.fg), bg (opts.bg)
          {}
@@ -105,25 +108,28 @@ namespace zutty
       void setDeltaFrame (bool delta);
 
    private:
+      uint16_t px;
+      uint16_t py;
       uint16_t nCols;
       uint16_t nRows;
       uint16_t pxWidth;
       uint16_t pxHeight;
+      bool hasDoubleWidth = false;
 
       // GL ids of programs, buffers, textures, attributes and uniforms:
       GLuint P_compute, P_draw;
       GLuint B_text = 0;
       GLuint T_atlas = 0;
       GLuint T_atlasMap = 0;
+      GLuint T_atlas_dw = 0;
+      GLuint T_atlasMap_dw = 0;
       GLuint T_output = 0;
       GLint A_pos, A_vertexTexCoord;
       GLint compU_glyphPixels, compU_sizeChars, compU_cursorColor;
       GLint compU_cursorPos, compU_cursorStyle;
       GLint compU_selectRect, compU_selectRectMode, compU_selectDamage;
-      GLint compU_deltaFrame, compU_showWraps;
+      GLint compU_deltaFrame, compU_showWraps, compU_hasDoubleWidth;
       GLint drawU_viewPixels;
-
-      const Fontpack& fontpk;
 
       Cell * cells = nullptr; // valid pointer if mapped, else nullptr
 

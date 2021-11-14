@@ -17,7 +17,7 @@ namespace zutty
 {
    Renderer::Renderer (const std::function <void ()>& initDisplay,
                        const std::function <void ()>& swapBuffers_,
-                       const Fontpack* fontpk)
+                       Fontpack* fontpk)
       : swapBuffers {swapBuffers_}
       , thr (&Renderer::renderThread, this, initDisplay, fontpk)
    {
@@ -45,7 +45,7 @@ namespace zutty
 
    void
    Renderer::renderThread (const std::function <void ()>& initDisplay,
-                           const Fontpack* fontpk)
+                           Fontpack* fontpk)
    {
       initDisplay ();
 
