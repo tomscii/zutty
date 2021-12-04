@@ -1007,16 +1007,20 @@ eventLoop (XIC& xic, int ptyFd)
    };
 
    bool holdPtyIn = false;
-   while (1) {
+   while (1)
+   {
       pollset [0].fd = holdPtyIn ? -ptyFd : ptyFd;
       if (poll (pollset, 2, -1) < 0)
-         return false;
+      {
+         if (errno == EINTR)
+            continue;
+         else
+            return false;
+      }
 
-      if (pollset [0].revents & POLLHUP)
-         return false;
-
-      if (pollset [0].revents & POLLIN)
-         vt->readPty ();
+      if (pollset [0].revents & (POLLIN | POLLHUP))
+         if (vt->readPty ())
+            return false;
 
       if (pollset [1].revents & POLLIN)
          while (XPending (xDisplay))

@@ -113,7 +113,7 @@ namespace zutty
                     bool userInput = false);
       int writePty (const char* cstr, bool userInput = false);
 
-      void readPty ();
+      bool readPty ();
 
       const MouseTrackingState& getMouseTrackingState () const;
 

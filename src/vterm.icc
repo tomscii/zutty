@@ -361,11 +361,15 @@ namespace zutty
       inputState = newState;
    }
 
-   inline void
+   inline bool
    Vterm::readPty ()
    {
       static bool first = true;
       ssize_t n = read (ptyFd, inputBuf, sizeof (inputBuf));
+      if (n < 0)
+         return true;
+      else if (n == 0)
+         return !first;
 
       if (first)
       {
@@ -379,6 +383,8 @@ namespace zutty
 
       logT << "pty read: " << dumpBuffer (inputBuf, inputBuf + n);
       processInput (inputBuf, n);
+
+      return false;
    }
 
    inline void
