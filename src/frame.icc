@@ -211,7 +211,7 @@ namespace zutty
    inline void
    Frame::vscrollSelection (int vertOffset)
    {
-      if (selection.empty ())
+      if (selection.null ())
          return;
 
       int y1 = selection.tl.y + vertOffset;
