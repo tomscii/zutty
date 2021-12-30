@@ -111,6 +111,7 @@ function KEYPAD_KEYS {
 
     IN "Testing keypad keys in normal mode. \D1"
     IN "No modifiers: \D1"
+    # VT100 Numeric mode - send "NumLock on" keysyms
     IN "\[KP_Enter] \[KP_Tab] \[KP_Space] \[KP_Multiply] \[KP_Divide] "
     IN "\[KP_Add] \[KP_Subtract] \[KP_Separator] \[KP_Decimal] \[KP_Equal] "
     IN "\[KP_0] \[KP_1] \[KP_2] \[KP_3] \[KP_4] "
@@ -123,10 +124,11 @@ function KEYPAD_KEYS {
 
     IN "Testing keypad keys in application keypad mode. \D1"
     IN "No modifiers: \D1"
+    # VT100 Application mode - send "NumLock off" keysyms
     IN "\[KP_Enter] \[KP_Tab] \[KP_Space] \[KP_Multiply] \[KP_Divide] "
-    IN "\[KP_Add] \[KP_Subtract] \[KP_Separator] \[KP_Decimal] \[KP_Equal] "
-    IN "\[KP_0] \[KP_1] \[KP_2] \[KP_3] \[KP_4] "
-    IN "\[KP_5] \[KP_6] \[KP_7] \[KP_8] \[KP_9] \D2"
+    IN "\[KP_Add] \[KP_Subtract] \[KP_Separator] \[KP_Delete] \[KP_Equal] "
+    IN "\[KP_Insert] \[KP_End] \[KP_Down] \[KP_Page_Down] \[KP_Left] "
+    IN "\[KP_Begin] \[KP_Right] \[KP_Home] \[KP_Up] \[KP_Page_Up] \D2"
 
     # Omitting Shift as it does not get through for all keys (xvkbd?)
 

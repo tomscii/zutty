@@ -505,13 +505,47 @@ onKeyPress (XEvent& event, XIC& xic, int ptyFd)
       return false;
    }
 
+   if (xkevt.state & Mod2Mask) // NumLock is on
+   {
+      // Special hack for those numpad keys whose X keysyms as
+      // reported by X do not reflect the NumLock state. Most keys do
+      // not have this problem, e.g., the numpad's up arrow key is
+      // XK_KP_Up with NumLock off, but the same key is XK_KP_8 with
+      // NumLock on. Thus, we can naturally handle them as separate.
+      //
+      // This hack allows us to bind different translation sequences
+      // to the rest of the keys whose keysyms do not depend on NumLock.
+      // N.B.: since we do not want anything fancy, just the key
+      // literals, we do not need matching KEYSEND clauses for these
+      // below; we will fall through to the default branch, which does
+      // what we want.
+
+      switch (ks)
+      {
+      case XK_KP_Space:      ks = XK_space;     break;
+      case XK_KP_Tab:        ks = XK_Tab;       break;
+      case XK_KP_Enter:      ks = XK_Return;    break;
+      case XK_KP_Add:        ks = XK_plus;      break;
+      case XK_KP_Subtract:   ks = XK_minus;     break;
+      case XK_KP_Multiply:   ks = XK_asterisk;  break;
+      case XK_KP_Divide:     ks = XK_slash;     break;
+      case XK_KP_Separator:  ks = XK_comma;     break;
+      case XK_KP_Decimal:    ks = XK_period;    break;
+      case XK_KP_Equal:      ks = XK_equal;     break;
+      default: break;
+      }
+   }
+
    if (XFilterEvent (&event, xkevt.window))
+      return false;
+   if (ks == XK_Num_Lock)
       return false;
 
    switch (ks)
    {
 #define KEYSEND(XKey, VtKey)                    \
       case XKey:                                \
+         logT << "Key: " #XKey << std::endl;    \
          vt->writePty (VtKey, mod, true);       \
          return false
 
@@ -580,8 +614,8 @@ onKeyPress (XEvent& event, XIC& xic, int ptyFd)
       KEYSEND (XK_KP_Down,          Key::KP_Down);
       KEYSEND (XK_KP_Left,          Key::KP_Left);
       KEYSEND (XK_KP_Right,         Key::KP_Right);
-      KEYSEND (XK_KP_Prior,         Key::KP_PageUp);
-      KEYSEND (XK_KP_Next,          Key::KP_PageDown);
+      KEYSEND (XK_KP_Page_Up,       Key::KP_PageUp);
+      KEYSEND (XK_KP_Page_Down,     Key::KP_PageDown);
       KEYSEND (XK_KP_Add,           Key::KP_Plus);
       KEYSEND (XK_KP_Insert,        Key::KP_Insert);
       KEYSEND (XK_KP_Delete,        Key::KP_Delete);

@@ -144,24 +144,28 @@ function VT_5 {
     IN "\r"
 
     IN "5\r" # Numeric Keypad
+    # VT100 Numeric mode - send "NumLock on" keysyms
     IN "\{KP_F1}\D1\{KP_F2}\D1\{KP_F3}\D1\{KP_F4}"
     IN "\{KP_0}\D1\{KP_1}\D1\{KP_2}\D1\{KP_3}\D1\{KP_4}"
     IN "\{KP_5}\D1\{KP_6}\D1\{KP_7}\D1\{KP_8}\D1\{KP_9}"
     IN "\{KP_Subtract}\D1\{KP_Separator}\D1\{KP_Decimal}\D1\{KP_Enter}"
     SNAP vt_05_05_01 314fbc833efac9c7910e65820b395bfc
     IN "\t\D1"
+    # VT100 Application mode - send "NumLock off" keysyms
     IN "\{KP_F1}\D1\{KP_F2}\D1\{KP_F3}\D1\{KP_F4}"
-    IN "\{KP_0}\D1\{KP_1}\D1\{KP_2}\D1\{KP_3}\D1\{KP_4}"
-    IN "\{KP_5}\D1\{KP_6}\D1\{KP_7}\D1\{KP_8}\D1\{KP_9}"
-    IN "\{KP_Subtract}\D1\{KP_Separator}\D1\{KP_Decimal}\D1\{KP_Enter}"
+    IN "\{KP_Insert}\D1\{KP_End}\D1\{KP_Down}\D1\{KP_Page_Down}\D1\{KP_Left}"
+    IN "\{KP_Begin}\D1\{KP_Right}\D1\{KP_Home}\D1\{KP_Up}\D1\{KP_Page_Up}"
+    IN "\{KP_Subtract}\D1\{KP_Separator}\D1\{KP_Delete}\D1\{KP_Enter}"
     SNAP vt_05_05_02 c3952de0a8b7fe42e70eacce9eda7d8e
     IN "\t\D1"
+    # VT52 Numeric mode
     IN "\{KP_F1}\D1\{KP_F2}\D1\{KP_F3}\D1\{KP_F4}"
     IN "\{KP_0}\D1\{KP_1}\D1\{KP_2}\D1\{KP_3}\D1\{KP_4}"
     IN "\{KP_5}\D1\{KP_6}\D1\{KP_7}\D1\{KP_8}\D1\{KP_9}"
     IN "\{KP_Subtract}\D1\{KP_Separator}\D1\{KP_Decimal}\D1\{KP_Enter}"
     SNAP vt_05_05_03 2b64d110de25d733106835d50cf1a4fb
     IN "\t\D1"
+    # VT52 Application mode
     IN "\{KP_F1}\D1\{KP_F2}\D1\{KP_F3}\D1\{KP_F4}"
     IN "\{KP_0}\D1\{KP_1}\D1\{KP_2}\D1\{KP_3}\D1\{KP_4}"
     IN "\{KP_5}\D1\{KP_6}\D1\{KP_7}\D1\{KP_8}\D1\{KP_9}"
