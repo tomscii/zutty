@@ -333,6 +333,10 @@ function SPECIAL_KEYS {
     IN "Ctrl-*: \C* \D2"
     IN "Ctrl-(: \C( \D2"
     IN "Ctrl-): \C) \D2"
+    IN "Ctrl-[: \C[ \D2"
+    IN "Ctrl-]: \C] \D2"
+    IN "Ctrl-{: \C{ \D2"
+    IN "Ctrl-}: \C} \D2"
     IN "Ctrl-i: \Ci \D2"
     IN "Ctrl-Shift-i: \CI \D2"
     IN "Ctrl-x: \Cx \D2"
@@ -344,7 +348,7 @@ function SPECIAL_KEYS {
     IN "Alt-Tab: \A\[Tab] \D2"
     IN "Alt-x: \Ax \D2"
 
-    SNAP keys_10 8213a0344017cd0c3dae5650edc2e100
+    SNAP keys_10 21e0323dea9803d79f29b762b1f8775c
 
     IN "\Cd\Cd\D3"
 
@@ -381,6 +385,10 @@ function SPECIAL_KEYS {
     IN "Ctrl-*: \C* \D2"
     IN "Ctrl-(: \C( \D2"
     IN "Ctrl-): \C) \D2"
+    IN "Ctrl-[: \C[ \D2"
+    IN "Ctrl-]: \C] \D2"
+    IN "Ctrl-{: \C{ \D2"
+    IN "Ctrl-}: \C} \D2"
     IN "Ctrl-i: \Ci \D2"
     IN "Ctrl-Shift-i: \CI \D2"
     IN "Ctrl-x: \Cx \D2"
@@ -393,7 +401,7 @@ function SPECIAL_KEYS {
     IN "Alt-Tab: \A\[Tab] \D2"
     IN "Alt-x: \Ax \D2"
 
-    SNAP keys_11 6996bc176201764d2f5c4a0eb636a46b
+    SNAP keys_11 9aabe6d596979bdbb6620abf7253b5f5
 
     IN "\Cd\Cd\D3"
 
@@ -431,6 +439,10 @@ function SPECIAL_KEYS {
     IN "ctrl-* \C* \D2"
     IN "ctrl-( \C( \D2"
     IN "ctrl-) \C) \D2"
+    IN "ctrl-[ \C[ \D2"
+    IN "ctrl-] \C] \D2"
+    IN "ctrl-{ \C{ \D2"
+    IN "ctrl-} \C} \D2"
     IN "ctrl-i \Ci \D2"
     IN "ctrl-shift-i \CI \D2"
     IN "ctrl-x \Cx \D2"
@@ -445,7 +457,7 @@ function SPECIAL_KEYS {
     IN "alt-tab \A\[Tab] \D2"
     IN "alt-x \Ax \D2"
 
-    SNAP keys_12 f78867124a75ecdd5a7583553c0b2808
+    SNAP keys_12 1b6d627b71c6f74e49e4d852ed42a5f2
 
     IN "\Cd\Cd\D3"
 }

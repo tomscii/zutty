@@ -746,8 +746,8 @@ namespace zutty
          {
             const char* ctrlmap =
                ((modifiers & VtModifier::shift) != VtModifier::none)
-               ? "@ABCDEFGHIJKLMNOPQRSTUVWXYZ3|5^78"
-               : " abcdefghijklmnopqrstuvwxyz3\\5^78";
+               ? "@ABCDEFGHIJKLMNOPQRSTUVWXYZ{|}^78"
+               : " abcdefghijklmnopqrstuvwxyz[\\]^78";
             ch = ctrlmap [ch];
          }
 

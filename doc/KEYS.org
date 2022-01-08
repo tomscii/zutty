@@ -207,6 +207,10 @@ different values of =modifyOtherKeys= (columns 0, 1 and 2), with an
 | Control-* (Control-Shift-8) | *          | CSI 27 ; 6 ; 42 ~ | CSI 27 ; 6 ; 42 ~  |
 | Control-( (Control-Shift-9) | (          | CSI 27 ; 6 ; 40 ~ | CSI 27 ; 6 ; 40 ~  |
 | Control-) (Control-Shift-0) | )          | CSI 27 ; 6 ; 41 ~ | CSI 27 ; 6 ; 41 ~  |
+| Control-[                   | ^[         | ^[                | CSI 27 ; 5 ; 91 ~  |
+| Control-]                   | ^]         | ^]                | CSI 27 ; 5 ; 93 ~  |
+| Control-{ (Control-Shift-[) | ^[         | ^[                | CSI 27 ; 6 ; 123 ~ |
+| Control-} (Control-Shift-]) | ^]         | ^]                | CSI 27 ; 6 ; 125 ~ |
 | Control-c                   | ^C         | ^C                | CSI 27 ; 5 ; 99 ~  |
 | Control-d                   | ^D         | ^D                | CSI 27 ; 5 ; 100 ~ |
 | Control-i                   | TAB        | TAB               | CSI 27 ; 5 ; 105 ~ |

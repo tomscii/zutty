@@ -1945,6 +1945,8 @@ namespace zutty
             if (inputOps [1] <= 2)
             {
                modifyOtherKeys = inputOps [1];
+               logT << "XTMODKEYS: modifyOtherKeys set to "
+                    << (int)modifyOtherKeys << std::endl;
             }
             else
             {
