@@ -249,7 +249,7 @@ namespace zutty
       {
          // If we are loading a fixed bitmap strike of an otherwise scaled
          // font, we need the baseline metric.
-         baseline = py * (double)face->ascender / face->height;
+         baseline = round (py * (double)face->ascender / face->height);
       }
    }
 
@@ -259,19 +259,20 @@ namespace zutty
       if (FT_Set_Pixel_Sizes (face, opts.fontsize, opts.fontsize))
          throw std::runtime_error ("Could not set pixel sizes");
 
-      int tpx = opts.fontsize *
+      double tpx = opts.fontsize *
          (double)face->max_advance_width / face->units_per_EM;
-      int tpy = tpx * (double)face->height / face->max_advance_width + 1;
+      double tpy = tpx * face->height / face->max_advance_width + 1;
       if (!overlay && !dwidth)
       {
-         px = tpx;
-         py = tpy;
+         px = round (tpx);
+         py = round (tpy);
       }
       if (!overlay)
       {
-         baseline = tpy * (double)face->ascender / face->height;
+         baseline = round (tpy * face->ascender / face->height);
       }
-      logI << "Glyph size " << px << "x" << py << std::endl;
+      logI << "Glyph size " << px << "x" << py << ", baseline " << baseline
+           << std::endl;
    }
 
    void Font::loadFace (const FT_Face& face, FT_ULong c)
@@ -305,14 +306,19 @@ namespace zutty
       }
 
       // destination pixel offset
-      const unsigned int dx = face->glyph->bitmap_left > 0
-                            ? face->glyph->bitmap_left : 0;
-      const unsigned int dy = baseline && baseline > face->glyph->bitmap_top
-                            ? baseline - face->glyph->bitmap_top : 0;
+      int dx = face->glyph->bitmap_left;
+      int dy = baseline > 0 ? baseline - face->glyph->bitmap_top : 0;
+
+      // source skip horiz and vert
+      const int sh = std::max (0, -dy);
+      const int sw = std::max (0, -dx);
+      dx += sw;
+      dy += sh;
 
       // raw/rasterized bitmap dimensions
-      const unsigned int bh = std::min (face->glyph->bitmap.rows, py - dy);
-      const unsigned int bw = std::min (face->glyph->bitmap.width, px - dx);
+      const auto& bmp = face->glyph->bitmap;
+      const int bh = std::min ((int)bmp.rows, py - dy + sh);
+      const int bw = std::min ((int)bmp.width, px - dx + sw);
 
       const int atlas_row_offset = nx * px * py;
       const int atlas_glyph_offset = apos.y * atlas_row_offset + apos.x * px;
@@ -320,10 +326,10 @@ namespace zutty
 
       if (overlay) // clear glyph area, as we are overwriting an existing glyph
       {
-         for (unsigned int j = 0; j < bh; ++j) {
+         for (int j = 0; j < bh; ++j) {
             uint8_t* atl_dst_row =
                atlasBuf.data () + atlas_glyph_offset + j * nx * px;
-            for (unsigned int k = 0; k < bw; ++k) {
+            for (int k = 0; k < bw; ++k) {
                *atl_dst_row++ = 0;
             }
          }
@@ -338,30 +344,29 @@ namespace zutty
        * per pixel, or 1 bit (mono) per pixel. Leftmost pixel is MSB.
        *
        */
-      const auto& bmp = face->glyph->bitmap;
       const uint8_t* bmp_src_row;
       uint8_t* atl_dst_row;
       switch (bmp.pixel_mode)
       {
       case FT_PIXEL_MODE_MONO:
-         for (unsigned int j = 0; j < bh; ++j) {
+         for (int j = sh; j < bh; ++j) {
             bmp_src_row = bmp.buffer + j * bmp.pitch;
             atl_dst_row = atlasBuf.data () + atlas_write_offset + j * nx * px;
             uint8_t byte = 0;
-            for (unsigned int k = 0; k < bw; ++k) {
-               if (k % 8 == 0) {
+            for (int k = 0; k < bw; ++k) {
+               if (k % 8 == 0)
                   byte = *bmp_src_row++;
-               }
-               *atl_dst_row++ = (byte & 0x80) ? 0xFF : 0;
+               if (k >= sw)
+                  *atl_dst_row++ = (byte & 0x80) ? 0xFF : 0;
                byte <<= 1;
             }
          }
          break;
       case FT_PIXEL_MODE_GRAY:
-         for (unsigned int j = 0; j < bh; ++j) {
-            bmp_src_row = bmp.buffer + j * bmp.pitch;
+         for (int j = sh; j < bh; ++j) {
+            bmp_src_row = bmp.buffer + j * bmp.pitch + sw;
             atl_dst_row = atlasBuf.data () + atlas_write_offset + j * nx * px;
-            for (unsigned int k = 0; k < bw; ++k) {
+            for (int k = sw; k < bw; ++k) {
                *atl_dst_row++ = *bmp_src_row++;
             }
          }
