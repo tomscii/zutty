@@ -18,6 +18,7 @@
 #include "base.h"
 #include "base64.h"
 #include "fontpack.h"
+#include "icons.h"
 #include "options.h"
 #include "pty.h"
 #include "renderer.h"
@@ -202,6 +203,14 @@ makeXWindow (const char* name, int width, int height, int px, int py,
       pid_t pid = getpid ();
       XChangeProperty (xDisplay, xWindow, _NET_WM_PID, XA_CARDINAL,
                        32, PropModeReplace, (unsigned char *)&pid, 1);
+   }
+
+   {
+      // set NET_WM_ICON to 32 bit cardinal ARGB generated from icons
+      Atom _NET_WM_ICON = XInternAtom (xDisplay, "_NET_WM_ICON", false);
+      XChangeProperty (xDisplay, xWindow, _NET_WM_ICON, XA_CARDINAL,
+                       32, PropModeReplace, (const unsigned char*) zutty_icons,
+                       sizeof(zutty_icons)/sizeof(zutty_icons[0]));
    }
 
    wmDeleteMessage = XInternAtom (xDisplay, "WM_DELETE_WINDOW", False);
