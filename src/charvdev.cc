@@ -59,7 +59,7 @@ void main ()
 
    if (deltaFrame == 1)
    {
-      uint dirty = bitfieldExtract (cell.charData, 23, 1);
+      uint dirty = bitfieldExtract (cell.charData, 24, 1);
       if (dirty == 0u &&
           charPos != cursorPos.xy && charPos != cursorPos.zw &&
           (idx < selectDamage.x || idx >= selectDamage.y))
@@ -89,6 +89,7 @@ void main ()
    uint underline = bitfieldExtract (cell.charData, 20, 1);
    uint inverse = bitfieldExtract (cell.charData, 21, 1);
    uint wrap = bitfieldExtract (cell.charData, 22, 1);
+   uint crossedout = bitfieldExtract (cell.charData, 23, 1);
 
    ivec2 atlasPos;
    if (dwidth == 0u)
@@ -206,6 +207,17 @@ void main ()
       {
          ivec2 pxCoords = charPos * glyphPixels +
                           ivec2 (srcGlyphPixels.x - 1, k);
+         imageStore (imgOut, pxCoords, pixel);
+      }
+   }
+
+   if (crossedout == 1u)
+   {
+      for (int j = 0; j < srcGlyphPixels.x; j++)
+      {
+         vec4 pixel = vec4 (fgColor, 1.0);
+         ivec2 pxCoords = charPos * glyphPixels +
+                          ivec2 (j, (srcGlyphPixels.y - 1) * 5 / 8);
          imageStore (imgOut, pxCoords, pixel);
       }
    }

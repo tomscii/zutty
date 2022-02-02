@@ -43,8 +43,9 @@ namespace zutty
          uint8_t underline: 1;
          uint8_t inverse: 1;
          uint8_t wrap: 1;
+         uint8_t crossedout: 1;
          uint8_t dirty: 1;
-         uint16_t _fill0: 8;
+         uint16_t _fill0: 7;
          Color fg;
          uint8_t _fill1;
          Color bg;
@@ -53,7 +54,7 @@ namespace zutty
          Cell ():
             dwidth (0), dwidth_cont (0),
             bold (0), italic (0), underline (0), inverse (0), wrap (0),
-            dirty (0), fg (opts.fg), bg (opts.bg)
+            crossedout (0), dirty (0), fg (opts.fg), bg (opts.bg)
          {}
 
          using Ptr = std::shared_ptr <Cell>;

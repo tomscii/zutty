@@ -1540,6 +1540,7 @@ namespace zutty
             attrs.italic = 0;
             attrs.underline = 0;
             attrs.inverse = 0;
+            attrs.crossedout = 0;
             reverseVideo = false;
             fg = &attrs.fg;
             bg = &attrs.bg;
@@ -1564,6 +1565,7 @@ namespace zutty
             }
             break;
          case 8: logU << "attr.: concealed" << std::endl; break;
+         case 9: attrs.crossedout = 1; break;
          case 10: attrs.bold = 0; attrs.italic = 0; setFgFromPalIx (); break;
          case 11: attrs.bold = 1; attrs.italic = 0; setFgFromPalIx (); break;
          case 12: attrs.bold = 0; attrs.italic = 1; setFgFromPalIx (); break;
@@ -1586,6 +1588,7 @@ namespace zutty
             }
             break;
          case 28: logU << "attr.: revealed (conceal off)" << std::endl; break;
+         case 29: attrs.crossedout = 0; break;
 
          // standard foregrounds (bright if bold)
          case 30: case 31: case 32: case 33: case 34: case 35: case 36: case 37:
