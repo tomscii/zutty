@@ -59,7 +59,7 @@ void main ()
 
    if (deltaFrame == 1)
    {
-      uint dirty = bitfieldExtract (cell.charData, 24, 1);
+      uint dirty = bitfieldExtract (cell.charData, 25, 1);
       if (dirty == 0u &&
           charPos != cursorPos.xy && charPos != cursorPos.zw &&
           (idx < selectDamage.x || idx >= selectDamage.y))
@@ -90,6 +90,7 @@ void main ()
    uint inverse = bitfieldExtract (cell.charData, 21, 1);
    uint wrap = bitfieldExtract (cell.charData, 22, 1);
    uint crossedout = bitfieldExtract (cell.charData, 23, 1);
+   uint conceal = bitfieldExtract (cell.charData, 24, 1);
 
    ivec2 atlasPos;
    if (dwidth == 0u)
@@ -125,6 +126,10 @@ void main ()
       vec3 tmp = fgColor;
       fgColor = bgColor;
       bgColor = tmp;
+   }
+   if (conceal == 1u)
+   {
+     fgColor = bgColor;
    }
    if (crColor == bgColor)
    {
