@@ -70,7 +70,7 @@ def configure(cfg):
     else:
         cfg.env.target = 'zutty'
         cfg.env.append_value('CXXFLAGS',
-           ['-Werror', '-O3', '-march=native', '-mtune=native', '-flto'])
+           ['-Werror', '-O3', '-flto'])
         cfg.env.append_value('LINKFLAGS',
            ['-flto'])
 
