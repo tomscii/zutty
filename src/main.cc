@@ -536,8 +536,6 @@ onKeyPress (XEvent& event, XIC& xic, int ptyFd)
       }
    }
 
-   if (XFilterEvent (&event, xkevt.window))
-      return false;
    if (ks == XK_Num_Lock)
       return false;
 
@@ -1063,6 +1061,10 @@ eventLoop (XIC& xic, int ptyFd)
             bool destroyed = false;
 
             XNextEvent (xDisplay, &event);
+            if (XFilterEvent (&event, None)) {
+               continue;
+            }
+
             if (x11Event (event, xic, ptyFd, destroyed, holdPtyIn))
                return destroyed;
          }
@@ -1250,6 +1252,10 @@ main (int argc, char* argv[])
          std::cout << "Expect broken international characters "
                    << "(or fix your locale)!"
                    << std::endl;
+   }
+
+   if (! XSetLocaleModifiers ("")) {
+      logE << "XSetLocaleModifiers() failed" << std::endl;
    }
 
    if (! XInitThreads ())
