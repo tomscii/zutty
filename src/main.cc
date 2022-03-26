@@ -23,6 +23,7 @@
 #include "renderer.h"
 #include "selmgr.h"
 #include "vterm.h"
+#include "wm_icons.h"
 
 #include <cassert>
 #include <langinfo.h>
@@ -202,6 +203,14 @@ makeXWindow (const char* name, int width, int height, int px, int py,
       pid_t pid = getpid ();
       XChangeProperty (xDisplay, xWindow, _NET_WM_PID, XA_CARDINAL,
                        32, PropModeReplace, (unsigned char *)&pid, 1);
+   }
+
+   {
+      // set NET_WM_ICON to wm_icons [] (16x16 and 32x32 32-bit cardinal ARGB)
+      Atom _NET_WM_ICON = XInternAtom (xDisplay, "_NET_WM_ICON", false);
+      XChangeProperty (xDisplay, xWindow, _NET_WM_ICON, XA_CARDINAL,
+                       32, PropModeReplace, (const unsigned char*) wm_icons,
+                       sizeof (wm_icons) / sizeof (wm_icons [0]));
    }
 
    wmDeleteMessage = XInternAtom (xDisplay, "WM_DELETE_WINDOW", False);
