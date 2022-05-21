@@ -417,10 +417,12 @@ right margin.
 
 :   -title        Window title (default: Zutty)
 
-Set the title of the Zutty window. This might be overridden by usage
-of the =-e= option (setting the title to the basename of the program
-to be run), or at any later time by escape sequences output by the
-shell (or any program executed by it).
+Set the title of the Zutty window. A title configured in the X
+resource database will be overridden by usage of the =-e= option,
+which sets the title to the basename of the program to be run. Passing
+the title on the command line takes precedence over the title implied
+by =-e=.  In any case, the title can be overridden at runtime by
+escape sequences output by the shell (or any program executed by it).
 
 ** Shell/command specification
 
@@ -475,7 +477,8 @@ behaviour of =xterm=, and follows these steps:
 
 This option specifies the command line (program and arguments) to be
 run in the Zutty terminal window. It also sets the window title to the
-basename of the program to be executed.
+basename of the program to be executed, unless the title is explicitly
+set by passing =-title= on the command line.
 
 Note that this must be the last option on the command line, as
 everything after it will be passed verbatim to the spawned child

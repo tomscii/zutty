@@ -103,6 +103,11 @@ namespace zutty
       {"color15",           "#ffffff",     "Palette color 15"},
    };
 
+   enum class OptionSource
+   {  // in order of increasing precedence:
+      NONE, HardDefault, ResourceCfg, CmdLine
+   };
+
    struct Options
    {
       // N.B.: no static initializers - will decode hardDefault fields above!
@@ -119,6 +124,7 @@ namespace zutty
       const char* name;
       const char* shell;
       const char* title;
+      OptionSource titleSource = OptionSource::NONE;
       Color bg;
       Color cr;
       Color fg;

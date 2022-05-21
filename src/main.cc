@@ -46,11 +46,12 @@ using zutty::Vterm;
 using zutty::VtKey;
 using zutty::VtModifier;
 using zutty::Renderer;
+using zutty::SelectionManager;
 
 static std::unique_ptr <Fontpack> fontpk = nullptr;
 static std::unique_ptr <Renderer> renderer = nullptr;
 static std::unique_ptr <Vterm> vt = nullptr;
-static std::unique_ptr <zutty::SelectionManager> selMgr = nullptr;
+static std::unique_ptr <SelectionManager> selMgr = nullptr;
 
 static Display* xDisplay = nullptr;
 static Window xWindow;
@@ -1127,7 +1128,7 @@ handleOsc (int cmd, const std::string& arg)
          // Iterate through targets via callback in continuation-passing style
          auto it = targets.begin ();
          auto iend = targets.end ();
-         zutty::SelectionManager::PasteCallbackFn getSelectionCb =
+         SelectionManager::PasteCallbackFn getSelectionCb =
             [&] (bool success, const std::string& content)
             {
                if (success)
@@ -1304,7 +1305,8 @@ main (int argc, char* argv[])
    if (argc > 2 && strcmp (argv [1], "-e") == 0)
    {
       shArgv = argv + 2;
-      opts.title = argv [2];
+      if (opts.titleSource != zutty::OptionSource::CmdLine)
+         opts.title = argv [2];
       strncpy (progPath, argv [2], PATH_MAX-1);
    }
    else if (argc == 2)
@@ -1397,7 +1399,7 @@ main (int argc, char* argv[])
       return -1;
    }
 
-   selMgr = std::make_unique <zutty::SelectionManager> (xDisplay, xWindow);
+   selMgr = std::make_unique <SelectionManager> (xDisplay, xWindow);
 
    renderer = std::make_unique <Renderer> (
       [eglDpy, eglSurface, eglCtx] ()

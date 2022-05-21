@@ -79,28 +79,36 @@ namespace
       } ();
 
    const char*
-   get (const char* name, const char* fallback = nullptr)
+   get (const char* name, const char* fallback = nullptr,
+        OptionSource* src = nullptr)
    {
       XrmValue xrmValue;
       char* xrmType;
       char buf [80] = "zutty.";
       strncat (buf, name, sizeof (buf) - 1);
 
+      auto withSource = [=] (const OptionSource s, const char* rv)
+      {
+         if (src)
+            *src = s;
+         return rv;
+      };
+
       if (XrmGetResource (xrmOptionsDb, buf, opts.name, &xrmType, &xrmValue))
-         return xrmValue.addr;
+         return withSource (OptionSource::CmdLine, xrmValue.addr);
       const char* xDefault = dpy ? XGetDefault (dpy, opts.name, name) : nullptr;
       if (xDefault)
-         return xDefault;
+         return withSource (OptionSource::ResourceCfg, xDefault);
       else
       {
          for (const auto& e: optionsTable)
             if (strcmp (e.option, name) == 0 && e.hardDefault)
-               return e.hardDefault;
+               return withSource (OptionSource::HardDefault, e.hardDefault);
          for (const auto& r: resourceTable)
             if (strcmp (r.resource, name) == 0 && r.hardDefault)
-               return r.hardDefault;
+               return withSource (OptionSource::HardDefault, r.hardDefault);
       }
-      return fallback;
+      return withSource (OptionSource::NONE, fallback);
    }
 
    void
@@ -308,7 +316,7 @@ namespace zutty
          shell = get ("shell", getenv ("SHELL"));
          if (!shell)
             shell = "bash";
-         title = get ("title");
+         title = get ("title", nullptr, &titleSource);
          getColor ("fg", fg);
          getColor ("bg", bg);
          rv = getBool ("rv");
