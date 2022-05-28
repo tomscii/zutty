@@ -59,6 +59,10 @@ def configure(cfg):
         cfg.env.append_value('CXXFLAGS', ['-DMACOS'])
     elif platform == 'SunOS':
         cfg.env.append_value('CXXFLAGS', ['-DSOLARIS'])
+    elif platform == 'GNU/kFreeBSD':
+        cfg.env.append_value('CXXFLAGS', ['-DBSD'])
+    elif platform == 'GNU':
+        cfg.env.append_value('CXXFLAGS', ['-DGNU'])
     else:
         Logs.error ('Unknown platform: {}'.format (platform))
         sys.exit (1)
