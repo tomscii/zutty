@@ -337,6 +337,7 @@ function SPECIAL_KEYS {
     IN "Ctrl-]: \C] \D2"
     IN "Ctrl-{: \C{ \D2"
     IN "Ctrl-}: \C} \D2"
+    IN "Ctrl-/: \C/ \D2"
     IN "Ctrl-i: \Ci \D2"
     IN "Ctrl-Shift-i: \CI \D2"
     IN "Ctrl-x: \Cx \D2"
@@ -348,7 +349,7 @@ function SPECIAL_KEYS {
     IN "Alt-Tab: \A\[Tab] \D2"
     IN "Alt-x: \Ax \D2"
 
-    SNAP keys_10 21e0323dea9803d79f29b762b1f8775c
+    SNAP keys_10 a415b0df0b027d5bb9b66fe6e6902574
 
     IN "\Cd\Cd\D3"
 
@@ -389,6 +390,7 @@ function SPECIAL_KEYS {
     IN "Ctrl-]: \C] \D2"
     IN "Ctrl-{: \C{ \D2"
     IN "Ctrl-}: \C} \D2"
+    IN "Ctrl-/: \C/ \D2"
     IN "Ctrl-i: \Ci \D2"
     IN "Ctrl-Shift-i: \CI \D2"
     IN "Ctrl-x: \Cx \D2"
@@ -401,7 +403,7 @@ function SPECIAL_KEYS {
     IN "Alt-Tab: \A\[Tab] \D2"
     IN "Alt-x: \Ax \D2"
 
-    SNAP keys_11 9aabe6d596979bdbb6620abf7253b5f5
+    SNAP keys_11 dc0833c6fcfc7a5f6668597158502345
 
     IN "\Cd\Cd\D3"
 
@@ -443,6 +445,7 @@ function SPECIAL_KEYS {
     IN "ctrl-] \C] \D2"
     IN "ctrl-{ \C{ \D2"
     IN "ctrl-} \C} \D2"
+    IN "ctrl-/ \C/ \D2"
     IN "ctrl-i \Ci \D2"
     IN "ctrl-shift-i \CI \D2"
     IN "ctrl-x \Cx \D2"
@@ -457,7 +460,7 @@ function SPECIAL_KEYS {
     IN "alt-tab \A\[Tab] \D2"
     IN "alt-x \Ax \D2"
 
-    SNAP keys_12 1b6d627b71c6f74e49e4d852ed42a5f2
+    SNAP keys_12 ceb5fe868904bc8f716254a0ce6f3807
 
     IN "\Cd\Cd\D3"
 }

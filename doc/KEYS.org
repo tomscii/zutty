@@ -187,6 +187,7 @@ different values of =modifyOtherKeys= (columns 0, 1 and 2), with an
 | Control-Return              | Return     | CSI 27 ; 5 ; 13 ~ | CSI 27 ; 5 ; 13 ~  |
 | Control-Alt-Return          | ESC Return | CSI 27 ; 7 ; 13 ~ | CSI 27 ; 7 ; 13 ~  |
 | Control-Alt-Shift-Return    | ESC Return | CSI 27 ; 8 ; 13 ~ | CSI 27 ; 8 ; 13 ~  |
+| Control-/                   | ^_         | ^_                | CSI 27 ; 5 ; 47 ~  |
 | Control-0                   | 0          | CSI 27 ; 5 ; 48 ~ | CSI 27 ; 5 ; 48 ~  |
 | Control-1                   | 1          | CSI 27 ; 5 ; 49 ~ | CSI 27 ; 5 ; 49 ~  |
 | Control-2                   | ^@         | ^@                | CSI 27 ; 5 ; 50 ~  |
