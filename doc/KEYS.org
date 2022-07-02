@@ -91,21 +91,20 @@ Modifier examples:
 - Shift + F1: CSI 1 ; 2 P
 - Alt + F4: CSI 1 ; 3 S
 - Shift + F5: CSI 1 5 ; 2 ~
-- Control + Shift + F10: CSI 21 ; 6 ~
+- Control + Shift + F10: CSI 2 1 ; 6 ~
 
 Modifiers are not applied in VT52 mode.
 
 * Sequences dependent on cursor key mode setting
 
-| Key             | VT100 Normal | VT100 App | VT52  |
-|-----------------+--------------+-----------+-------|
-| Up, KP_Up       | CSI A        | SS3 A     | ESC A |
-| Down, KP_Down   | CSI B        | SS3 B     | ESC B |
-| Right, KP_Right | CSI C        | SS3 C     | ESC C |
-| Left, KP_Left   | CSI D        | SS3 D     | ESC D |
-| KP_Begin        | CSI E        | SS3 E     | ESC E |
-| Home, KP_Home   | CSI H        | SS3 H     | ESC H |
-| End, KP_End     | CSI F        | SS3 F     | ESC F |
+| Key   | VT100 Normal | VT100 App | VT52  |
+|-------+--------------+-----------+-------|
+| Up    | CSI A        | SS3 A     | ESC A |
+| Down  | CSI B        | SS3 B     | ESC B |
+| Right | CSI C        | SS3 C     | ESC C |
+| Left  | CSI D        | SS3 D     | ESC D |
+| Home  | CSI H        | SS3 H     | ESC H |
+| End   | CSI F        | SS3 F     | ESC F |
 
 Examples (apply both in Normal and App mode):
 - Alt + Left: CSI 1 ; 3 D
@@ -113,17 +112,22 @@ Examples (apply both in Normal and App mode):
 
 Modifiers are not applied in VT52 mode.
 
+Note that arrow keys on the numeric keypad (=KP_Up=, etc.) are handled
+as completely different keys; their encoding method is described in
+the next section.
+
 * Sequences dependent on keypad mode setting
 
 This only affects the keypad. The corresponding non-keypad keys always
-send the characters in the Normal column. Normal (aka. numeric) mode
+send the literals in the Normal column. Normal (aka. numeric) mode
 is shared between VT100 and VT52.
 
 Some keys are received from X with different keysyms based on the
 NumLock state; for these keys, the second column shows the keysym with
-NumLock off.  With NumLock on, all keys generate their literals (as in
-normal mode).  With NumLock off, mappings are generated as below,
-depending on the terminal mode setting.
+NumLock off.  In VT100 App mode with NumLock on, all keys generate
+their literals (as in normal mode), but see further below regarding
+the Shift key.  With NumLock off, mappings are generated as per the
+below table, depending on the terminal mode setting.
 
 | NumLock on   | NumLock off  | Normal | VT100 App | VT52 App |
 |--------------+--------------+--------+-----------+----------|
@@ -148,18 +152,55 @@ depending on the terminal mode setting.
 | KP_9         | KP_Page_Up   | 9      | SS3 y     | ESC ? y  |
 | KP_Equal     |              | =      | SS3 X     | ESC ? X  |
 
-The intention is that Zutty behaves just like xterm with
-[[https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-VT220-Style-Function-Keys][VT220-style function keys]].
-
-In VT100 App mode, modifier keys do NOT cause the SS3 to change to
-CSI. This is how xterm behaves, and Zutty emulates that behaviour.
+Modifier keys do not cause the SS3 to change to CSI. This is how xterm
+behaves, and Zutty emulates that behaviour.
 
 Examples:
+- Alt + KP_Minus: SS3 3 m
 - Control + KP_Enter: SS3 5 M
 - Control + KP_Plus: SS3 5 k
-- Alt + KP_Minus: SS3 3 m
+- Control + Shift + KP_Left: SS3 6 t
 
 Modifiers are not applied in VT52 mode.
+
+There is some additional subtlety related to use of the Shift key.
+Pressing Shift has a momentary effect of inverting the NumLock state.
+This is not specific to Zutty; it works on the X level and is easily
+seen via e.g., =xev=. For example, with NumLock off, hitting "4" on
+the numeric keypad will generate =KP_Left=, while hitting the same key
+with Shift held down will generate =KP_4=. With NumLock on, results
+will be reversed: an unmodified keypress will generate =KP_4=, while a
+Shift-press will generate =KP_Left=.
+
+Why is this interesting? Let's go through the encodings of these keys.
+In normal (numeric) mode, Zutty generates the literals shown in the
+Normal column regardless of the NumLock state, and without any
+modifier encoding.  That is, hitting "4" on the keypad will yield a
+"4" with or without NumLock, and all modifiers will be discarded.
+
+In application (aka. ANSI, aka. alternate) keypad mode, however, all
+the details come into play.  Hitting keypad "4" will generate "4" only
+if NumLock is on; with NumLock off, it will be encoded as the escape
+sequence =SS3 t=.  Further, holding Shift while hitting the same key
+will have slightly asymmetrical results depending on NumLock state:
+
+- With NumLock off, Zutty will consider the keypress as a modifier
+  combination of Shift plus =KP_Left=, and encode it as =SS3 2 t=. In
+  the same manner, Control plus =KP_Left= will be encoded as =SS3 5
+  t=, and so on for other (possibly compounded) modifiers and keys.
+
+- With NumLock on, the baseline is to generate literals only, just as
+  in numeric mode. Modifiers will be ignored, so Control + =KP_4= (the
+  keysym Zutty sees due to NumLock being on) will still generate a "4"
+  only. However, if Shift is among the active modifiers, it will turn
+  =KP_4= back into =KP_Left=, and the result will be, again, encoded
+  as =SS3 2 t= (or the corresponding modifier code).
+
+The intention is that Zutty behaves just like xterm with [[https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-VT220-Style-Function-Keys][VT220-style
+function keys]]. In case of manual side-by-side comparisons, please
+remember to put xterm into "VT220 Keyboard" mode (by choosing it in
+the Control + left-click menu, setting the =XTerm.keyboardType= X
+resource to =vt220=, or passing =-kt vt220= on the command line).
 
 * Special key combinations
 

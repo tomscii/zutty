@@ -167,8 +167,8 @@ function VT_5 {
     IN "\t\D1"
     # VT52 Application mode
     IN "\{KP_F1}\D1\{KP_F2}\D1\{KP_F3}\D1\{KP_F4}"
-    IN "\{KP_0}\D1\{KP_1}\D1\{KP_2}\D1\{KP_3}\D1\{KP_4}"
-    IN "\{KP_5}\D1\{KP_6}\D1\{KP_7}\D1\{KP_8}\D1\{KP_9}"
+    IN "\{KP_Insert}\D1\{KP_End}\D1\{KP_Down}\D1\{KP_Page_Down}\D1\{KP_Left}"
+    IN "\{KP_Begin}\D1\{KP_Right}\D1\{KP_Home}\D1\{KP_Up}\D1\{KP_Page_Up}"
     IN "\{KP_Subtract}\D1\{KP_Separator}\D1\{KP_Decimal}\D1\{KP_Enter}"
     SNAP vt_05_05_04 9a636fd488ee7ae96ebb88d34042c71f
     IN "\t\D1"

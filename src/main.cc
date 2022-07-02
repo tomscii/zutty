@@ -426,17 +426,7 @@ convertKeyState (KeySym ks, unsigned int state)
 {
    VtModifier mod = VtModifier::none;
    if (state & ShiftMask)
-      switch (ks)
-      {
-      // Discard shift state for certain keypad keys, since that is implicit in
-      // the fact that we received these keysyms instead of XK_KP_Home, etc.
-      case XK_KP_Decimal:
-      case XK_KP_0: case XK_KP_1: case XK_KP_2: case XK_KP_3: case XK_KP_4:
-      case XK_KP_5: case XK_KP_6: case XK_KP_7: case XK_KP_8: case XK_KP_9:
-         break;
-      default:
-         mod = mod | VtModifier::shift;
-      }
+      mod = mod | VtModifier::shift;
    if (state & ControlMask)
       mod = mod | VtModifier::control;
    if (state & Mod1Mask)
@@ -515,34 +505,26 @@ onKeyPress (XEvent& event, XIC& xic, int ptyFd)
       return false;
    }
 
-   if (xkevt.state & Mod2Mask) // NumLock is on
+   if (! (xkevt.state & Mod2Mask)) // NumLock is off
    {
-      // Special hack for those numpad keys whose X keysyms as
-      // reported by X do not reflect the NumLock state. Most keys do
-      // not have this problem, e.g., the numpad's up arrow key is
-      // XK_KP_Up with NumLock off, but the same key is XK_KP_8 with
-      // NumLock on. Thus, we can naturally handle them as separate.
-      //
-      // This hack allows us to bind different translation sequences
-      // to the rest of the keys whose keysyms do not depend on NumLock.
-      // N.B.: since we do not want anything fancy, just the key
-      // literals, we do not need matching KEYSEND clauses for these
-      // below; we will fall through to the default branch, which does
-      // what we want.
-
+      // Certain X keysyms are mutated depending on the Shift state,
+      // which is redundant as the Shift modifier state is observed as
+      // well. Here we reverse these transforms.
       switch (ks)
       {
-      case XK_KP_Space:      ks = XK_space;     break;
-      case XK_KP_Tab:        ks = XK_Tab;       break;
-      case XK_KP_Enter:      ks = XK_Return;    break;
-      case XK_KP_Add:        ks = XK_plus;      break;
-      case XK_KP_Subtract:   ks = XK_minus;     break;
-      case XK_KP_Multiply:   ks = XK_asterisk;  break;
-      case XK_KP_Divide:     ks = XK_slash;     break;
-      case XK_KP_Separator:  ks = XK_comma;     break;
-      case XK_KP_Decimal:    ks = XK_period;    break;
-      case XK_KP_Equal:      ks = XK_equal;     break;
-      default: break;
+      case XK_KP_Decimal:    ks = XK_KP_Delete; break;
+      case XK_KP_0:          ks = XK_KP_Insert; break;
+      case XK_KP_1:          ks = XK_KP_End;    break;
+      case XK_KP_2:          ks = XK_KP_Down;   break;
+      case XK_KP_3:          ks = XK_KP_Next;   break;
+      case XK_KP_4:          ks = XK_KP_Left;   break;
+      case XK_KP_5:          ks = XK_KP_Begin;  break;
+      case XK_KP_6:          ks = XK_KP_Right;  break;
+      case XK_KP_7:          ks = XK_KP_Home;   break;
+      case XK_KP_8:          ks = XK_KP_Up;     break;
+      case XK_KP_9:          ks = XK_KP_Prior;  break;
+      default:
+         break;
       }
    }
 

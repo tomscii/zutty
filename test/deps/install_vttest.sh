@@ -5,6 +5,7 @@ cd $(dirname $0)
 urlbase=ftp://ftp.invisible-island.net/vttest
 vttest=vttest-20210210
 instdir=$(pwd)
+mkdir -p $instdir/bin
 
 echo "===[ Downloading archive:"
 wget ${urlbase}/${vttest}.tgz || exit 1;

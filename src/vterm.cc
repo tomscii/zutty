@@ -153,19 +153,19 @@ namespace
       {Key::Backspace,   "\x7f"},
       {Key::Tab,         "\t"},
       {Key::Return,      "\r"},
-      {Key::Insert,      CSI "2~"},    {Key::KP_Insert,   CSI "2~"},
-      {Key::Delete,      CSI "3~"},    {Key::KP_Delete,   CSI "3~"},
-      {Key::PageUp,      CSI "5~"},    {Key::KP_PageUp,   CSI "5~"},
-      {Key::PageDown,    CSI "6~"},    {Key::KP_PageDown, CSI "6~"},
+      {Key::Insert,      CSI "2~"},
+      {Key::Delete,      CSI "3~"},
+      {Key::PageUp,      CSI "5~"},
+      {Key::PageDown,    CSI "6~"},
       {Key::NONE,        nullptr},
    };
 
    const InputSpec is_Mod_Ansi [] =
    {
-      {Key::Insert,      CSI "2;" MC "~"},  {Key::KP_Insert,   CSI "2;" MC "~"},
-      {Key::Delete,      CSI "3;" MC "~"},  {Key::KP_Delete,   CSI "3;" MC "~"},
-      {Key::PageUp,      CSI "5;" MC "~"},  {Key::KP_PageUp,   CSI "5;" MC "~"},
-      {Key::PageDown,    CSI "6;" MC "~"},  {Key::KP_PageDown, CSI "6;" MC "~"},
+      {Key::Insert,      CSI "2;" MC "~"},
+      {Key::Delete,      CSI "3;" MC "~"},
+      {Key::PageUp,      CSI "5;" MC "~"},
+      {Key::PageDown,    CSI "6;" MC "~"},
       {Key::NONE,        nullptr},
    };
 
@@ -228,18 +228,18 @@ namespace
       {Key::KP_Plus,     "+"},
       {Key::KP_Comma,    ","},
       {Key::KP_Minus,    "-"},
-      {Key::KP_Dot,      "."},
       {Key::KP_Slash,    "/"},
-      {Key::KP_0,        "0"},
-      {Key::KP_1,        "1"},
-      {Key::KP_2,        "2"},
-      {Key::KP_3,        "3"},
-      {Key::KP_4,        "4"},
-      {Key::KP_5,        "5"},
-      {Key::KP_6,        "6"},
-      {Key::KP_7,        "7"},
-      {Key::KP_8,        "8"},
-      {Key::KP_9,        "9"},
+      {Key::KP_Delete,   "."},  {Key::KP_Dot,      "."},
+      {Key::KP_Insert,   "0"},  {Key::KP_0,        "0"},
+      {Key::KP_End,      "1"},  {Key::KP_1,        "1"},
+      {Key::KP_Down,     "2"},  {Key::KP_2,        "2"},
+      {Key::KP_PageDown, "3"},  {Key::KP_3,        "3"},
+      {Key::KP_Left,     "4"},  {Key::KP_4,        "4"},
+      {Key::KP_Begin,    "5"},  {Key::KP_5,        "5"},
+      {Key::KP_Right,    "6"},  {Key::KP_6,        "6"},
+      {Key::KP_Home,     "7"},  {Key::KP_7,        "7"},
+      {Key::KP_Up,       "8"},  {Key::KP_8,        "8"},
+      {Key::KP_PageUp,   "9"},  {Key::KP_9,        "9"},
       {Key::KP_Equal,    "="},
       {Key::NONE,        nullptr},
    };
@@ -278,18 +278,18 @@ namespace
       {Key::KP_Plus,     SS3 MC "k"},
       {Key::KP_Comma,    SS3 MC "l"},
       {Key::KP_Minus,    SS3 MC "m"},
-      {Key::KP_Dot,      SS3 MC "n"},
+      {Key::KP_Delete,   SS3 MC "n"},
       {Key::KP_Slash,    SS3 MC "o"},
-      {Key::KP_0,        SS3 MC "p"},
-      {Key::KP_1,        SS3 MC "q"},
-      {Key::KP_2,        SS3 MC "r"},
-      {Key::KP_3,        SS3 MC "s"},
-      {Key::KP_4,        SS3 MC "t"},
-      {Key::KP_5,        SS3 MC "u"},
-      {Key::KP_6,        SS3 MC "v"},
-      {Key::KP_7,        SS3 MC "w"},
-      {Key::KP_8,        SS3 MC "x"},
-      {Key::KP_9,        SS3 MC "y"},
+      {Key::KP_Insert,   SS3 MC "p"},
+      {Key::KP_End,      SS3 MC "q"},
+      {Key::KP_Down,     SS3 MC "r"},
+      {Key::KP_PageDown, SS3 MC "s"},
+      {Key::KP_Left,     SS3 MC "t"},
+      {Key::KP_Begin,    SS3 MC "u"},
+      {Key::KP_Right,    SS3 MC "v"},
+      {Key::KP_Home,     SS3 MC "w"},
+      {Key::KP_Up,       SS3 MC "x"},
+      {Key::KP_PageUp,   SS3 MC "y"},
       {Key::KP_Equal,    SS3 MC "X"},
       {Key::NONE,        nullptr},
    };
@@ -303,18 +303,18 @@ namespace
       {Key::KP_Plus,     ESC "?k"},
       {Key::KP_Comma,    ESC "?l"},
       {Key::KP_Minus,    ESC "?m"},
-      {Key::KP_Dot,      ESC "?n"},
+      {Key::KP_Delete,   ESC "?n"},
       {Key::KP_Slash,    ESC "?o"},
-      {Key::KP_0,        ESC "?p"},
-      {Key::KP_1,        ESC "?q"},
-      {Key::KP_2,        ESC "?r"},
-      {Key::KP_3,        ESC "?s"},
-      {Key::KP_4,        ESC "?t"},
-      {Key::KP_5,        ESC "?u"},
-      {Key::KP_6,        ESC "?v"},
-      {Key::KP_7,        ESC "?w"},
-      {Key::KP_8,        ESC "?x"},
-      {Key::KP_9,        ESC "?y"},
+      {Key::KP_Insert,   ESC "?p"},
+      {Key::KP_End,      ESC "?q"},
+      {Key::KP_Down,     ESC "?r"},
+      {Key::KP_PageDown, ESC "?s"},
+      {Key::KP_Left,     ESC "?t"},
+      {Key::KP_Begin,    ESC "?u"},
+      {Key::KP_Right,    ESC "?v"},
+      {Key::KP_Home,     ESC "?w"},
+      {Key::KP_Up,       ESC "?x"},
+      {Key::KP_PageUp,   ESC "?y"},
       {Key::KP_Equal,    ESC "?X"},
       {Key::NONE,        nullptr},
    };
@@ -330,49 +330,45 @@ namespace
 
    const InputSpec is_Ansi_CursorKeys [] =
    {
-      {Key::Up,          CSI "A"},      {Key::KP_Up,       CSI "A"},
-      {Key::Down,        CSI "B"},      {Key::KP_Down,     CSI "B"},
-      {Key::Right,       CSI "C"},      {Key::KP_Right,    CSI "C"},
-      {Key::Left,        CSI "D"},      {Key::KP_Left,     CSI "D"},
-      /* TODO is there a Begin key? */  {Key::KP_Begin,    CSI "E"},
-      {Key::Home,        CSI "H"},      {Key::KP_Home,     CSI "H"},
-      {Key::End,         CSI "F"},      {Key::KP_End,      CSI "F"},
+      {Key::Up,          CSI "A"},
+      {Key::Down,        CSI "B"},
+      {Key::Right,       CSI "C"},
+      {Key::Left,        CSI "D"},
+      {Key::Home,        CSI "H"},
+      {Key::End,         CSI "F"},
       {Key::NONE,        nullptr},
    };
 
    const InputSpec is_Appl_CursorKeys [] =
    {
-      {Key::Up,          SS3 "A"},      {Key::KP_Up,       SS3 "A"},
-      {Key::Down,        SS3 "B"},      {Key::KP_Down,     SS3 "B"},
-      {Key::Right,       SS3 "C"},      {Key::KP_Right,    SS3 "C"},
-      {Key::Left,        SS3 "D"},      {Key::KP_Left,     SS3 "D"},
-      /* TODO is there a Begin key? */  {Key::KP_Begin,    SS3 "E"},
-      {Key::Home,        SS3 "H"},      {Key::KP_Home,     SS3 "H"},
-      {Key::End,         SS3 "F"},      {Key::KP_End,      SS3 "F"},
+      {Key::Up,          SS3 "A"},
+      {Key::Down,        SS3 "B"},
+      {Key::Right,       SS3 "C"},
+      {Key::Left,        SS3 "D"},
+      {Key::Home,        SS3 "H"},
+      {Key::End,         SS3 "F"},
       {Key::NONE,        nullptr},
    };
 
    const InputSpec is_Mod_CursorKeys [] =
    {
-      {Key::Up,          CSI "1;" MC "A"},   {Key::KP_Up,     CSI "1;" MC "A"},
-      {Key::Down,        CSI "1;" MC "B"},   {Key::KP_Down,   CSI "1;" MC "B"},
-      {Key::Right,       CSI "1;" MC "C"},   {Key::KP_Right,  CSI "1;" MC "C"},
-      {Key::Left,        CSI "1;" MC "D"},   {Key::KP_Left,   CSI "1;" MC "D"},
-      /* TODO is there a Begin key? */       {Key::KP_Begin,  CSI "1;" MC "E"},
-      {Key::Home,        CSI "1;" MC "H"},   {Key::KP_Home,   CSI "1;" MC "H"},
-      {Key::End,         CSI "1;" MC "F"},   {Key::KP_End,    CSI "1;" MC "F"},
+      {Key::Up,          CSI "1;" MC "A"},
+      {Key::Down,        CSI "1;" MC "B"},
+      {Key::Right,       CSI "1;" MC "C"},
+      {Key::Left,        CSI "1;" MC "D"},
+      {Key::Home,        CSI "1;" MC "H"},
+      {Key::End,         CSI "1;" MC "F"},
       {Key::NONE,        nullptr},
    };
 
    const InputSpec is_VT52_CursorKeys [] =
    {
-      {Key::Up,          ESC "A"},      {Key::KP_Up,       ESC "A"},
-      {Key::Down,        ESC "B"},      {Key::KP_Down,     ESC "B"},
-      {Key::Right,       ESC "C"},      {Key::KP_Right,    ESC "C"},
-      {Key::Left,        ESC "D"},      {Key::KP_Left,     ESC "D"},
-      /* TODO is there a Begin key? */  {Key::KP_Begin,    ESC "E"},
-      {Key::Home,        ESC "H"},      {Key::KP_Home,     ESC "H"},
-      {Key::End,         ESC "F"},      {Key::KP_End,      ESC "F"},
+      {Key::Up,          ESC "A"},
+      {Key::Down,        ESC "B"},
+      {Key::Right,       ESC "C"},
+      {Key::Left,        ESC "D"},
+      {Key::Home,        ESC "H"},
+      {Key::End,         ESC "F"},
       {Key::NONE,        nullptr},
    };
 
@@ -878,23 +874,17 @@ namespace zutty
            is_BackspaceKey_BkSp
          },
 
+         { [this] () { return (compatLevel == CompatibilityLevel::VT52 &&
+                               keypadMode == KeypadMode::Application); },
+           is_VT52_KeypadKeys
+         },
          { [this] () { return (compatLevel == CompatibilityLevel::VT52); },
            is_VT52_CursorKeys
          },
          { [this] () { return (compatLevel == CompatibilityLevel::VT52); },
            is_VT52_FunctionKeys
          },
-         { [this] () { return (compatLevel == CompatibilityLevel::VT52 &&
-                               keypadMode == KeypadMode::Application); },
-           is_VT52_KeypadKeys
-         },
 
-         { [this] () { return (modifiers != Mod::none); },
-           is_Mod_CursorKeys
-         },
-         { [this] () { return (cursorKeyMode == CursorKeyMode::Application); },
-           is_Appl_CursorKeys
-         },
          { [this] () { return (modifiers != Mod::none &&
                                keypadMode == KeypadMode::Application); },
            is_Mod_Appl_KeypadKeys
@@ -902,8 +892,14 @@ namespace zutty
          { [this] () { return (keypadMode == KeypadMode::Application); },
            is_Appl_KeypadKeys
          },
+         { [this] () { return (cursorKeyMode == CursorKeyMode::Application); },
+           is_Appl_CursorKeys
+         },
 
          // entries to use with modifier keys being held
+         { [this] () { return (modifiers != Mod::none); },
+           is_Mod_CursorKeys
+         },
          { [this] () { return (modifiers != Mod::none); },
            is_Mod_Ansi
          },

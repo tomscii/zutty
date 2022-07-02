@@ -5,6 +5,7 @@ cd $(dirname $0)
 # Use a specific version (current latest commit):
 url=https://github.com/mattiase/wraptest/raw/d68475bc0ef9776289090874b7b6b9bbbfe5c210/wraptest.c
 instdir=$(pwd)
+mkdir -p $instdir/bin
 
 echo "===[ Downloading archive:"
 wget ${url} || exit 1;
