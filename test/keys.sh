@@ -70,40 +70,71 @@ function FUNCTION_KEYS {
 function CURSOR_KEYS {
     IN "printf \"\\\\e[H\\\\e[J\" && cat -vT\r"
 
-    IN "Testing cursor keys in normal mode. \D1"
+    IN "Testing cursor keys in normal mode (DECCKM).\n\D1"
     IN "No modifiers: \D1"
-    IN "\[Up] \[Down] \[Right] \[Left] \[Home] \[End] \D2"
+    IN "\[Up] \[Down] \[Right] \[Left] \[Home] \[End] \n\D2"
 
     IN "Shift: \D1"
-    IN "\S\[Up] \S\[Down] \S\[Right] \S\[Left] \S\[Home] \S\[End] \D2"
+    IN "\S\[Up] \S\[Down] \S\[Right] \S\[Left] \S\[Home] \S\[End] \n\D2"
 
     IN "Alt: \D1"
-    IN "\A\[Up] \A\[Down] \A\[Right] \A\[Left] \A\[Home] \A\[End] \D2"
+    IN "\A\[Up] \A\[Down] \A\[Right] \A\[Left] \A\[Home] \A\[End] \n\D2"
 
     IN "Control: \D1"
-    IN "\C\[Up] \C\[Down] \C\[Right] \C\[Left] \C\[Home] \C\[End] \D2"
+    IN "\C\[Up] \C\[Down] \C\[Right] \C\[Left] \C\[Home] \C\[End] \n\D2"
 
     IN "Alt-Shift: \D1"
-    IN "\A\S\[Up] \A\S\[Down] \A\S\[Right] \A\S\[Left] \A\S\[Home] \A\S\[End] \D2"
+    IN "\A\S\[Up] \A\S\[Down] \A\S\[Right] \A\S\[Left] \A\S\[Home] \A\S\[End] \n\D2"
 
     IN "Control-Shift: \D1"
-    IN "\C\S\[Up] \C\S\[Down] \C\S\[Right] \C\S\[Left] \C\S\[Home] \C\S\[End] \D2"
+    IN "\C\S\[Up] \C\S\[Down] \C\S\[Right] \C\S\[Left] \C\S\[Home] \C\S\[End] \n\D2"
 
     IN "Control-Alt: \D1"
-    IN "\C\A\[Up] \C\A\[Down] \C\A\[Right] \C\A\[Left] \C\A\[Home] \C\A\[End] \D2"
+    IN "\C\A\[Up] \C\A\[Down] \C\A\[Right] \C\A\[Left] \C\A\[Home] \C\A\[End] \n\D2"
 
     IN "Control-Alt-Shift: \D1"
-    IN "\C\A\S\[Up] \C\A\S\[Down] \C\A\S\[Right] \C\A\S\[Left] \C\A\S\[Home] \C\A\S\[End] \D2"
+    IN "\C\A\S\[Up] \C\A\S\[Down] \C\A\S\[Right] \C\A\S\[Left] \C\A\S\[Home] \C\A\S\[End] \n \D2"
 
-    SNAP keys_03 0721436bc76609f83491fbb652045c5d
+    SNAP keys_03 f1a4d62a34b3a9cbbc79369eb320ff4e
 
     IN "\Cd\Cd\D3"
+    IN "printf \"\\\\e[H\\\\e[J\\\\e[?1h\" && cat -vT\r"
+
+    IN "Testing cursor keys in application mode (DECAKM).\n\D1"
+    IN "No modifiers: \D1"
+    IN "\[Up] \[Down] \[Right] \[Left] \[Home] \[End] \n\D2"
+
+    IN "Shift: \D1"
+    IN "\S\[Up] \S\[Down] \S\[Right] \S\[Left] \S\[Home] \S\[End] \n\D2"
+
+    IN "Alt: \D1"
+    IN "\A\[Up] \A\[Down] \A\[Right] \A\[Left] \A\[Home] \A\[End] \n\D2"
+
+    IN "Control: \D1"
+    IN "\C\[Up] \C\[Down] \C\[Right] \C\[Left] \C\[Home] \C\[End] \n\D2"
+
+    IN "Alt-Shift: \D1"
+    IN "\A\S\[Up] \A\S\[Down] \A\S\[Right] \A\S\[Left] \A\S\[Home] \A\S\[End] \n\D2"
+
+    IN "Control-Shift: \D1"
+    IN "\C\S\[Up] \C\S\[Down] \C\S\[Right] \C\S\[Left] \C\S\[Home] \C\S\[End] \n\D2"
+
+    IN "Control-Alt: \D1"
+    IN "\C\A\[Up] \C\A\[Down] \C\A\[Right] \C\A\[Left] \C\A\[Home] \C\A\[End] \n\D2"
+
+    IN "Control-Alt-Shift: \D1"
+    IN "\C\A\S\[Up] \C\A\S\[Down] \C\A\S\[Right] \C\A\S\[Left] \C\A\S\[Home] \C\A\S\[End] \n \D2"
+
+    SNAP keys_04 b94f9ce3b7363c0ec559c9de338273ab
+
+    IN "\Cd\Cd\D3"
+    IN "printf \"\\\\e[?1l\"\r"
 }
 
 function KEYPAD_KEYS {
     IN "printf \"\\\\e[H\\\\e[J\" && cat -vT\r"
 
-    IN "Testing keypad keys in normal mode. \n\D1"
+    IN "Testing keypad keys in normal mode (DECKPNM).\n\D1"
     IN "No modifiers: \D1"
     # VT100 Numeric mode - test both "Numlock on" and "NumLock off" keysyms
     IN "\[KP_Tab] \[KP_Space] \[KP_Multiply] \[KP_Divide] "
@@ -141,12 +172,12 @@ function KEYPAD_KEYS {
     IN "\C\A\[KP_Begin] \C\A\[KP_Right] \C\A\[KP_Home] \C\A\[KP_Up] \C\A\[KP_Page_Up] "
     IN "\C\A\[KP_Enter] \D2"
 
-    SNAP keys_04 bb57a78dfa5d5b85ca9714ec5ddbf6cf
+    SNAP keys_05 cd54062d5b291a30fd09bea0fb122e86
 
     IN "\Cd\Cd\D3"
     IN "printf \"\\\\e[H\\\\e[J\\\\e=\" && cat -vT\r"
 
-    IN "Testing keypad keys in application keypad mode. \n\D1"
+    IN "Testing keypad keys in application keypad mode (DECKPAM).\n\D1"
     IN "No modifiers: \D1"
     # VT100 Application mode - test both "Numlock on" and "NumLock off" keysyms
     IN "\[KP_Tab] \[KP_Space] \[KP_Multiply] \[KP_Divide] "
@@ -184,7 +215,7 @@ function KEYPAD_KEYS {
     IN "\C\A\[KP_Begin] \C\A\[KP_Right] \C\A\[KP_Home] \C\A\[KP_Up] \C\A\[KP_Page_Up] "
     IN "\C\A\[KP_Enter]    \D2"
 
-    SNAP keys_05 d54bdfb3f3b5773697b2cf3b7f8af1d1
+    SNAP keys_06 fb590f65c41ca5cf5b49bf17d366059b
 
     IN "\Cd\Cd\D3"
     IN "printf \"\\\\e>\"\r"
@@ -199,7 +230,7 @@ function ALT_SENDS_ESC {
     IN "\A0 \A1 \A2 \A3 \A4 \A5 \A6 \A7 \A8 \A9 "
     IN "\C\A2 \C\A3 \C\A5 \C\A6 \C\A7 "
 
-    SNAP keys_06 fa78d452ab0fde532cc24ffcd8bbbf7f
+    SNAP keys_07 fa78d452ab0fde532cc24ffcd8bbbf7f
 
     IN "\Cd\Cd\D3"
     IN "stty -echo && printf \"\\\\e[H\\\\e[J\\\\e[12l\" && cat -vT\r"
@@ -210,7 +241,7 @@ function ALT_SENDS_ESC {
     IN "\A0 \A1 \A2 \A3 \A4 \A5 \A6 \A7 \A8 \A9 "
     IN "\C\A2 \C\A3 \C\A5 \C\A6 \C\A7 "
 
-    SNAP keys_07 67051d652516e3a0e2198b9e28219c25
+    SNAP keys_08 67051d652516e3a0e2198b9e28219c25
 
     IN "\Cd\Cd\D3"
     IN "printf \"\\\\e[12h\" && stty echo\r"
@@ -229,7 +260,7 @@ function ALT_SENDS_ESC {
     IN "\C\Aa \C\AA \C\A0 \C\A1 \C\A2 \C\A9 \A# \C\A# "
     IN "\C\A/ \C\A? "
 
-    SNAP keys_08 0b532193433fb81966582cc255fa18a8
+    SNAP keys_09 0b532193433fb81966582cc255fa18a8
 
     IN "\Cd\Cd\D3"
     IN "printf \"\\\\e[?1036h\"\r"
@@ -329,7 +360,7 @@ function COMPOSE_CHARS {
     IN " \[Multi_key]!!"
     IN " \[Multi_key]??"
 
-    SNAP keys_09 60554ad0c7ff32768f1536016cafde4d
+    SNAP keys_10 60554ad0c7ff32768f1536016cafde4d
 
     IN "\Cd\Cd\D3"
 }
@@ -383,7 +414,7 @@ function SPECIAL_KEYS {
     IN "Alt-Tab: \A\[Tab] \D2"
     IN "Alt-x: \Ax \D2"
 
-    SNAP keys_10 a415b0df0b027d5bb9b66fe6e6902574
+    SNAP keys_11 a415b0df0b027d5bb9b66fe6e6902574
 
     IN "\Cd\Cd\D3"
 
@@ -437,7 +468,7 @@ function SPECIAL_KEYS {
     IN "Alt-Tab: \A\[Tab] \D2"
     IN "Alt-x: \Ax \D2"
 
-    SNAP keys_11 dc0833c6fcfc7a5f6668597158502345
+    SNAP keys_12 dc0833c6fcfc7a5f6668597158502345
 
     IN "\Cd\Cd\D3"
 
@@ -494,7 +525,7 @@ function SPECIAL_KEYS {
     IN "alt-tab \A\[Tab] \D2"
     IN "alt-x \Ax \D2"
 
-    SNAP keys_12 ceb5fe868904bc8f716254a0ce6f3807
+    SNAP keys_13 ceb5fe868904bc8f716254a0ce6f3807
 
     IN "\Cd\Cd\D3"
 }

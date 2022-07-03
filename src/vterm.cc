@@ -892,14 +892,13 @@ namespace zutty
          { [this] () { return (keypadMode == KeypadMode::Application); },
            is_Appl_KeypadKeys
          },
+         { [this] () { return (modifiers != Mod::none); },
+           is_Mod_CursorKeys
+         },
          { [this] () { return (cursorKeyMode == CursorKeyMode::Application); },
            is_Appl_CursorKeys
          },
 
-         // entries to use with modifier keys being held
-         { [this] () { return (modifiers != Mod::none); },
-           is_Mod_CursorKeys
-         },
          { [this] () { return (modifiers != Mod::none); },
            is_Mod_Ansi
          },
