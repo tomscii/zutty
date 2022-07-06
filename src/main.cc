@@ -1404,6 +1404,7 @@ main (int argc, char* argv[])
    vt->setRefreshHandler ([] (const zutty::Frame& f) { renderer->update (f); });
    vt->setOscHandler ([] (int cmd, const std::string& arg)
                       { handleOsc (cmd, arg); });
+   vt->setBellHandler ([] () { XBell (xDisplay, 0); });
 
    // We might not get a ConfigureNotify event when the window first appears:
    vt->resize (winWidth, winHeight);

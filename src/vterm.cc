@@ -584,6 +584,7 @@ namespace zutty
       , onRefresh ([] (const Frame&) {})
       , onOsc ([] (int cmd, const std::string& arg)
                { logU << "OSC: '" << cmd << ";" << arg << "'" << std::endl; })
+      , onBell ([] () { logI << "* Bell *" << std::endl; })
       , frame_pri (winPx, winPy, nCols, nRows, marginTop, marginBottom,
                    opts.saveLines)
       , cf (&frame_pri)
@@ -612,6 +613,12 @@ namespace zutty
    {
       haveOscHandler = true;
       onOsc = onOsc_;
+   }
+
+   void
+   Vterm::setBellHandler (const BellHandlerFn& onBell_)
+   {
+      onBell = onBell_;
    }
 
    void
@@ -1021,10 +1028,7 @@ namespace zutty
             case '\n': traceNormalInput (); esc_IND (); break;
             case '\t': traceNormalInput (); inp_HT (); break;
             case '\b': traceNormalInput (); csi_CUB (); break;
-            case '\a':
-               traceNormalInput ();
-               logI << "* Bell *" << std::endl;
-               break;
+            case '\a': traceNormalInput (); onBell (); break;
             case '\x0e': traceNormalInput (); charsetState.gl = 1; break;
             case '\x0f': traceNormalInput (); charsetState.gl = 0; break;
             case '\x05': // ENQ - Enquiry
