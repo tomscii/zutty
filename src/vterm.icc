@@ -1213,7 +1213,7 @@ namespace zutty
          arg = std::min (arg, len);
          len -= arg;
 
-         if (cf->getCell (posY, posX + arg + len - 1).wrap)
+         if (len > 0 && cf->getCell (posY, posX + arg + len - 1).wrap)
          {
             // maintain wrap bit invariance at EOL
             cf->getCell (posY, posX + arg + len - 1).wrap = 0;
