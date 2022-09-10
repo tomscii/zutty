@@ -317,8 +317,8 @@ namespace zutty
 
       // raw/rasterized bitmap dimensions
       const auto& bmp = face->glyph->bitmap;
-      const int bh = std::min ((int)bmp.rows, py - dy + sh);
-      const int bw = std::min ((int)bmp.width, px - dx + sw);
+      const int bh = std::min ({(int)bmp.rows, (int)py, py - dy + sh});
+      const int bw = std::min ({(int)bmp.width, (int)px, px - dx + sw});
 
       const int atlas_row_offset = nx * px * py;
       const int atlas_glyph_offset = apos.y * atlas_row_offset + apos.x * px;
