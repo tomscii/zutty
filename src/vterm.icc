@@ -1779,9 +1779,7 @@ namespace zutty
       }
       else
       {
-         std::ostringstream oss;
-         oss << "\eP0$r" << arg.substr (2) << "\e\\";
-         writePty (oss.str ().c_str ());
+         writePty ("\eP0$r\e\\");
       }
    }
 
