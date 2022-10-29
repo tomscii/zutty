@@ -6,7 +6,7 @@
 *A high-end terminal for low-end systems*
 
 Homepage: https://tomscii.sig7.se/zutty \\
-Source: https://github.com/tomszilagyi/zutty
+Source: https://github.com/tomscii/zutty
 #+END_CENTER
 
 Zutty is a terminal emulator for the X Window System, functionally
@@ -40,8 +40,8 @@ Core documentation (bundled with the Zutty sources):
 
 More about Zutty:
 
-- [[https://github.com/tomszilagyi/zutty/wiki/Screenshots][Screenshots]]: Zutty in action
-- [[https://github.com/tomszilagyi/zutty/wiki/FAQ][FAQ]]: What you never thought you'd need to know about Zutty
+- [[https://github.com/tomscii/zutty/wiki/Screenshots][Screenshots]]: Zutty in action
+- [[https://github.com/tomscii/zutty/wiki/FAQ][FAQ]]: What you never thought you'd need to know about Zutty
 - [[https://tomscii.sig7.se/2020/11/How-Zutty-works][How Zutty works]]: Rendering a terminal with an OpenGL Compute Shader
 - [[https://tomscii.sig7.se/2020/12/A-totally-biased-comparison-of-Zutty][A totally biased comparison of Zutty]] (to some better-known X terminal emulators)
 - [[https://tomscii.sig7.se/2021/01/Typing-latency-of-Zutty][Measured: Typing latency of Zutty]] (compared to others)

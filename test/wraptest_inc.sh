@@ -1,6 +1,6 @@
 # Source: testwrap.sh as linked from
 #   https://invent.kde.org/utilities/konsole/-/merge_requests/510#note_326117
-# Ref: https://github.com/tomszilagyi/zutty/issues/57
+# Ref: https://github.com/tomscii/zutty/issues/57
 
 do_tests() {
     tput cup 0 0; printf "$@"

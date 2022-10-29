@@ -27,11 +27,11 @@ favourite Internet search engine.
 ** 2. Obtain the source
 
 Clone the source from git:
-: git clone https://github.com/tomszilagyi/zutty.git
+: git clone https://github.com/tomscii/zutty.git
 : cd zutty
 
 Alternatively, to download a compressed tarball of a certain release
-version, go to https://github.com/tomszilagyi/zutty/releases, download
+version, go to https://github.com/tomscii/zutty/releases, download
 the tarball you want (we recommend the latest one), and uncompress it.
 Further steps assume that your working directory is within the
 uncompressed directory, so =cd= into it!
