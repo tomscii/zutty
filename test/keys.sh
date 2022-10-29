@@ -525,7 +525,7 @@ function SPECIAL_KEYS {
     IN "alt-tab \A\[Tab] \D2"
     IN "alt-x \Ax \D2"
 
-    SNAP keys_13 ceb5fe868904bc8f716254a0ce6f3807
+    SNAP keys_13 0a9dd49f6b5754fda882458c3a5be730
 
     IN "\Cd\Cd\D3"
 }

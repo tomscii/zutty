@@ -735,20 +735,32 @@ namespace zutty
    int
    Vterm::writePty (uint8_t ch, VtModifier modifiers, bool userInput)
    {
+      using VM = VtModifier;
+
       auto uch = (unsigned char*)&ch;
       logT << "pty write (mod=" << (int)modifiers << "): "
            << dumpBuffer (uch, uch + 1);
 
-      if ((modifyOtherKeys == 2 && modifiers != VtModifier::none) ||
-          (modifyOtherKeys == 1 &&
-           (modifiers & VtModifier::control) != VtModifier::none &&
+      const auto& mod2_encode =
+         [&] (uint8_t ch)
+         {
+            const char* exempt = "!#$%&*()-+=?.,:;<>'\"";
+            auto x = const_cast <char*> (exempt);
+
+            while (*x)
+               if (ch == *x++)
+                  return (modifiers & VM::control_alt) != VM::none;
+
+            return modifiers != VM::none;
+         };
+
+      if ((modifyOtherKeys == 2 && mod2_encode (ch)) ||
+          (modifyOtherKeys == 1 && (modifiers & VM::control) != VM::none &&
            ch > ' '))
       {
-         if (ch < ' ' &&
-             (modifiers & VtModifier::control) != VtModifier::none)
+         if (ch < ' ' && (modifiers & VM::control) != VM::none)
          {
-            const char* ctrlmap =
-               ((modifiers & VtModifier::shift) != VtModifier::none)
+            const char* ctrlmap = ((modifiers & VM::shift) != VM::none)
                ? "@ABCDEFGHIJKLMNOPQRSTUVWXYZ{|}^/"
                : " abcdefghijklmnopqrstuvwxyz[\\]^/";
             ch = ctrlmap [ch];
@@ -778,7 +790,7 @@ namespace zutty
 
          return writePty (wbuf, pos, userInput);
       }
-      else if ((modifiers & VtModifier::alt) != VtModifier::none)
+      else if ((modifiers & VM::alt) != VM::none)
       {
          if (altSendsEscape)
          {
