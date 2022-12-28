@@ -259,12 +259,34 @@ namespace zutty
       if (FT_Set_Pixel_Sizes (face, opts.fontsize, opts.fontsize))
          throw std::runtime_error ("Could not set pixel sizes");
 
-      double tpx = opts.fontsize *
-         (double)face->max_advance_width / face->units_per_EM;
-      double tpy = tpx * face->height / face->max_advance_width + 1;
+      // list all attributes in face
+      logI << "Face attributes:"
+             << " family=" << face->family_name
+             << " style=" << face->style_name
+             << " units_per_EM=" << face->units_per_EM
+             << " ascender=" << face->ascender
+             << " descender=" << face->descender
+             << " height=" << face->height
+             << " metrics.height=" << face->size->metrics.height
+             << " max_advance_width=" << face->max_advance_width
+             << " max_advance_height=" << face->max_advance_height
+             << std::endl;
+      // list all parameters in face->size->metrics
+      logI << "Face metrics:"
+             << " x_ppem=" << face->size->metrics.x_ppem
+             << " y_ppem=" << face->size->metrics.y_ppem
+             << " x_scale=" << face->size->metrics.x_scale
+             << " y_scale=" << face->size->metrics.y_scale
+             << " ascender=" << face->size->metrics.ascender
+             << " descender=" << face->size->metrics.descender
+             << " height=" << face->size->metrics.height
+             << " max_advance=" << face->size->metrics.max_advance
+             << std::endl;
+      double tpx = (double)face->size->metrics.x_ppem;
+      double tpy = (double)face->size->metrics.y_ppem;
       if (!overlay && !dwidth)
       {
-         px = round (tpx);
+         px =  (tpx/2);
          py = round (tpy);
       }
       if (!overlay)

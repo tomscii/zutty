@@ -438,6 +438,11 @@ namespace zutty
       // Setup atlas texture
       setupTexture (GL_TEXTURE1, GL_TEXTURE_2D_ARRAY, T_atlas);
       const Font& reg = fontpk->getRegular ();
+
+      // log font size
+      logI << "font size: "
+             << reg.getPx () << "x"
+             << reg.getPy () << std::endl;
       glTexStorage3D (GL_TEXTURE_2D_ARRAY, 1, GL_R8,
                       reg.getPx () * reg.getNx (),
                       reg.getPy () * reg.getNy (),
