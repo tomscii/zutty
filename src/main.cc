@@ -718,6 +718,10 @@ mouseProtoSend (MouseTrackingEnc enc, int eventType, unsigned int modstate,
          cb = 64; // Mouse wheel up
       else if (button == 5)
          cb = 65; // Mouse wheel down
+      else if (button == 6)
+         cb = 66; // Mouse wheel left
+      else if (button == 7)
+         cb = 67; // Mouse wheel right
       else
          cb = button - 1; // Mouse button 1..3
    }
@@ -766,7 +770,7 @@ onButtonPressMouseProto (XButtonEvent& xbevt,
 {
    uint16_t cx, cy;
 
-   if (xbevt.button > 5)
+   if (xbevt.button > 7)
       return;
 
    switch (mouseTrk.mode)
