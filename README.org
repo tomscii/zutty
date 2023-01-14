@@ -252,9 +252,7 @@ but some will possibly be implemented in the future.
   exception of highlight tracking mode that is not implemented. Mouse
   highlight tracking is a mode that requires cooperation from the
   client application; it is not clear if any software actively used in
-  2020 needs this feature. Also, all events for mouse buttons above
-  the conventional five (three buttons plus scroll wheel up/down) are
-  discarded.
+  2020 needs this feature.
 
 - Blinking in general (blinking text driven by the SGR attribute 5,
   and blinking cursor mode turned on/off by DEC-private set/reset

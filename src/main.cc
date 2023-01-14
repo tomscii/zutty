@@ -714,12 +714,20 @@ mouseProtoSend (MouseTrackingEnc enc, int eventType, unsigned int modstate,
    }
    else // normal button encoding
    {
-      if (button == 4)
-         cb = 64; // Mouse wheel up
-      else if (button == 5)
-         cb = 65; // Mouse wheel down
-      else
-         cb = button - 1; // Mouse button 1..3
+      switch (button)
+      {
+      case 1: cb = 0; break;
+      case 2: cb = 1; break;
+      case 3: cb = 2; break;
+      case 4: cb = 64; break;   // wheel up
+      case 5: cb = 65; break;   // wheel down
+      case 6: cb = 66; break;   // wheel left
+      case 7: cb = 67; break;   // wheel right
+      case 8: cb = 128; break;
+      case 9: cb = 129; break;
+      case 10: cb = 130; break;
+      case 11: cb = 131; break;
+      }
    }
 
    if (modstate & ShiftMask) cb += 4;
@@ -766,7 +774,7 @@ onButtonPressMouseProto (XButtonEvent& xbevt,
 {
    uint16_t cx, cy;
 
-   if (xbevt.button > 5)
+   if (xbevt.button > 11)
       return;
 
    switch (mouseTrk.mode)
