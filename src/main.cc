@@ -659,6 +659,17 @@ onKeyPress (XEvent& event, XIC& xic, int ptyFd)
       KEYIGN (XK_ISO_Level5_Shift);
       KEYIGN (XK_ISO_Level5_Latch);
       KEYIGN (XK_ISO_Level5_Lock);
+      KEYIGN (XK_ISO_Group_Shift);
+      KEYIGN (XK_ISO_Group_Latch);
+      KEYIGN (XK_ISO_Group_Lock);
+      KEYIGN (XK_ISO_Next_Group);
+      KEYIGN (XK_ISO_Next_Group_Lock);
+      KEYIGN (XK_ISO_Prev_Group);
+      KEYIGN (XK_ISO_Prev_Group_Lock);
+      KEYIGN (XK_ISO_First_Group);
+      KEYIGN (XK_ISO_First_Group_Lock);
+      KEYIGN (XK_ISO_Last_Group);
+      KEYIGN (XK_ISO_Last_Group_Lock);
 
 #undef KEYIGN
 
