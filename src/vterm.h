@@ -167,6 +167,7 @@ namespace zutty
       enum class InputState: uint8_t
       {
          Normal,
+         IgnoreSequence,
          Escape,
          Escape_VT52,
          Esc_SPC,
@@ -192,6 +193,7 @@ namespace zutty
          static const char* enumerators [] =
          {
          "Normal",
+         "IgnoreSequence",
          "Escape",
          "Escape_VT52",
          "Esc_SPC",

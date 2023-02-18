@@ -977,6 +977,11 @@ namespace zutty
       return nullSpec;
    }
 
+#define IGNORE_SEQUENCE_ON_BAD_PARAMS                  \
+   case ':': case '<': case '=': case '>': case '?':   \
+   setState (InputState::IgnoreSequence);              \
+   break
+
 #define COLLECT_NUMERIC_PARAMS                                        \
    case '0': case '1': case '2': case '3': case '4':                  \
    case '5': case '6': case '7': case '8': case '9':                  \
@@ -1048,6 +1053,10 @@ namespace zutty
                break;
             default: inputGraphicChar (ch);
             }
+            break;
+         case InputState::IgnoreSequence:
+            if (ch >= '\x40' && ch <= '\x7e') // DEC-STD-070: final chars
+               setState (InputState::Normal);
             break;
          case InputState::Escape_VT52:
             switch (ch)
@@ -1273,9 +1282,15 @@ namespace zutty
             case '\'': setState (InputState::CSI_Quote); break;
             case '\"': setState (InputState::CSI_DblQuote); break;
             case '!': setState (InputState::CSI_Bang); break;
-            case '?': setState (InputState::CSI_priv); break;
+            case '?': setState (readPos == lastEscBegin + 2
+                                ? InputState::CSI_priv
+                                : InputState::IgnoreSequence);
+               break;
             case ' ': setState (InputState::CSI_SPC); break;
-            case '>': setState (InputState::CSI_GT); break;
+            case '>': setState (readPos == lastEscBegin + 2
+                                ? InputState::CSI_GT
+                                : InputState::IgnoreSequence);
+               break;
             case '\a': break; // ignore
             case '\b': // undo last character in CSI sequence:
                if (readPos && input [readPos - 1] == ';')
@@ -1287,6 +1302,10 @@ namespace zutty
             case '\r': inp_CR (); setState (InputState::CSI); break;
             case '\f': // fall through
             case '\v': esc_IND (); setState (InputState::CSI); break;
+            // N.B. '>' and '?' above, so no IGNORE_SEQUENCE_ON_BAD_PARAMS:
+            case ':': case '<': case '=':
+               setState (InputState::IgnoreSequence);
+               break;
             default: unhandledInput (ch); break;
             }
             break;
@@ -1294,6 +1313,7 @@ namespace zutty
             switch (ch)
             {
             case 'p': csi_DECSTR (); break;
+            IGNORE_SEQUENCE_ON_BAD_PARAMS;
             default: unhandledInput (ch); break;
             }
             break;
@@ -1302,6 +1322,7 @@ namespace zutty
             {
             case '}': csi_DECIC (); break;
             case '~': csi_DECDC (); break;
+            IGNORE_SEQUENCE_ON_BAD_PARAMS;
             default: unhandledInput (ch); break;
             }
             break;
@@ -1309,6 +1330,7 @@ namespace zutty
             switch (ch)
             {
             case 'p': csiq_DECSCL (); break;
+            IGNORE_SEQUENCE_ON_BAD_PARAMS;
             default: unhandledInput (ch); break;
             }
             break;
@@ -1317,6 +1339,7 @@ namespace zutty
             {
             case '@': csi_ecma48_SL (); break;
             case 'A': csi_ecma48_SR (); break;
+            IGNORE_SEQUENCE_ON_BAD_PARAMS;
             default: unhandledInput (ch); break;
             }
             break;
@@ -1326,6 +1349,7 @@ namespace zutty
             COLLECT_NUMERIC_PARAMS;
             case 'c': csi_secDA (); break;
             case 'm': csi_XTMODKEYS (); break;
+            IGNORE_SEQUENCE_ON_BAD_PARAMS;
             default: unhandledInput (ch); break;
             }
             break;
@@ -1336,6 +1360,7 @@ namespace zutty
             case '\e': setState (InputState::Normal); break;
             case 'h': csi_privSM (); break;
             case 'l': csi_privRM (); break;
+            IGNORE_SEQUENCE_ON_BAD_PARAMS;
             default: unhandledInput (ch); break;
             }
             break;
