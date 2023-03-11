@@ -108,6 +108,29 @@ setXCursor ()
 }
 
 static void
+setUtf8prop (const char* prop_name, const std::string & value)
+{
+   Atom utf8 = XInternAtom (xDisplay, "UTF8_STRING", false);
+   Atom prop = XInternAtom (xDisplay, prop_name, false);
+   XChangeProperty (xDisplay, xWindow, prop, utf8, 8, PropModeReplace,
+                    (const unsigned char*) value.data (), value.size ());
+}
+
+static void
+setXWindowName (const std::string & name)
+{
+   XStoreName (xDisplay, xWindow, name.c_str ());
+   setUtf8prop ("_NET_WM_NAME", name);
+}
+
+static void
+setXWindowIconName (const std::string & name)
+{
+   XSetIconName (xDisplay, xWindow, name.c_str ());
+   setUtf8prop ("_NET_WM_ICON_NAME", name);
+}
+
+static void
 makeXWindow (const char* name, int width, int height, int px, int py,
              EGLDisplay eglDpy, EGLContext& eglCtx, EGLSurface& eglSurface)
 {
@@ -196,6 +219,12 @@ makeXWindow (const char* name, int width, int height, int px, int py,
 
       XmbSetWMProperties (xDisplay, xWindow, name, name,
                           nullptr, 0, &sizeHints, &wmHints, &classHint);
+   }
+
+   {
+      std::string title {name};
+      setXWindowName (title);
+      setXWindowIconName (title);
    }
 
    {
@@ -1086,14 +1115,14 @@ handleOsc (int cmd, const std::string& arg)
    switch (cmd)
    {
    case 0: // Change Icon Name & Window Title
-      XStoreName (xDisplay, xWindow, arg.c_str ());
-      XSetIconName (xDisplay, xWindow, arg.c_str ());
+      setXWindowName (arg);
+      setXWindowIconName (arg);
       break;
    case 1: // Change Icon Name
-      XSetIconName (xDisplay, xWindow, arg.c_str ());
+      setXWindowIconName (arg);
       break;
    case 2: // Change Window Title
-      XStoreName (xDisplay, xWindow, arg.c_str ());
+      setXWindowName (arg);
       break;
    case 52: // Manipulate Selection Data
    {
