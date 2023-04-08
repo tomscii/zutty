@@ -152,6 +152,7 @@ to Zutty will be passed unaltered to the shell program.
 | =DISPLAY=            | Set to the current X display.                                                                                               |
 | =SHELL=              | Set to the full (resolved) pathname of the shell being run; unset if the program is not a valid shell as per =/etc/shells=. |
 | =TERM=               | Set to =xterm-256color=.                                                                                                    |
+| =COLORTERM=          | Set to =truecolor=.                                                                                                         |
 | =WINDOWID=           | Set to the current X window id of the Zutty window.                                                                         |
 | =ZUTTY_VERSION=      | Set to the build version of Zutty.                                                                                          |
 * Configuration

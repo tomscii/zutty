@@ -439,6 +439,9 @@ startShell (const char* execPath, const char* const argv[])
       if (setenv ("TERM", "xterm-256color", 1) < 0)
          SYS_ERROR ("setenv TERM");
 
+      if (setenv ("COLORTERM", "truecolor", 1) < 0)
+         SYS_ERROR ("setenv COLORTERM");
+
       if (execvp (execPath, (char * const *) argv) < 0)
          SYS_ERROR ("execvp of ", execPath);
    }
