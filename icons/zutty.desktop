@@ -1,6 +1,5 @@
 [Desktop Entry]
 Type=Application
-Encoding=UTF-8
 Name=Zutty
 Comment=Zero-cost Unicode Teletype
 Exec=zutty
