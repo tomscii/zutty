@@ -341,6 +341,8 @@ namespace zutty
       Color* fg = &attrs.fg;
       Color* bg = &attrs.bg;
       Color palette256 [256];
+      Color rgb_fg;
+      Color rgb_bg;
       int defaultFgPalIx; // if -1, set from opts.fg, else idx into palette256
       int defaultBgPalIx; // if -1, set from opts.bg, else idx into palette256
       int fgPalIx;

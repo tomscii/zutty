@@ -1508,7 +1508,7 @@ namespace zutty
    Vterm::setFgFromPalIx ()
    {
       if (fgPalIx < 0)
-         *fg = opts.fg;
+         *fg = rgb_fg;
       else if (opts.boldColors && attrs.bold && fgPalIx >= 0 && fgPalIx <= 7)
          *fg = palette256 [fgPalIx + 8];
       else
@@ -1519,7 +1519,7 @@ namespace zutty
    Vterm::setBgFromPalIx ()
    {
       if (bgPalIx < 0)
-         *bg = opts.bg;
+         *bg = rgb_bg;
       else
          *bg = palette256 [bgPalIx];
    }
@@ -1604,9 +1604,11 @@ namespace zutty
                break;
             case 2:
                if (k >= nInputOps - 3) break;
-               (*fg).red   = inputOps [++k];
-               (*fg).green = inputOps [++k];
-               (*fg).blue  = inputOps [++k];
+               rgb_fg.red   = inputOps [++k];
+               rgb_fg.green = inputOps [++k];
+               rgb_fg.blue  = inputOps [++k];
+               fgPalIx = -1;
+               setFgFromPalIx ();
                break;
             default:
                break;
@@ -1631,9 +1633,11 @@ namespace zutty
                break;
             case 2:
                if (k >= nInputOps - 3) break;
-               (*bg).red   = inputOps [++k];
-               (*bg).green = inputOps [++k];
-               (*bg).blue  = inputOps [++k];
+               rgb_bg.red   = inputOps [++k];
+               rgb_bg.green = inputOps [++k];
+               rgb_bg.blue  = inputOps [++k];
+               bgPalIx = -1;
+               setBgFromPalIx ();
                break;
             default:
                break;

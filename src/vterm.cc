@@ -588,6 +588,8 @@ namespace zutty
       , frame_pri (winPx, winPy, nCols, nRows, marginTop, marginBottom,
                    opts.saveLines)
       , cf (&frame_pri)
+      , rgb_fg (opts.fg)
+      , rgb_bg (opts.bg)
       , utf8dec ([this] () { placeGraphicChar (); })
       , nColsEff (nCols)
       , hMargin (0)
