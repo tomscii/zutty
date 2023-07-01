@@ -326,10 +326,12 @@ namespace zutty
 
       if (overlay) // clear glyph area, as we are overwriting an existing glyph
       {
-         for (int j = 0; j < bh; ++j) {
+         for (int j = 0; j < py; ++j)
+         {
             uint8_t* atl_dst_row =
                atlasBuf.data () + atlas_glyph_offset + j * nx * px;
-            for (int k = 0; k < bw; ++k) {
+            for (int k = 0; k < px; ++k)
+            {
                *atl_dst_row++ = 0;
             }
          }
@@ -349,11 +351,13 @@ namespace zutty
       switch (bmp.pixel_mode)
       {
       case FT_PIXEL_MODE_MONO:
-         for (int j = sh; j < bh; ++j) {
+         for (int j = sh; j < bh; ++j)
+         {
             bmp_src_row = bmp.buffer + j * bmp.pitch;
             atl_dst_row = atlasBuf.data () + atlas_write_offset + j * nx * px;
             uint8_t byte = 0;
-            for (int k = 0; k < bw; ++k) {
+            for (int k = 0; k < bw; ++k)
+            {
                if (k % 8 == 0)
                   byte = *bmp_src_row++;
                if (k >= sw)
@@ -363,10 +367,12 @@ namespace zutty
          }
          break;
       case FT_PIXEL_MODE_GRAY:
-         for (int j = sh; j < bh; ++j) {
+         for (int j = sh; j < bh; ++j)
+         {
             bmp_src_row = bmp.buffer + j * bmp.pitch + sw;
             atl_dst_row = atlasBuf.data () + atlas_write_offset + j * nx * px;
-            for (int k = sw; k < bw; ++k) {
+            for (int k = sw; k < bw; ++k)
+            {
                *atl_dst_row++ = *bmp_src_row++;
             }
          }
