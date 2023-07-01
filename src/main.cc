@@ -525,7 +525,7 @@ onKeyPress (XEvent& event, XIC& xic, int ptyFd)
       selMgr->getSelection (selMgr->getClipboard (), xkevt.time, pasteCb);
       return false;
    }
-   if ((ks == XK_Insert || ks == XK_KP_Insert) && mod == VtModifier::shift)
+   if (ks == XK_Insert && mod == VtModifier::shift)
    {
       selMgr->getSelection (selMgr->getPrimary (), xkevt.time, pasteCb);
       return false;
