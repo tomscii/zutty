@@ -157,6 +157,27 @@ namespace
    }
 
    void
+   getCharClass(const char **out)
+   {
+      const char* opt = get ("charClass");
+      if (!opt)
+         return;
+      std::istringstream ss(opt);
+      std::string item, tokenx, tokeny, values;
+      while (std::getline (ss, item, ',')) {
+         std::istringstream iss (item);
+         std::getline (iss, tokenx, '-');
+         int x = std::stoi (tokenx);
+         std::getline (iss, tokeny, ':');
+         int y = tokeny != "" ? std::stoi (tokeny) : 0;
+         if (y < x) values += static_cast<char>(x);
+         else for (int i = x; i <= y; ++i) values += static_cast<char>(i);
+      }
+      values += "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      *out = strdup (values.c_str ());
+   }
+
+   void
    getGeometry (uint16_t& outCols, uint16_t& outRows)
    {
       const char* opt = get ("geometry");
@@ -306,6 +327,7 @@ namespace zutty
       try
       {
          getBorder (border);
+         getCharClass (&charClass);
          getSaveLines (saveLines);
          dwfontname = get ("dwfont");
          fontname = get ("font");

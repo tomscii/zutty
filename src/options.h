@@ -55,6 +55,7 @@ namespace zutty
       {"bg",          SepArg,   nullptr,   "#000",    "Background color"},
       {"boldColors",  NoArg,    "true",    "true",    "Enable bright for bold"},
       {"border",      SepArg,   nullptr,   "2",       "Border width in pixels"},
+      {"charClass",   SepArg,   nullptr,   nullptr,   "List of char values considered a word for selection"},
       {"cr",          SepArg,   nullptr,   nullptr,   "Cursor color"},
       {"display",     SepArg,   nullptr,   nullptr,   "Display to connect to"},
       {"dwfont",      SepArg,   nullptr,   "18x18ja", "Double-width font to use"},
@@ -117,6 +118,7 @@ namespace zutty
       uint16_t nCols;
       uint16_t nRows;
       uint16_t saveLines;
+      const char* charClass;
       const char* display;
       const char* dwfontname;
       const char* fontname;

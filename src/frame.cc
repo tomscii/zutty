@@ -11,6 +11,7 @@
 
 #include "frame.h"
 #include "log.h"
+#include "options.h"
 
 namespace zutty
 {
@@ -135,6 +136,15 @@ namespace zutty
       }
    }
 
+   std::string
+   allButSpace(void)
+   {
+      std::string (s);
+      for (int i = 0; i < 256; ++i)
+         if (i != ' ') s += static_cast<char>(i);
+      return s;
+   }
+
    Rect
    Frame::getSnappedSelection () const
    {
@@ -152,16 +162,17 @@ namespace zutty
          break;
       case SelectSnapTo::Word:
       {
+         std::string cset (opts.charClass != nullptr ? opts.charClass : allButSpace());
          const auto* cp = getViewRowPtr (ret.tl.y);
-         while (ret.tl.x < nCols && cp [ret.tl.x].uc_pt == ' ')
+         while (ret.tl.x < nCols && cset.find(static_cast<char>(cp [ret.tl.x].uc_pt)) == std::string::npos)
             ++ret.tl.x;
-         while (ret.tl.x > 0 && cp [ret.tl.x - 1].uc_pt != ' ')
+         while (ret.tl.x > 0 && cset.find(static_cast<char>(cp [ret.tl.x - 1].uc_pt)) != std::string::npos)
             --ret.tl.x;
 
          cp = getViewRowPtr (ret.br.y);
-         while (ret.br.x > 0 && cp [ret.br.x].uc_pt == ' ')
+         while (ret.br.x > 0 && cset.find(static_cast<char>(cp [ret.br.x].uc_pt)) == std::string::npos)
             --ret.br.x;
-         while (ret.br.x < nCols && cp [ret.br.x].uc_pt != ' ')
+         while (ret.br.x < nCols && cset.find(static_cast<char>(cp [ret.br.x].uc_pt)) != std::string::npos)
             ++ret.br.x;
       }
          break;
