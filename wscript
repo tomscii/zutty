@@ -54,7 +54,7 @@ def configure(cfg):
                              ['-DBSD', '-DOPENBSD', '-I/usr/X11R6/include'])
         cfg.env.append_value('LINKFLAGS', ['-L/usr/X11R6/lib'])
     elif platform == 'NetBSD':
-        cfg.env.append_value('CXXFLAGS', ['-DBSD'])
+        cfg.env.append_value('CXXFLAGS', ['-DBSD', '-DNETBSD'])
     elif platform == 'Darwin':
         cfg.env.append_value('CXXFLAGS', ['-DMACOS'])
     elif platform == 'SunOS':

@@ -39,6 +39,8 @@ namespace zutty
 
 #if defined(FREEBSD)
    static constexpr const char* fontpath = "/usr/local/share/fonts";
+#elif defined(NETBSD)
+   static constexpr const char* fontpath = "/usr/X11R7/lib/X11/fonts";
 #elif defined(OPENBSD)
    static constexpr const char* fontpath = "/usr/X11R6/lib/X11/fonts";
 #else
